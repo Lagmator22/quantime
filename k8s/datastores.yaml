@@ -1,0 +1,145 @@
+# =====================================================================
+# IICPC PLATFORM · Datastores
+# ---------------------------------------------------------------------
+# TimescaleDB and Redis as StatefulSets with persistent volumes; NATS
+# as a 3-replica StatefulSet (JetStream).
+# =====================================================================
+
+# ── TimescaleDB ───────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata: { name: timescale, namespace: iicpc }
+spec:
+  clusterIP: None
+  selector: { app: timescale }
+  ports: [{ port: 5432, name: pg }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: timescale, namespace: iicpc }
+spec:
+  serviceName: timescale
+  replicas: 1
+  selector: { matchLabels: { app: timescale } }
+  template:
+    metadata: { labels: { app: timescale } }
+    spec:
+      containers:
+        - name: timescale
+          image: timescale/timescaledb:latest-pg15
+          env:
+            - { name: POSTGRES_USER,     value: iicpc }
+            - { name: POSTGRES_PASSWORD, value: iicpc }
+            - { name: POSTGRES_DB,       value: iicpc }
+          ports: [{ containerPort: 5432 }]
+          resources:
+            requests: { cpu: "1",   memory: 2Gi }
+            limits:   { cpu: "2",   memory: 4Gi }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: initsql, mountPath: /docker-entrypoint-initdb.d }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "iicpc"] }
+            periodSeconds: 5
+      volumes:
+        - name: initsql
+          configMap: { name: timescale-init }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 50Gi } }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: timescale-init, namespace: iicpc }
+data:
+  init.sql: |
+    # The full schema lives in /sql/init.sql in the repo. In real
+    # deployments, sync it here with `kubectl create configmap
+    # timescale-init --from-file=sql/init.sql --dry-run -o yaml`.
+    # Kept short here for repo readability.
+    SELECT 1;
+---
+# ── Redis ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata: { name: redis, namespace: iicpc }
+spec:
+  clusterIP: None
+  selector: { app: redis }
+  ports: [{ port: 6379, name: redis }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: redis, namespace: iicpc }
+spec:
+  serviceName: redis
+  replicas: 1
+  selector: { matchLabels: { app: redis } }
+  template:
+    metadata: { labels: { app: redis } }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+          ports: [{ containerPort: 6379 }]
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits:   { cpu: 1,    memory: 1Gi }
+          volumeMounts: [{ name: data, mountPath: /data }]
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 10Gi } }
+---
+# ── NATS (3-node JetStream cluster) ───────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata: { name: nats, namespace: iicpc }
+spec:
+  clusterIP: None
+  selector: { app: nats }
+  ports:
+    - { name: client,  port: 4222 }
+    - { name: cluster, port: 6222 }
+    - { name: monitor, port: 8222 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: nats, namespace: iicpc }
+spec:
+  serviceName: nats
+  replicas: 3
+  selector: { matchLabels: { app: nats } }
+  template:
+    metadata: { labels: { app: nats } }
+    spec:
+      containers:
+        - name: nats
+          image: nats:2-alpine
+          args:
+            - "-js"
+            - "-m"
+            - "8222"
+            - "--cluster_name"
+            - "iicpc-nats"
+            - "--cluster"
+            - "nats://0.0.0.0:6222"
+            - "--routes"
+            - "nats://nats-0.nats:6222,nats://nats-1.nats:6222,nats://nats-2.nats:6222"
+          ports:
+            - { containerPort: 4222 }
+            - { containerPort: 6222 }
+            - { containerPort: 8222 }
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits:   { cpu: 1,    memory: 1Gi }
+          volumeMounts: [{ name: data, mountPath: /data }]
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 5Gi } }

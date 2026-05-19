@@ -1,0 +1,84 @@
+# =====================================================================
+# IICPC PLATFORM · Ingress + Caddy front
+# ---------------------------------------------------------------------
+# Caddy as a Deployment serving the static frontend AND reverse-proxying
+# /api and /ws to the gateway service. Plus an Ingress that points TLS-
+# terminated traffic at Caddy. Works with any ingress controller
+# (NGINX, Traefik, Contour) — set the className appropriately.
+# =====================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: caddy-config, namespace: iicpc }
+data:
+  Caddyfile: |
+    :80 {
+        encode gzip zstd
+        handle /api/* { reverse_proxy gateway:7070 }
+        handle /ws/*  { reverse_proxy gateway:7070 }
+        handle {
+            root * /srv
+            try_files {path} {path}/index.html /index.html
+            file_server
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: caddy, namespace: iicpc }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: caddy } }
+  template:
+    metadata: { labels: { app: caddy } }
+    spec:
+      containers:
+        - name: caddy
+          image: caddy:2-alpine
+          ports: [{ containerPort: 80 }]
+          volumeMounts:
+            - { name: cfg,      mountPath: /etc/caddy }
+            - { name: frontend, mountPath: /srv,  readOnly: true }
+          resources:
+            requests: { cpu: 100m, memory: 64Mi }
+            limits:   { cpu: 500m, memory: 256Mi }
+      volumes:
+        - name: cfg
+          configMap: { name: caddy-config }
+        - name: frontend
+          configMap:
+            # Frontend ships as a configmap of HTML/CSS/JS files in a
+            # GitOps deploy. For demos, bake into a frontend-static
+            # image instead — same shape, less churn.
+            name: iicpc-frontend
+            optional: true
+---
+apiVersion: v1
+kind: Service
+metadata: { name: caddy, namespace: iicpc }
+spec:
+  type: ClusterIP
+  selector: { app: caddy }
+  ports: [{ port: 80, targetPort: 80 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: iicpc-ingress
+  namespace: iicpc
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [iicpc.example.com]
+      secretName: iicpc-tls
+  rules:
+    - host: iicpc.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: caddy
+                port: { number: 80 }

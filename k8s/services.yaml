@@ -1,0 +1,134 @@
+# =====================================================================
+# IICPC PLATFORM · Application workloads
+# ---------------------------------------------------------------------
+# Gateway, bot fleet, telemetry — Deployments with HPAs for autoscaling.
+# Submission pods are NOT defined here; the gateway creates them
+# dynamically via the K8s API server.
+# =====================================================================
+
+# ── Gateway ───────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: gateway, namespace: iicpc }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: gateway } }
+  template:
+    metadata: { labels: { app: gateway } }
+    spec:
+      serviceAccountName: gateway-sa
+      containers:
+        - name: gateway
+          image: ghcr.io/iicpc/gateway:latest
+          ports: [{ containerPort: 7070 }]
+          env:
+            - { name: DATABASE_URL, value: "postgres://iicpc:iicpc@timescale:5432/iicpc?sslmode=disable" }
+            - { name: REDIS_URL,    value: "redis://redis:6379" }
+            - { name: NATS_URL,     value: "nats://nats:4222" }
+          readinessProbe:
+            httpGet: { path: /api/health, port: 7070 }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits:   { cpu: 2,    memory: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: gateway, namespace: iicpc }
+spec:
+  selector: { app: gateway }
+  ports: [{ port: 7070, name: http }]
+---
+# Service account + RBAC: gateway creates submission pods + services
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: gateway-sa, namespace: iicpc }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: gateway-role, namespace: iicpc }
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps"]
+    verbs: ["create", "get", "list", "watch", "delete", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["create", "get", "list", "watch", "delete", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: gateway-rb, namespace: iicpc }
+roleRef:
+  kind: Role
+  name: gateway-role
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: gateway-sa
+    namespace: iicpc
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: gateway-hpa, namespace: iicpc }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: gateway }
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
+---
+
+# ── Bot fleet ─────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: botfleet, namespace: iicpc }
+spec:
+  replicas: 4
+  selector: { matchLabels: { app: botfleet } }
+  template:
+    metadata: { labels: { app: botfleet } }
+    spec:
+      containers:
+        - name: botfleet
+          image: ghcr.io/iicpc/botfleet:latest
+          env:
+            - { name: NATS_URL, value: "nats://nats:4222" }
+            - { name: BOTS_PER_INSTANCE, value: "250" }
+          resources:
+            # Bot fleet is CPU-bound under load. Tune up if you need more
+            # concurrency per replica.
+            requests: { cpu: 500m, memory: 256Mi }
+            limits:   { cpu: 4,    memory: 1Gi }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: botfleet-hpa, namespace: iicpc }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: botfleet }
+  minReplicas: 4
+  maxReplicas: 50
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 80 } }
+---
+
+# ── Telemetry ingester ────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: telemetry, namespace: iicpc }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: telemetry } }
+  template:
+    metadata: { labels: { app: telemetry } }
+    spec:
+      containers:
+        - name: telemetry
+          image: ghcr.io/iicpc/telemetry:latest
+          env:
+            - { name: DATABASE_URL, value: "postgres://iicpc:iicpc@timescale:5432/iicpc?sslmode=disable" }
+            - { name: NATS_URL,     value: "nats://nats:4222" }
+          resources:
+            requests: { cpu: 500m, memory: 512Mi }
+            limits:   { cpu: 4,    memory: 2Gi }

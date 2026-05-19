@@ -1,0 +1,54 @@
+# =====================================================================
+# IICPC PLATFORM · K8s namespace + base resource quota
+# ---------------------------------------------------------------------
+# All platform workloads live in this namespace. The ResourceQuota
+# prevents a runaway bot fleet from starving the rest of the cluster.
+# =====================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iicpc
+  labels:
+    app.kubernetes.io/part-of: iicpc-platform
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: iicpc-quota
+  namespace: iicpc
+spec:
+  hard:
+    requests.cpu: "32"
+    requests.memory: 64Gi
+    limits.cpu: "64"
+    limits.memory: 128Gi
+    persistentvolumeclaims: "20"
+    pods: "100"
+---
+# NetworkPolicy denies all ingress to submission pods except from the
+# bot fleet — judges' code can't reach the gateway, ingester, or DB.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: submissions-isolated
+  namespace: iicpc
+spec:
+  podSelector:
+    matchLabels:
+      iicpc.role: submission
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: botfleet }
+      ports:
+        - protocol: TCP
+          port: 9001
+  egress:
+    # Only allow DNS to kube-dns
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+      ports:
+        - protocol: UDP
+          port: 53

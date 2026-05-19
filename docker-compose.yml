@@ -1,0 +1,152 @@
+# =====================================================================
+# IICPC PLATFORM · LOCAL ORCHESTRATION
+# ---------------------------------------------------------------------
+# One command brings the entire distributed system up:
+#
+#     docker compose up --build
+#
+# Service map (default ports — override via .env):
+#   caddy        :8080        — fronts UI + reverses /api/* + /ws to gateway
+#   gateway      :7070        — HTTP+WebSocket API, runs Docker-out-of-Docker
+#                               to spawn contestant containers
+#   botfleet     internal     — goroutine bot pool, scale with --scale botfleet=N
+#   telemetry    internal     — NATS subscriber, writes hypertable
+#   timescale    :5432        — TimescaleDB (Postgres extension)
+#   redis        :6379        — leaderboard + run state hot cache
+#   nats         :4222        — order/event bus
+#   sample-eng   :9001        — example submission (judges can swap their own)
+#
+# Network: every service joins `iicpc-net`. The gateway also mounts the
+# host's Docker socket so it can `docker run` contestant submissions in
+# sibling containers (NOT nested — much faster, real isolation).
+#
+# Volumes:
+#   tsdb-data    — TimescaleDB persistence
+#   redis-data   — Redis snapshots
+#   submissions  — uploaded code + binaries (gateway writes, sandbox reads)
+# =====================================================================
+
+services:
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${CADDY_PORT:-8080}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend:/srv:ro
+    depends_on:
+      - gateway
+    networks: [iicpc-net]
+
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgres://iicpc:iicpc@timescale:5432/iicpc?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - NATS_URL=nats://nats:4222
+      - SUBMISSIONS_DIR=/data/submissions
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - submissions:/data/submissions
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      timescale:  { condition: service_healthy }
+      redis:      { condition: service_started }
+      nats:       { condition: service_started }
+    networks: [iicpc-net]
+    expose: ["7070"]
+
+  botfleet:
+    build:
+      context: ./services/botfleet
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - NATS_URL=nats://nats:4222
+      - GATEWAY_URL=http://gateway:7070
+      - BOTS_PER_INSTANCE=${BOTS_PER_INSTANCE:-50}
+    depends_on:
+      nats: { condition: service_started }
+    networks: [iicpc-net]
+    # Scale horizontally: docker compose up --scale botfleet=4
+
+  telemetry:
+    build:
+      context: ./services/telemetry
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgres://iicpc:iicpc@timescale:5432/iicpc?sslmode=disable
+      - NATS_URL=nats://nats:4222
+    depends_on:
+      timescale: { condition: service_healthy }
+      nats:      { condition: service_started }
+    networks: [iicpc-net]
+
+  timescale:
+    image: timescale/timescaledb:latest-pg15
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=iicpc
+      - POSTGRES_PASSWORD=iicpc
+      - POSTGRES_DB=iicpc
+    volumes:
+      - tsdb-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "${TSDB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "iicpc"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [iicpc-net]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks: [iicpc-net]
+
+  nats:
+    image: nats:2-alpine
+    restart: unless-stopped
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "${NATS_PORT:-4222}:4222"
+      - "${NATS_MON_PORT:-8222}:8222"
+    networks: [iicpc-net]
+
+  # Example contestant submission. Judges swap this out by submitting
+  # their own image — the sandbox service builds + runs uploads as
+  # sibling containers under the same network policy.
+  sample-engine:
+    build:
+      context: ./examples/sample-engine-go
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose: ["9001"]
+    networks: [iicpc-net]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+volumes:
+  tsdb-data:
+  redis-data:
+  submissions:
+
+networks:
+  iicpc-net:
+    driver: bridge

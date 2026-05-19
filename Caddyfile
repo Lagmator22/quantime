@@ -1,0 +1,29 @@
+# =====================================================================
+# IICPC PLATFORM · CADDY EDGE
+# ---------------------------------------------------------------------
+# Serves the static frontend and reverse-proxies the API and WebSocket.
+# Caddy auto-handles HTTP/2, gzip, and (in prod) Let's Encrypt.
+# =====================================================================
+:80 {
+    encode gzip zstd
+
+    # API + WebSocket → gateway
+    handle /api/* {
+        reverse_proxy gateway:7070
+    }
+    handle /ws/* {
+        reverse_proxy gateway:7070
+    }
+
+    # Static frontend
+    handle {
+        root * /srv
+        try_files {path} {path}/index.html /index.html
+        file_server
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
