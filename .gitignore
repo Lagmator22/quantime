@@ -1,0 +1,47 @@
+# Build artefacts
+**/dist/
+**/build/
+**/bin/
+**/*.exe
+
+# Go
+**/*.test
+**/coverage.out
+**/vendor/
+
+# Node (in case any frontend tooling is added later)
+**/node_modules/
+
+# Docker volumes / runtime
+.docker-data/
+
+# Terraform state — NEVER commit
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfplan
+terraform/*.tfvars
+!terraform/*.tfvars.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / env
+.env
+.env.local
+*.pem
+*.key
+
+# Frontend uploads (user-submitted artifacts; not source)
+frontend/uploads/
+uploads/
+
+# Inspector screenshots from the design bundle
+_inspect/
