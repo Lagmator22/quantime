@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     IICPC PLATFORM · API & INTEGRATION DOCS
+     ---------------------------------------------------------------------
+     Reference for contestants: how to write a submission that works
+     with the platform. Includes:
+       • The submit() contract (JS reference)
+       • Order schema
+       • Latency expectations + scoring formula
+       • Curl examples for the REST surface (production)
+       • WS subscription
+       • Local-test snippet (paste-in & run)
+===================================================================== -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>API &amp; Docs · IICPC Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/platform.css" />
+<style>
+.code {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: var(--s-5);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-mute);
+  overflow-x: auto;
+  white-space: pre;
+}
+.code .k { color: var(--accent-3); }
+.code .s { color: var(--accent); }
+.code .c { color: var(--text-dim); }
+.code .n { color: var(--accent-4); }
+.toc { position: sticky; top: 80px; padding: var(--s-3); border: 1px solid var(--line); background: var(--bg-2); }
+.toc a { display: block; padding: 6px 10px; font-family: var(--font-mono); font-size: 12px; color: var(--text-mute); border-left: 2px solid transparent; }
+.toc a:hover { color: var(--accent); border-left-color: var(--accent); background: var(--bg-3); }
+h2.docs { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; margin: var(--s-7) 0 var(--s-4); padding-bottom: var(--s-3); border-bottom: 1px solid var(--line-soft); }
+h2.docs .num { font-family: var(--font-mono); font-size: 14px; color: var(--accent); margin-right: var(--s-3); }
+h3.docs { font-size: 16px; font-weight: 500; margin: var(--s-6) 0 var(--s-3); font-family: var(--font-mono); color: var(--accent-3); }
+.docs-p { color: var(--text-mute); margin-bottom: var(--s-4); max-width: 70ch; text-wrap: pretty; }
+.docs-p code { font-family: var(--font-mono); font-size: 0.9em; background: var(--bg-3); padding: 1px 5px; border: 1px solid var(--line); color: var(--text); }
+</style>
+</head>
+<body>
+<div id="app-content">
+
+<div class="page-head">
+  <span class="eyebrow">Reference · API &amp; Docs</span>
+  <h1 style="margin-top: var(--s-3);">Integration docs.</h1>
+  <p class="lede">Everything you need to write a winning submission. The browser-runtime contract here matches the production HTTP/WS contract one-to-one — write once, run on either.</p>
+</div>
+
+<div class="split bias-2-1">
+  <div>
+
+<h2 class="docs" id="overview"><span class="num">01</span>Overview</h2>
+<p class="docs-p">Your submission is a matching engine. The platform sends you orders; you respond with <code>acks</code> and <code>fills</code>. Lower latency, higher throughput, and lower error rate score higher. The platform measures both the wall-clock time of <code>submit()</code> and the correctness of fills under price-time priority.</p>
+
+<h2 class="docs" id="contract"><span class="num">02</span>The submit() contract</h2>
+<p class="docs-p">Same shape across every language. In browser-runtime mode your submission is a module exporting <code>submit(order) → {acks, fills}</code>. In production this becomes a network handler at <code>POST /v1/orders</code> with the same body shape.</p>
+
+<h3 class="docs">JavaScript template</h3>
+<div class="code"><span class="c">// orderbook.js — minimal valid JS submission</span>
+<span class="k">const</span> bids = <span class="k">new</span> Map();  <span class="c">// price → [{id, qty}]</span>
+<span class="k">const</span> asks = <span class="k">new</span> Map();
+<span class="k">let</span> nextFillId = <span class="n">1</span>;
+
+<span class="k">function</span> bestPrice(book, isBid) {
+  <span class="k">if</span> (book.size === <span class="n">0</span>) <span class="k">return</span> <span class="k">null</span>;
+  <span class="k">let</span> b = <span class="k">null</span>;
+  <span class="k">for</span> (<span class="k">const</span> p <span class="k">of</span> book.keys()) {
+    <span class="k">if</span> (b === <span class="k">null</span> || (isBid ? p &gt; b : p &lt; b)) b = p;
+  }
+  <span class="k">return</span> b;
+}
+
+<span class="k">function</span> match(order) {
+  <span class="k">const</span> opp = order.side === <span class="s">'buy'</span> ? asks : bids;
+  <span class="k">const</span> fills = [];
+  <span class="k">let</span> qty = order.qty;
+  <span class="k">while</span> (qty &gt; <span class="n">0</span>) {
+    <span class="k">const</span> px = bestPrice(opp, order.side === <span class="s">'sell'</span>);
+    <span class="k">if</span> (px === <span class="k">null</span>) <span class="k">break</span>;
+    <span class="k">const</span> crosses = order.type === <span class="s">'market'</span>
+      || (order.side === <span class="s">'buy'</span> ? px &lt;= order.price : px &gt;= order.price);
+    <span class="k">if</span> (!crosses) <span class="k">break</span>;
+    <span class="k">const</span> q = opp.get(px);
+    <span class="k">while</span> (q.length &amp;&amp; qty &gt; <span class="n">0</span>) {
+      <span class="k">const</span> rest = q[<span class="n">0</span>];
+      <span class="k">const</span> m = Math.min(qty, rest.qty);
+      qty -= m; rest.qty -= m;
+      fills.push({ id: nextFillId++, price: px, qty: m, makerId: rest.id });
+      <span class="k">if</span> (rest.qty === <span class="n">0</span>) q.shift();
+    }
+    <span class="k">if</span> (q.length === <span class="n">0</span>) opp.delete(px);
+  }
+  <span class="k">return</span> { qty, fills };
+}
+
+module.exports.submit = (order) =&gt; {
+  <span class="k">if</span> (!order || !(order.qty &gt; <span class="n">0</span>)) <span class="k">return</span> { acks: [{ id: order?.id, status: <span class="s">'rejected'</span> }], fills: [] };
+  <span class="k">if</span> (order.type === <span class="s">'cancel'</span>) {
+    <span class="c">// implement cancel handling here…</span>
+    <span class="k">return</span> { acks: [{ id: order.id, status: <span class="s">'cancelled'</span> }], fills: [] };
+  }
+  <span class="k">const</span> { qty: remaining, fills } = match(order);
+  <span class="k">if</span> (order.type === <span class="s">'limit'</span> &amp;&amp; remaining &gt; <span class="n">0</span>) {
+    <span class="k">const</span> book = order.side === <span class="s">'buy'</span> ? bids : asks;
+    <span class="k">if</span> (!book.has(order.price)) book.set(order.price, []);
+    book.get(order.price).push({ id: order.id, qty: remaining });
+  }
+  <span class="k">return</span> { acks: [{ id: order.id, status: <span class="s">'accepted'</span>, filled: order.qty - remaining }], fills };
+};</div>
+
+<h3 class="docs">Python template</h3>
+<p class="docs-p">Python runs as real CPython compiled to WASM (Pyodide). Cold-start is ~5s; once loaded each <code>submit()</code> typically runs in 100–500µs.</p>
+<div class="code"><span class="c"># orderbook.py — minimal valid Python submission</span>
+bids = {}   <span class="c"># price -> [(id, qty), ...]</span>
+asks = {}
+_fill_id = [<span class="n">0</span>]
+
+<span class="k">def</span> best_price(book, is_bid):
+    <span class="k">if not</span> book: <span class="k">return None</span>
+    <span class="k">return</span> max(book) <span class="k">if</span> is_bid <span class="k">else</span> min(book)
+
+<span class="k">def</span> match(order):
+    opp = asks <span class="k">if</span> order[<span class="s">"side"</span>] == <span class="s">"buy"</span> <span class="k">else</span> bids
+    fills, qty = [], order[<span class="s">"qty"</span>]
+    <span class="k">while</span> qty &gt; <span class="n">0</span>:
+        px = best_price(opp, order[<span class="s">"side"</span>] == <span class="s">"sell"</span>)
+        <span class="k">if</span> px <span class="k">is None</span>: <span class="k">break</span>
+        crosses = order[<span class="s">"type"</span>] == <span class="s">"market"</span> <span class="k">or</span> (
+            order[<span class="s">"side"</span>] == <span class="s">"buy"</span> <span class="k">and</span> px &lt;= order[<span class="s">"price"</span>]) <span class="k">or</span> (
+            order[<span class="s">"side"</span>] == <span class="s">"sell"</span> <span class="k">and</span> px &gt;= order[<span class="s">"price"</span>])
+        <span class="k">if not</span> crosses: <span class="k">break</span>
+        q = opp[px]
+        <span class="k">while</span> q <span class="k">and</span> qty &gt; <span class="n">0</span>:
+            rid, rqty = q[<span class="n">0</span>]
+            m = min(qty, rqty)
+            qty -= m; q[<span class="n">0</span>] = (rid, rqty - m)
+            _fill_id[<span class="n">0</span>] += <span class="n">1</span>
+            fills.append({<span class="s">"id"</span>: _fill_id[<span class="n">0</span>], <span class="s">"price"</span>: px, <span class="s">"qty"</span>: m, <span class="s">"makerId"</span>: rid})
+            <span class="k">if</span> q[<span class="n">0</span>][<span class="n">1</span>] == <span class="n">0</span>: q.pop(<span class="n">0</span>)
+        <span class="k">if not</span> q: <span class="k">del</span> opp[px]
+    <span class="k">return</span> qty, fills
+
+<span class="k">def</span> submit(order):
+    <span class="k">if not</span> order <span class="k">or</span> order.get(<span class="s">"qty"</span>, <span class="n">0</span>) &lt;= <span class="n">0</span>:
+        <span class="k">return</span> {<span class="s">"acks"</span>: [{<span class="s">"id"</span>: order.get(<span class="s">"id"</span>), <span class="s">"status"</span>: <span class="s">"rejected"</span>}], <span class="s">"fills"</span>: []}
+    <span class="k">if</span> order[<span class="s">"type"</span>] == <span class="s">"cancel"</span>:
+        <span class="k">return</span> {<span class="s">"acks"</span>: [{<span class="s">"id"</span>: order[<span class="s">"id"</span>], <span class="s">"status"</span>: <span class="s">"cancelled"</span>}], <span class="s">"fills"</span>: []}
+    remaining, fills = match(order)
+    <span class="k">if</span> order[<span class="s">"type"</span>] == <span class="s">"limit"</span> <span class="k">and</span> remaining &gt; <span class="n">0</span>:
+        book = bids <span class="k">if</span> order[<span class="s">"side"</span>] == <span class="s">"buy"</span> <span class="k">else</span> asks
+        book.setdefault(order[<span class="s">"price"</span>], []).append((order[<span class="s">"id"</span>], remaining))
+    <span class="k">return</span> {
+        <span class="s">"acks"</span>: [{<span class="s">"id"</span>: order[<span class="s">"id"</span>], <span class="s">"status"</span>: <span class="s">"accepted"</span>, <span class="s">"filled"</span>: order[<span class="s">"qty"</span>] - remaining}],
+        <span class="s">"fills"</span>: fills,
+    }</div>
+
+<h3 class="docs">WebAssembly ABI (C++/Rust/Go/Zig)</h3>
+<p class="docs-p">Compile your engine to a .wasm module that exports five symbols. Wire format: JSON-over-linear-memory. Compatible with emcc, wasm-bindgen, TinyGo, AssemblyScript, Zig.</p>
+<div class="code"><span class="c">// Required exports</span>
+memory:           WebAssembly.Memory
+alloc(n:    i32) -&gt; i32      <span class="c">// allocate n bytes in wasm linear memory</span>
+free(ptr:   i32) -&gt; void     <span class="c">// matching free</span>
+submit_bytes(ptr: i32, len: i32) -&gt; i32  <span class="c">// returns response ptr</span>
+submit_bytes_len()           -&gt; i32      <span class="c">// length of last response</span>
+
+<span class="c">// Optional</span>
+env.log_str(ptr: i32, len: i32)          <span class="c">// platform logging hook</span>
+env.now_ns()      -&gt; i64                 <span class="c">// monotonic clock</span></div>
+
+<h2 class="docs" id="schema"><span class="num">03</span>Order schema</h2>
+<p class="docs-p">Every call to <code>submit()</code> receives a single order object:</p>
+
+<div class="code">{
+  <span class="s">"id"</span>:    <span class="n">42</span>,            <span class="c">// monotonic uint64</span>
+  <span class="s">"side"</span>:  <span class="s">"buy"</span> | <span class="s">"sell"</span>,
+  <span class="s">"type"</span>:  <span class="s">"limit"</span> | <span class="s">"market"</span> | <span class="s">"cancel"</span>,
+  <span class="s">"price"</span>: <span class="n">3142.50</span>,       <span class="c">// ignored for market</span>
+  <span class="s">"qty"</span>:   <span class="n">5.0</span>,
+  <span class="s">"ts"</span>:    <span class="n">1735689600000000</span>, <span class="c">// µs since epoch</span>
+  <span class="s">"targetId"</span>: <span class="n">17</span>            <span class="c">// only on cancel</span>
+}</div>
+
+<p class="docs-p">Return value:</p>
+<div class="code">{
+  <span class="s">"acks"</span>:  [{ id, status, filled, remaining, message? }],
+  <span class="s">"fills"</span>: [{ id, price, qty, takerId, makerId }]
+}</div>
+
+<h2 class="docs" id="scoring"><span class="num">04</span>Scoring formula</h2>
+<p class="docs-p">Composite score per run (0–100):</p>
+<div class="code"><span class="c">// each component is normalised to [0, 100]</span>
+speedScore       = max(<span class="n">0</span>, <span class="n">100</span> - p99_µs / <span class="n">5</span>)        <span class="c">// 0µs = 100, 500µs = 0</span>
+throughputScore  = min(<span class="n">100</span>, tps / <span class="n">30_000</span>)        <span class="c">// 3M ops/s = 100</span>
+correctnessScore = max(<span class="n">0</span>, <span class="n">100</span> - err_rate × <span class="n">5000</span>) <span class="c">// 2% err = 0</span>
+
+composite = <span class="n">0.40</span> × speedScore
+          + <span class="n">0.40</span> × throughputScore
+          + <span class="n">0.20</span> × correctnessScore</div>
+<p class="docs-p">Weights are tunable per round by judges (see Judge Console). The platform recomputes scores using new weights when a re-score is triggered.</p>
+
+<h2 class="docs" id="rest"><span class="num">05</span>Production REST surface</h2>
+<p class="docs-p">When deployed to a real cluster, your sandbox exposes <code>:9999</code>:</p>
+
+<h3 class="docs">POST /v1/orders</h3>
+<div class="code">$ curl -X POST https://&lt;sandbox&gt;.iicpc.local:9999/v1/orders \
+  -H <span class="s">"Content-Type: application/json"</span> \
+  -d <span class="s">'{"id":1,"side":"buy","type":"limit","price":3142.50,"qty":5}'</span>
+
+<span class="c">// 200 OK</span>
+{<span class="s">"acks"</span>:[{<span class="s">"id"</span>:<span class="n">1</span>,<span class="s">"status"</span>:<span class="s">"accepted"</span>,<span class="s">"filled"</span>:<span class="n">0</span>}],<span class="s">"fills"</span>:[]}</div>
+
+<h3 class="docs">GET /v1/snapshot</h3>
+<div class="code">{
+  <span class="s">"bids"</span>: [{<span class="s">"px"</span>:<span class="n">3142.25</span>,<span class="s">"sz"</span>:<span class="n">5.0</span>}, ...],
+  <span class="s">"asks"</span>: [{<span class="s">"px"</span>:<span class="n">3142.75</span>,<span class="s">"sz"</span>:<span class="n">3.5</span>}, ...],
+  <span class="s">"lastTrade"</span>: {<span class="s">"px"</span>:<span class="n">3142.50</span>,<span class="s">"qty"</span>:<span class="n">1.0</span>,<span class="s">"ts"</span>:<span class="n">...</span>}
+}</div>
+
+<h2 class="docs" id="ws"><span class="num">06</span>WebSocket (high-throughput)</h2>
+<p class="docs-p">For peak throughput, use the WS endpoint. One TCP connection, binary frames, no JSON overhead. Each frame is a 24-byte order header + payload.</p>
+<div class="code">ws://&lt;sandbox&gt;:9999/v1/stream
+
+<span class="c">// frame layout (little-endian)</span>
+[ <span class="n">u64</span> id ][ <span class="n">u8</span> side ][ <span class="n">u8</span> type ]
+[ <span class="n">f64</span> price ][ <span class="n">f64</span> qty ][ <span class="n">u64</span> ts ]
+
+<span class="c">// ack frame back</span>
+[ <span class="n">u64</span> id ][ <span class="n">u8</span> status ][ <span class="n">f64</span> filled ][ <span class="n">f64</span> remaining ]</div>
+
+<h2 class="docs" id="leaderboard-feed"><span class="num">07</span>Leaderboard feed</h2>
+<p class="docs-p">Subscribe to live rank deltas:</p>
+<div class="code">ws://leaderboard.iicpc.local/v1/feed
+
+<span class="c">// message</span>
+{ <span class="s">"type"</span>: <span class="s">"rank"</span>, <span class="s">"team"</span>: <span class="s">"parity-bit"</span>, <span class="s">"rank"</span>: <span class="n">1</span>,
+  <span class="s">"score"</span>: <span class="n">184</span>, <span class="s">"p50"</span>: <span class="n">18</span>, <span class="s">"p99"</span>: <span class="n">142</span>, <span class="s">"tps"</span>: <span class="n">2410000</span> }</div>
+
+<h2 class="docs" id="limits"><span class="num">08</span>Sandbox limits</h2>
+<div class="code"><span class="k">cpu</span>:           <span class="n">2</span> vCPU (pinned, no oversubscription)
+<span class="k">memory</span>:        <span class="n">512</span> MB hard cap (RLIMIT_AS + cgroup memory.max)
+<span class="k">disk</span>:          <span class="n">100</span> MB ephemeral, mounted RW only on /tmp
+<span class="k">network</span>:       inbound only · gateway-mesh only
+<span class="k">syscalls</span>:      seccomp default-deny + curated allowlist
+<span class="k">build budget</span>:  <span class="n">60</span>s · failures recorded
+<span class="k">run budget</span>:    <span class="n">300</span>s per stress test</div>
+
+<h2 class="docs" id="files"><span class="num">09</span>Codebase map</h2>
+<p class="docs-p">For anyone (human or agent) editing this platform, here's what each file does:</p>
+<div class="code"><span class="c">/</span>
+<span class="c">├─</span> index.html                <span class="c">// public landing page</span>
+<span class="c">└─</span> platform/
+   <span class="c">├─</span> dashboard.html          <span class="c">// contestant home · subs + runs + team</span>
+   <span class="c">├─</span> submit.html             <span class="c">// upload + hash + sandbox-build · multi-language</span>
+   <span class="c">├─</span> run.html                <span class="c">// stress test · runtime workers · profiles · feed</span>
+   <span class="c">├─</span> correctness.html        <span class="c">// validation suite (17 tests · 6 categories)</span>
+   <span class="c">├─</span> leaderboard.html        <span class="c">// public rankings + CSV export</span>
+   <span class="c">├─</span> architecture.html       <span class="c">// system diagram</span>
+   <span class="c">├─</span> judge.html              <span class="c">// admin · re-score · DQ · platform state</span>
+   <span class="c">├─</span> docs.html               <span class="c">// you're reading it</span>
+   <span class="c">└─</span> assets/
+      <span class="c">├─</span> tokens.css           <span class="c">// design tokens — colors, type, spacing</span>
+      <span class="c">├─</span> platform.css         <span class="c">// shared layout + components</span>
+      <span class="c">├─</span> store.js             <span class="c">// localStorage + IDB + BroadcastChannel</span>
+      <span class="c">├─</span> layout.js            <span class="c">// sidebar/topbar injector + toast helper</span>
+      <span class="c">├─</span> engine.js            <span class="c">// reference matching engine (price-time)</span>
+      <span class="c">├─</span> bot-worker.js        <span class="c">// fallback in-process bot fleet</span>
+      <span class="c">├─</span> tdigest.js           <span class="c">// streaming percentiles (p50/p99 sketch)</span>
+      <span class="c">├─</span> rng.js               <span class="c">// seeded RNG · xoshiro128** · deterministic</span>
+      <span class="c">├─</span> runtime.js           <span class="c">// multi-language runtime adapter (main thread)</span>
+      <span class="c">├─</span> runtime-js.js        <span class="c">// JS runtime worker</span>
+      <span class="c">├─</span> runtime-py.js        <span class="c">// Python via Pyodide worker</span>
+      <span class="c">├─</span> runtime-wasm.js      <span class="c">// .wasm instantiate worker</span>
+      <span class="c">├─</span> runtime-judge0.js    <span class="c">// remote Judge0 CE adapter</span>
+      <span class="c">├─</span> correctness.js       <span class="c">// validation tests · severity-weighted score</span>
+      <span class="c">└─</span> market-feed.js       <span class="c">// optional Binance WS for realistic flow</span></div>
+
+<h2 class="docs" id="adversarial"><span class="num">10</span>Adversarial test inputs</h2>
+<p class="docs-p">The correctness suite probes these — your engine must handle them without crashing or producing impossible output. Run <a href="correctness.html" class="up">correctness.html</a> to see the full list.</p>
+<div class="code"><span class="c">// Inputs your engine WILL receive in adversarial mode</span>
+{ qty: <span class="n">-5</span>     }                <span class="c">// negative quantity</span>
+{ qty: <span class="n">0</span>      }                <span class="c">// zero quantity</span>
+{ qty: <span class="n">1e15</span>   }                <span class="c">// astronomical quantity</span>
+{ price: NaN }                <span class="c">// not-a-number price</span>
+{ price: Infinity }
+{ type: <span class="s">"fok"</span> }              <span class="c">// unknown order type</span>
+{ type: <span class="s">"cancel"</span>, targetId: <span class="n">99999</span> } <span class="c">// cancel of unknown id</span>
+
+<span class="c">// All must be rejected gracefully · no crashes · no phantom resting orders</span></div>
+
+  </div>
+
+  <!-- TOC -->
+  <div>
+    <nav class="toc">
+      <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;padding:6px 10px;">// contents</div>
+      <a href="#overview">01 · Overview</a>
+      <a href="#contract">02 · submit() contract</a>
+      <a href="#schema">03 · Order schema</a>
+      <a href="#scoring">04 · Scoring formula</a>
+      <a href="#rest">05 · REST surface</a>
+      <a href="#ws">06 · WebSocket</a>
+      <a href="#leaderboard-feed">07 · Leaderboard feed</a>
+      <a href="#limits">08 · Sandbox limits</a>
+      <a href="#files">09 · Codebase map</a>
+      <a href="#adversarial">10 · Adversarial inputs</a>
+    </nav>
+  </div>
+</div>
+
+</div><!-- /#app-content -->
+
+<script src="assets/store.js"></script>
+<script src="assets/layout.js"></script>
+<script>
+Layout.render({ active: 'docs', crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Docs' }] });
+</script>
+</body>
+</html>

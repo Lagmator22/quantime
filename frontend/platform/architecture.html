@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     IICPC PLATFORM · SYSTEM ARCHITECTURE
+     ---------------------------------------------------------------------
+     A pure-SVG interactive diagram of the platform. Click any node to
+     see its responsibility, the protocols it speaks, its scaling profile,
+     and which file in this codebase implements it. This page IS the
+     architecture documentation — when you ship for real, hand a judge
+     this page.
+===================================================================== -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Architecture · IICPC Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/platform.css" />
+<style>
+.diagram { background: var(--bg-2); border: 1px solid var(--line); overflow: hidden; }
+.diagram svg { width: 100%; display: block; }
+.node-box { fill: var(--bg-3); stroke: var(--line); stroke-width: 1; cursor: pointer; transition: all .2s ease; }
+.node-box:hover, .node-box.active { fill: var(--accent-dim); stroke: var(--accent); }
+.node-label { font-family: 'JetBrains Mono', monospace; font-size: 12px; fill: var(--text); pointer-events: none; }
+.node-sub { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: var(--text-dim); pointer-events: none; }
+.edge { stroke: var(--line); stroke-width: 1.5; fill: none; }
+.edge-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: var(--text-dim); }
+.zone-bg { fill: oklch(16% 0.008 240); stroke: var(--line-soft); stroke-dasharray: 4 3; }
+.zone-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; fill: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; }
+.flow-dot { fill: var(--accent); }
+</style>
+</head>
+<body>
+<div id="app-content">
+
+<div class="page-head">
+  <span class="eyebrow">Reference · Architecture</span>
+  <h1 style="margin-top: var(--s-3);">System architecture.</h1>
+  <p class="lede">Six microservices, three data planes, one contract. Click any node for its spec. Animated dots show request flow during stress runs.</p>
+</div>
+
+<div class="split bias-2-1">
+  <div>
+    <div class="diagram" style="margin-bottom: var(--s-5);">
+      <svg viewBox="0 0 900 560" preserveAspectRatio="xMidYMid meet">
+        <!-- ZONES -->
+        <rect class="zone-bg" x="20"  y="40"  width="200" height="240" />
+        <text class="zone-label" x="30" y="60">// edge</text>
+
+        <rect class="zone-bg" x="250" y="40"  width="380" height="240" />
+        <text class="zone-label" x="260" y="60">// platform plane</text>
+
+        <rect class="zone-bg" x="660" y="40"  width="220" height="240" />
+        <text class="zone-label" x="670" y="60">// isolation plane</text>
+
+        <rect class="zone-bg" x="20"  y="310" width="860" height="220" />
+        <text class="zone-label" x="30" y="330">// data plane · telemetry</text>
+
+        <!-- NODES -->
+        <g data-node="cli">
+          <rect class="node-box" x="50"  y="90"  width="150" height="60" rx="2" />
+          <text class="node-label" x="125" y="115" text-anchor="middle">contestant</text>
+          <text class="node-sub"   x="125" y="135" text-anchor="middle">cli / web</text>
+        </g>
+        <g data-node="bot">
+          <rect class="node-box" x="50"  y="190" width="150" height="60" rx="2" />
+          <text class="node-label" x="125" y="215" text-anchor="middle">bot fleet</text>
+          <text class="node-sub"   x="125" y="235" text-anchor="middle">distributed</text>
+        </g>
+
+        <g data-node="ingest">
+          <rect class="node-box" x="280" y="90"  width="150" height="60" rx="2" />
+          <text class="node-label" x="355" y="115" text-anchor="middle">submission svc</text>
+          <text class="node-sub"   x="355" y="135" text-anchor="middle">upload · validate</text>
+        </g>
+        <g data-node="orch">
+          <rect class="node-box" x="450" y="90"  width="150" height="60" rx="2" />
+          <text class="node-label" x="525" y="115" text-anchor="middle">orchestrator</text>
+          <text class="node-sub"   x="525" y="135" text-anchor="middle">k8s · job api</text>
+        </g>
+        <g data-node="gateway">
+          <rect class="node-box" x="280" y="190" width="150" height="60" rx="2" />
+          <text class="node-label" x="355" y="215" text-anchor="middle">load gateway</text>
+          <text class="node-sub"   x="355" y="235" text-anchor="middle">fix · ws · rest</text>
+        </g>
+        <g data-node="scoring">
+          <rect class="node-box" x="450" y="190" width="150" height="60" rx="2" />
+          <text class="node-label" x="525" y="215" text-anchor="middle">scoring engine</text>
+          <text class="node-sub"   x="525" y="235" text-anchor="middle">composite calc</text>
+        </g>
+
+        <g data-node="sandbox">
+          <rect class="node-box" x="690" y="120" width="170" height="100" rx="2" />
+          <text class="node-label" x="775" y="155" text-anchor="middle">sandbox runner</text>
+          <text class="node-sub"   x="775" y="175" text-anchor="middle">docker · firecracker</text>
+          <text class="node-sub"   x="775" y="195" text-anchor="middle">cpu pin · seccomp</text>
+        </g>
+
+        <g data-node="kafka">
+          <rect class="node-box" x="50"  y="360" width="200" height="60" rx="2" />
+          <text class="node-label" x="150" y="385" text-anchor="middle">kafka / redpanda</text>
+          <text class="node-sub"   x="150" y="405" text-anchor="middle">telemetry stream</text>
+        </g>
+        <g data-node="ts">
+          <rect class="node-box" x="300" y="360" width="200" height="60" rx="2" />
+          <text class="node-label" x="400" y="385" text-anchor="middle">timescaledb</text>
+          <text class="node-sub"   x="400" y="405" text-anchor="middle">long-term metrics</text>
+        </g>
+        <g data-node="redis">
+          <rect class="node-box" x="550" y="360" width="150" height="60" rx="2" />
+          <text class="node-label" x="625" y="385" text-anchor="middle">redis</text>
+          <text class="node-sub"   x="625" y="405" text-anchor="middle">live rank cache</text>
+        </g>
+        <g data-node="lb">
+          <rect class="node-box" x="730" y="360" width="150" height="60" rx="2" />
+          <text class="node-label" x="805" y="385" text-anchor="middle">leaderboard ws</text>
+          <text class="node-sub"   x="805" y="405" text-anchor="middle">live frontend</text>
+        </g>
+
+        <g data-node="judge">
+          <rect class="node-box" x="50"  y="450" width="200" height="60" rx="2" />
+          <text class="node-label" x="150" y="475" text-anchor="middle">judge console</text>
+          <text class="node-sub"   x="150" y="495" text-anchor="middle">admin dashboard</text>
+        </g>
+        <g data-node="otel">
+          <rect class="node-box" x="300" y="450" width="200" height="60" rx="2" />
+          <text class="node-label" x="400" y="475" text-anchor="middle">otel collector</text>
+          <text class="node-sub"   x="400" y="495" text-anchor="middle">traces + metrics</text>
+        </g>
+        <g data-node="iac">
+          <rect class="node-box" x="550" y="450" width="330" height="60" rx="2" />
+          <text class="node-label" x="715" y="475" text-anchor="middle">terraform / helm / argocd</text>
+          <text class="node-sub"   x="715" y="495" text-anchor="middle">infra as code · ci/cd · gitops</text>
+        </g>
+
+        <!-- EDGES -->
+        <!-- contestant -> ingest -->
+        <path class="edge" d="M200,120 L280,120" marker-end="url(#arr)" />
+        <text class="edge-label" x="220" y="115">https</text>
+
+        <!-- ingest -> orch -->
+        <path class="edge" d="M430,120 L450,120" marker-end="url(#arr)" />
+
+        <!-- orch -> sandbox -->
+        <path class="edge" d="M600,140 L690,160" marker-end="url(#arr)" />
+        <text class="edge-label" x="615" y="135">deploy</text>
+
+        <!-- bot -> gateway -->
+        <path class="edge" d="M200,220 L280,220" marker-end="url(#arr)" />
+        <text class="edge-label" x="218" y="215">orders</text>
+
+        <!-- gateway -> sandbox -->
+        <path class="edge" d="M430,220 L690,180" marker-end="url(#arr)" />
+        <text class="edge-label" x="500" y="200">tcp · ws · fix</text>
+
+        <!-- sandbox -> gateway (telemetry back) -->
+        <path class="edge" d="M690,200 L430,235" marker-end="url(#arr)" stroke-dasharray="3,3" />
+
+        <!-- gateway -> kafka -->
+        <path class="edge" d="M355,250 L150,360" marker-end="url(#arr)" />
+        <text class="edge-label" x="200" y="320">telemetry</text>
+
+        <!-- gateway -> scoring -->
+        <path class="edge" d="M430,220 L450,220" marker-end="url(#arr)" />
+
+        <!-- kafka -> timescale -->
+        <path class="edge" d="M250,390 L300,390" marker-end="url(#arr)" />
+        <!-- kafka -> scoring -->
+        <path class="edge" d="M150,360 L525,250" marker-end="url(#arr)" stroke-dasharray="3,3" />
+
+        <!-- scoring -> redis -->
+        <path class="edge" d="M600,230 L625,360" marker-end="url(#arr)" />
+
+        <!-- redis -> lb -->
+        <path class="edge" d="M700,390 L730,390" marker-end="url(#arr)" />
+
+        <!-- timescale -> judge -->
+        <path class="edge" d="M300,420 L150,450" marker-end="url(#arr)" />
+
+        <!-- gateway -> otel -->
+        <path class="edge" d="M355,250 L400,450" stroke-dasharray="3,3" />
+
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="oklch(70% 0.008 240)" />
+          </marker>
+        </defs>
+
+        <!-- Flow dot animations -->
+        <circle class="flow-dot" r="3">
+          <animateMotion dur="3s" repeatCount="indefinite" path="M200,120 L280,120 L430,120 L450,120 L600,140 L690,160" />
+        </circle>
+        <circle class="flow-dot" r="3" style="fill: oklch(72% 0.16 240);">
+          <animateMotion dur="2.5s" repeatCount="indefinite" path="M200,220 L280,220 L430,220 L690,180" />
+        </circle>
+        <circle class="flow-dot" r="3" style="fill: oklch(78% 0.17 145);">
+          <animateMotion dur="3.5s" repeatCount="indefinite" path="M355,250 L150,360 L300,390" />
+        </circle>
+      </svg>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Data flow · contestant submission lifecycle</h3></div>
+      <div class="panel-body">
+        <ol style="margin-left: var(--s-5); display: grid; gap: var(--s-3); color: var(--text-mute);">
+          <li><strong style="color:var(--text);">Upload.</strong> Contestant pushes a binary (or source) to <span class="mono up">submission svc</span> over HTTPS. The service hashes (SHA-256), validates the language contract, and writes to object storage.</li>
+          <li><strong style="color:var(--text);">Orchestrate.</strong> <span class="mono up">orchestrator</span> reads the build manifest, builds an OCI image, and asks the runner to schedule a sandbox with the team's CPU/memory budget.</li>
+          <li><strong style="color:var(--text);">Isolate.</strong> <span class="mono up">sandbox runner</span> spawns the container under cgroups + seccomp + a dedicated network namespace; only the gateway can reach it.</li>
+          <li><strong style="color:var(--text);">Load.</strong> <span class="mono up">load gateway</span> opens FIX / WS / REST sessions on behalf of the bot fleet and forwards orders to the sandbox at line rate.</li>
+          <li><strong style="color:var(--text);">Measure.</strong> Every request/response pair is tagged with wall-clock timestamps and streamed to Kafka. <span class="mono up">scoring</span> consumes the stream, computes p50/p90/p99 + TPS + correctness.</li>
+          <li><strong style="color:var(--text);">Rank.</strong> Scores land in Redis (sorted set). The <span class="mono up">leaderboard ws</span> service broadcasts deltas to the public frontend (this leaderboard page).</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="position: sticky; top: 80px; align-self: start;">
+    <div class="panel-head"><h3 id="detail-title">node · select one</h3></div>
+    <div class="panel-body" id="detail-body">
+      <p class="dim mono" style="font-size: 12px;">Click any box on the diagram to see its spec, protocols, and the file in this codebase that implements it.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────── -->
+<div class="page-head" style="margin-top: var(--s-9);">
+  <span class="eyebrow">Tech choices</span>
+  <h2 style="margin-top: var(--s-3); font-size: 28px; font-weight: 500; letter-spacing: -0.02em;">Defensible decisions.</h2>
+</div>
+<div class="split cols-3">
+  <div class="panel"><div class="panel-body">
+    <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// transport · bot → sandbox</div>
+    <h4 style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:var(--s-2);">FIX 4.4 · binary framing</h4>
+    <p class="mute" style="font-size:13px;">FIX is the institutional standard. Binary framing keeps headers under 20 bytes. We expose REST + WS for contestants who want a simpler surface.</p>
+  </div></div>
+  <div class="panel"><div class="panel-body">
+    <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// metrics bus</div>
+    <h4 style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:var(--s-2);">Redpanda</h4>
+    <p class="mute" style="font-size:13px;">Drop-in for Kafka; single binary; no JVM; ~10× lower p99 publish latency. Telemetry partitions by team_id so consumers parallel-process by team.</p>
+  </div></div>
+  <div class="panel"><div class="panel-body">
+    <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// storage</div>
+    <h4 style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:var(--s-2);">TimescaleDB + Redis</h4>
+    <p class="mute" style="font-size:13px;">Timescale for chunked time-series telemetry (queryable forever). Redis sorted sets for the live leaderboard — O(log N) inserts, O(N) reads.</p>
+  </div></div>
+  <div class="panel"><div class="panel-body">
+    <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// isolation</div>
+    <h4 style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:var(--s-2);">Firecracker microVMs</h4>
+    <p class="mute" style="font-size:13px;">~125ms startup. Hardware-level isolation. Strict CPU pin + RLIMIT + seccomp default-deny. No filesystem write outside /tmp.</p>
+  </div></div>
+  <div class="panel"><div class="panel-body">
+    <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// orchestration</div>
+    <h4 style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:var(--s-2);">K8s + KEDA</h4>
+    <p class="mute" style="font-size:13px;">Scale bot fleet by Kafka lag. Submission jobs are K8s Jobs with TTL. Sandboxes are Pods with strict Resource Quotas.</p>
+  </div></div>
+  <div class="panel"><div class="panel-body">
+    <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// IaC</div>
+    <h4 style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:var(--s-2);">Terraform + Helm + ArgoCD</h4>
+    <p class="mute" style="font-size:13px;">Terraform provisions cloud. Helm packages each service. ArgoCD reconciles git → cluster. Spin up the whole platform in one command.</p>
+  </div></div>
+</div>
+
+</div><!-- /#app-content -->
+
+<script src="assets/store.js"></script>
+<script src="assets/layout.js"></script>
+<script>
+Layout.render({ active: 'architecture', crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Architecture' }] });
+
+const NODE_INFO = {
+  cli: { title: 'Contestant · CLI/Web', body: `<p>Single entry point for contestants. Pushes builds, kicks off stress runs, watches the leaderboard.</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <a href="submit.html" class="up">platform/submit.html</a></p>` },
+  bot: { title: 'Bot Fleet · Distributed', body: `<p>Thousands of stateless workers. Each runs N bots locally with a configurable strategy mix (maker/taker/sniper/canceller). Auto-scales on Kafka lag.</p><p class="mute" style="margin-top:var(--s-2);font-size:12px;">protocols: FIX · WS · REST</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <a href="run.html" class="up">platform/run.html</a> + <span class="up">assets/bot-worker.js</span></p>` },
+  ingest: { title: 'Submission Service', body: `<p>HTTPS API: upload, hash (SHA-256), validate, persist. Triggers the orchestrator on success.</p><p class="mute" style="margin-top:var(--s-2);font-size:12px;">storage: S3-compatible blob store + metadata in Postgres.</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <a href="submit.html" class="up">platform/submit.html</a></p>` },
+  orch: { title: 'Orchestrator', body: `<p>Consumes "new submission" events. Asks the K8s Job API to build the OCI image and schedule the sandbox.</p><p class="mute" style="margin-top:var(--s-2);font-size:12px;">retry: exponential backoff; jobs idempotent on hash.</p>` },
+  gateway: { title: 'Load Gateway', body: `<p>The wire between bots and sandboxes. Talks contestant protocols (FIX 4.4, WebSocket, REST). Stamps every round-trip with wall-clock + monotonic ts.</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <span class="up">assets/engine.js</span> (reference impl) + bots via <span class="up">run.html</span></p>` },
+  scoring: { title: 'Scoring Engine', body: `<p>Subscribes to telemetry. Streams percentiles via tdigest. Computes composite = w·speed + w·throughput + w·correctness. Publishes deltas to Redis.</p><p class="mute" style="margin-top:var(--s-2);font-size:12px;">weights are tunable per round; defaults: 40/40/20.</p>` },
+  sandbox: { title: 'Sandbox Runner', body: `<p>The trust boundary. Each submission runs in a Firecracker microVM (or rootless Docker) with cgroups cpu=2 mem=512M, seccomp default-deny, RO root, dedicated netns. Crash → score zero for that run; sandbox-escape attempts → DQ.</p>` },
+  kafka: { title: 'Kafka / Redpanda', body: `<p>The metrics backbone. Topics: <span class="mono">tele.orders</span>, <span class="mono">tele.fills</span>, <span class="mono">tele.errors</span>. Partition key = team_id.</p>` },
+  ts: { title: 'TimescaleDB', body: `<p>Telemetry tables are hypertables chunked by hour. Continuous aggregates pre-compute per-team p99 + TPS. Powers replay + post-mortem.</p>` },
+  redis: { title: 'Redis · Live Leaderboard', body: `<p>Sorted set <span class="mono">lb:current</span> keyed by team_id → composite score. Pub/Sub channel <span class="mono">lb.delta</span> drives the WS broadcaster.</p>` },
+  lb: { title: 'Leaderboard WebSocket', body: `<p>Authoritative live feed. Fan-out to all browsers. Backpressure on slow clients via per-client buffer.</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <a href="leaderboard.html" class="up">platform/leaderboard.html</a></p>` },
+  judge: { title: 'Judge Console', body: `<p>Admin-only view: pause submissions, force a re-score, inspect any team's raw telemetry, mark DQ.</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <a href="judge.html" class="up">platform/judge.html</a></p>` },
+  otel: { title: 'OTel Collector', body: `<p>Traces + metrics from every service. Exported to Tempo + Prometheus for ops dashboards.</p>` },
+  iac: { title: 'IaC · Terraform / Helm / ArgoCD', body: `<p>Spin the entire platform up with a single command. Module per cloud provider. Helm chart per service. ArgoCD reconciles every commit.</p>` },
+};
+
+document.querySelectorAll('[data-node]').forEach(g => {
+  g.addEventListener('click', () => {
+    document.querySelectorAll('.node-box').forEach(b => b.classList.remove('active'));
+    g.querySelector('.node-box').classList.add('active');
+    const k = g.dataset.node;
+    const info = NODE_INFO[k];
+    document.getElementById('detail-title').textContent = info.title;
+    document.getElementById('detail-body').innerHTML = info.body;
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IICPC Summer Hackathon 2026 — Distributed Benchmarking Platform</title>
+<meta name="description" content="Architect and build a distributed benchmarking & hosting platform for trading infrastructure. May 9 – June 10, 2026. Teams of up to 3." />
+
+<!-- =====================================================================
+     FONT IMPORTS
+     ---------------------------------------------------------------------
+     Two-font system, no exceptions:
+       • Space Grotesk  -> headings, body, UI copy
+       • JetBrains Mono -> data, labels, code, decorative monospace bits
+     If you swap fonts, also update --font-sans / --font-mono below.
+===================================================================== -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+/* =====================================================================
+   1. DESIGN TOKENS  ( edit colors / fonts / radii here once )
+   --------------------------------------------------------------------- */
+:root {
+  /* —— Color: cool-dark base, single phosphor-green accent —— */
+  --bg:        oklch(13% 0.008 240);   /* page background */
+  --bg-2:      oklch(16% 0.008 240);   /* raised surfaces */
+  --bg-3:      oklch(19% 0.008 240);   /* hover / inputs */
+  --line:      oklch(28% 0.008 240);   /* hairlines */
+  --line-soft: oklch(22% 0.008 240);   /* faint dividers */
+  --text:      oklch(96% 0.005 90);    /* primary text (warm off-white) */
+  --text-mute: oklch(70% 0.008 240);   /* secondary text */
+  --text-dim:  oklch(52% 0.008 240);   /* tertiary / labels */
+
+  --accent:     oklch(78% 0.17 145);   /* phosphor green — primary accent */
+  --accent-dim: oklch(78% 0.17 145 / 0.15);
+  --warn:       oklch(72% 0.17 55);    /* amber — secondary signal */
+  --alert:      oklch(68% 0.20 25);    /* red  — stress / sell-side */
+
+  /* —— Type —— */
+  --font-sans: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* —— Spacing scale (8px-based, but a little tighter at small sizes) —— */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px;
+  --s-6: 32px; --s-7: 48px; --s-8: 64px; --s-9: 96px; --s-10: 128px;
+
+  --radius: 4px;            /* keep tight — engineering, not consumer */
+  --radius-lg: 8px;
+  --max-w: 1280px;          /* page max width */
+}
+
+/* =====================================================================
+   2. RESET + BASE
+   --------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
+  /* Subtle dotted grid baked into the page bg — gives the whole site
+     a "data-room" feel without using an image. */
+  background-image:
+    radial-gradient(circle at 1px 1px, oklch(28% 0.008 240 / 0.5) 1px, transparent 0);
+  background-size: 32px 32px;
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+img, svg { display: block; max-width: 100%; }
+
+/* Selection — make it on-brand */
+::selection { background: var(--accent); color: var(--bg); }
+
+/* Scroll bar — subtle dark */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--line-soft); }
+
+/* =====================================================================
+   3. UTILITY / LAYOUT PRIMITIVES
+   --------------------------------------------------------------------- */
+.wrap { max-width: var(--max-w); margin: 0 auto; padding: 0 var(--s-5); }
+.mono { font-family: var(--font-mono); font-feature-settings: "ss01", "cv11"; }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.eyebrow::before {
+  /* Small green square dot before every eyebrow tag */
+  content: "";
+  width: 6px; height: 6px;
+  background: var(--accent);
+  display: inline-block;
+}
+.divider { height: 1px; background: var(--line-soft); }
+
+/* =====================================================================
+   4. TOP TICKER BAR
+   ---------------------------------------------------------------------
+   Fake "market data" tape that scrolls indefinitely. Built from a
+   single track that's duplicated so the loop is seamless. Edit the
+   .ticker-track > .ticker-item list to change the ticker contents.
+===================================================================== */
+.ticker {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ticker-track {
+  display: inline-flex;
+  gap: var(--s-7);
+  padding: 8px 0;
+  /* Duration controls scroll speed; lower = faster */
+  animation: ticker-scroll 60s linear infinite;
+}
+.ticker-item {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  color: var(--text-mute);
+}
+.ticker-item .sym { color: var(--text); font-weight: 500; }
+.ticker-item .up { color: var(--accent); }
+.ticker-item .down { color: var(--alert); }
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); } /* exactly half because we duplicate */
+}
+
+/* =====================================================================
+   5. NAV
+   --------------------------------------------------------------------- */
+.nav {
+  position: sticky; top: 32px; z-index: 40;
+  backdrop-filter: blur(12px);
+  background: oklch(13% 0.008 240 / 0.7);
+  border-bottom: 1px solid var(--line-soft);
+}
+.nav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px;
+}
+.logo {
+  display: inline-flex; align-items: center; gap: var(--s-3);
+  font-weight: 600; letter-spacing: -0.02em; font-size: 16px;
+}
+.logo-mark {
+  /* Geometric mark — square with phosphor-green inset square */
+  width: 28px; height: 28px;
+  background: var(--text);
+  position: relative;
+}
+.logo-mark::after {
+  content: ""; position: absolute;
+  inset: 6px 14px 14px 6px;
+  background: var(--accent);
+}
+.logo .ver {
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--text-dim);
+  border-left: 1px solid var(--line);
+  padding-left: var(--s-3);
+}
+.nav-links { display: flex; gap: var(--s-6); align-items: center; }
+.nav-link {
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--text-mute); text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: color .15s ease;
+  white-space: nowrap;
+}
+.nav-link:hover { color: var(--accent); }
+/* Narrow-desktop band (900–1180px): drop the secondary links so the
+   primary CTA always stays on screen. Mobile breakpoint below it. */
+@media (max-width: 1180px) {
+  .nav-links { gap: var(--s-5); }
+  .nav-links .nav-link:not(.cta):not(.platform-link) { display: none; }
+}
+@media (max-width: 760px) {
+  .nav-links .nav-link:not(.cta) { display: none; }
+  .nav-links { gap: var(--s-3); }
+}
+
+/* —— Buttons (used in nav + hero + CTA) ————————————————————— */
+.btn {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  padding: 12px 18px;
+  font-family: var(--font-mono); font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  transition: all .15s ease;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn-primary {
+  background: var(--bg-2);
+  color: var(--accent);            /* phosphor green text — matches site theme */
+  border-color: var(--accent);
+  font-weight: 700;
+  isolation: isolate;
+  position: relative;
+  z-index: 1;
+}
+.btn-primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+.btn .arrow { transition: transform .15s ease; }
+.btn:hover .arrow { transform: translateX(3px); }
+
+/* =====================================================================
+   6. HERO
+   ---------------------------------------------------------------------
+   Big-type display, two-column meta strip below, decorative scan-line
+   grid in the background. Countdown is wired up by JS in §13.
+===================================================================== */
+.hero {
+  position: relative;
+  padding: var(--s-9) 0 var(--s-9);
+  border-bottom: 1px solid var(--line-soft);
+  overflow: hidden;
+}
+.hero-grid {
+  /* Decorative scan-line column overlay */
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, var(--line-soft) 1px, transparent 1px);
+  background-size: calc(100% / 12) 100%;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.hero-eyebrow {
+  display: flex; gap: var(--s-5); align-items: center;
+  margin-bottom: var(--s-5);
+  flex-wrap: wrap;
+}
+.hero-eyebrow .pill {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-mute);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.pill .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px oklch(78% 0.17 145 / 0.18);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% { box-shadow: 0 0 0 8px oklch(78% 0.17 145 / 0); }
+}
+
+.hero h1 {
+  font-size: clamp(56px, 11vw, 168px);
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  font-weight: 500;
+  margin-bottom: var(--s-6);
+}
+.hero h1 .accent {
+  /* Outline treatment for the second line — keeps the headline
+     dense without doubling type weight. */
+  -webkit-text-stroke: 1px var(--text);
+  color: transparent;
+  font-style: italic;
+  font-weight: 300;
+}
+.hero h1 .punc { color: var(--accent); }
+
+.hero-lede {
+  max-width: 640px;
+  font-size: clamp(16px, 1.4vw, 19px);
+  color: var(--text-mute);
+  margin-bottom: var(--s-7);
+  text-wrap: pretty;
+}
+.hero-lede strong { color: var(--text); font-weight: 500; }
+
+.hero-actions { display: flex; gap: var(--s-3); flex-wrap: wrap; }
+
+/* —— Hero meta strip (dates / location / countdown / teams) —— */
+.hero-meta {
+  margin-top: var(--s-9);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.hero-meta .cell {
+  padding: var(--s-5) var(--s-5);
+  border-right: 1px solid var(--line-soft);
+}
+.hero-meta .cell:last-child { border-right: 0; }
+.hero-meta .cell .label {
+  font-family: var(--font-mono); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text-dim);
+  margin-bottom: var(--s-3);
+}
+.hero-meta .cell .value {
+  font-family: var(--font-mono); font-size: 22px;
+  font-weight: 500; color: var(--text);
+}
+.hero-meta .cell .sub {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-dim); margin-top: 4px;
+}
+@media (max-width: 760px) {
+  .hero-meta { grid-template-columns: repeat(2, 1fr); }
+  .hero-meta .cell { border-bottom: 1px solid var(--line-soft); }
+  .hero-meta .cell:nth-child(2) { border-right: 0; }
+}
+
+/* =====================================================================
+   7. SECTION SCAFFOLD (used by all sections below the hero)
+   --------------------------------------------------------------------- */
+section { padding: var(--s-9) 0; border-bottom: 1px solid var(--line-soft); }
+.section-head {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--s-7);
+  margin-bottom: var(--s-7);
+  align-items: end;
+}
+.section-head h2 {
+  font-size: clamp(32px, 4vw, 56px);
+  line-height: 1; letter-spacing: -0.03em;
+  font-weight: 500;
+  text-wrap: balance;
+}
+.section-head .section-lede {
+  color: var(--text-mute); font-size: 16px; max-width: 56ch;
+  text-wrap: pretty;
+}
+@media (max-width: 760px) {
+  .section-head { grid-template-columns: 1fr; gap: var(--s-4); }
+}
+
+/* =====================================================================
+   8. THE MISSION  (terminal-style block)
+   --------------------------------------------------------------------- */
+.terminal {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.terminal-bar {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-3);
+}
+.terminal-bar .dots { display: flex; gap: 6px; }
+.terminal-bar .dots span {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--line-soft);
+}
+.terminal-bar .title {
+  font-size: 11px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.terminal-body { padding: var(--s-6); }
+.terminal-body .ln { display: flex; gap: var(--s-3); }
+.terminal-body .ln .num {
+  width: 32px; color: var(--text-dim); user-select: none; flex-shrink: 0;
+}
+.terminal-body .prompt { color: var(--accent); }
+.terminal-body .key { color: var(--warn); }
+.terminal-body .str { color: var(--accent); }
+.terminal-body .com { color: var(--text-dim); }
+.terminal-body p { color: var(--text-mute); margin: 0 0 var(--s-3); }
+.terminal-body .hl { color: var(--text); font-weight: 500; }
+
+/* =====================================================================
+   9. ARCHITECTURE COMPONENTS  (4 cards in a 2x2 grid)
+   --------------------------------------------------------------------- */
+.components {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+  border: 1px solid var(--line);
+}
+@media (max-width: 760px) {
+  .components { grid-template-columns: 1fr; }
+}
+.component {
+  padding: var(--s-7);
+  border-right: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  position: relative;
+  transition: background .2s ease;
+}
+.component:nth-child(2n) { border-right: 0; }
+.component:nth-child(n+3) { border-bottom: 0; }
+@media (max-width: 760px) {
+  .component { border-right: 0; border-bottom: 1px solid var(--line-soft); }
+  .component:last-child { border-bottom: 0; }
+}
+.component:hover { background: var(--bg-2); }
+.component .index {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-dim); margin-bottom: var(--s-4);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.component .index .tags {
+  display: inline-flex; gap: var(--s-2);
+}
+.component .index .tags span {
+  border: 1px solid var(--line);
+  padding: 2px 6px; font-size: 10px;
+  color: var(--text-mute);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.component h3 {
+  font-size: 28px; font-weight: 500; letter-spacing: -0.02em;
+  margin-bottom: var(--s-4); text-wrap: balance;
+}
+.component p { color: var(--text-mute); margin-bottom: var(--s-4); }
+.component ul {
+  list-style: none;
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--text-mute);
+  display: grid; gap: var(--s-2);
+}
+.component ul li::before {
+  content: "→ "; color: var(--accent);
+}
+
+/* =====================================================================
+   10. LIVE LEADERBOARD MOCKUP
+   ---------------------------------------------------------------------
+   Animated mock to convey "real-time scoring." All numbers are JS-
+   generated in §13 and tick on a setInterval. Edit the team list in
+   the leaderboardData array there to change content.
+===================================================================== */
+.lb {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: var(--s-5);
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+}
+@media (max-width: 980px) {
+  .lb { grid-template-columns: 1fr; }
+}
+.lb-main { padding: var(--s-6); border-right: 1px solid var(--line-soft); }
+@media (max-width: 980px) {
+  .lb-main { border-right: 0; border-bottom: 1px solid var(--line-soft); }
+}
+.lb-side { padding: var(--s-6); display: grid; gap: var(--s-6); align-content: start; }
+
+.lb-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: var(--s-5);
+}
+.lb-head h4 {
+  font-family: var(--font-mono); font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text);
+}
+.lb-head .live {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--accent);
+}
+.lb-head .live::before {
+  content: ""; width: 6px; height: 6px;
+  background: var(--accent); border-radius: 50%;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+/* —— Leaderboard table —— */
+.lb-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
+.lb-table th {
+  text-align: left; padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-dim); font-weight: 400;
+  text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px;
+}
+.lb-table th.r, .lb-table td.r { text-align: right; }
+.lb-table tbody tr {
+  border-bottom: 1px solid var(--line-soft);
+  transition: background .15s ease;
+}
+.lb-table tbody tr:hover { background: var(--bg-3); }
+.lb-table td { padding: 12px 8px; color: var(--text); }
+.lb-table .rank { color: var(--text-dim); width: 28px; }
+.lb-table .team { color: var(--text); font-weight: 500; font-family: var(--font-sans); }
+.lb-table .meta { color: var(--text-dim); font-size: 11px; }
+.lb-table .score { color: var(--accent); font-weight: 500; }
+.lb-table .lat-good { color: var(--accent); }
+.lb-table .lat-bad { color: var(--alert); }
+.lb-table tr.flash { background: oklch(78% 0.17 145 / 0.08); }
+
+/* —— Side metrics —— */
+.metric { border: 1px solid var(--line); padding: var(--s-4); }
+.metric .l { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.1em; margin-bottom: 4px; }
+.metric .v { font-family: var(--font-mono); font-size: 32px; font-weight: 500; }
+.metric .v small { font-size: 14px; color: var(--text-mute); margin-left: 4px; }
+.metric .bar {
+  margin-top: var(--s-3);
+  display: flex; gap: 2px; align-items: end; height: 32px;
+}
+.metric .bar span {
+  flex: 1; background: var(--accent-dim);
+  border-bottom: 2px solid var(--accent);
+  transition: height .4s ease;
+}
+
+/* —— Mini order book —— */
+.book { font-family: var(--font-mono); font-size: 11px; }
+.book h5 { font-size: 10px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.1em; margin-bottom: var(--s-3); font-weight: 400; }
+.book-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  padding: 4px 6px; gap: var(--s-3);
+  position: relative; overflow: hidden;
+}
+.book-row::before {
+  /* Depth bar — width set via inline style by JS */
+  content: ""; position: absolute; right: 0; top: 0; bottom: 0;
+  background: oklch(68% 0.20 25 / 0.15);
+  z-index: 0;
+}
+.book-row.bid::before { background: oklch(78% 0.17 145 / 0.12); left: 0; right: auto; }
+.book-row > * { position: relative; z-index: 1; }
+.book-row .px { color: var(--text); }
+.book-row.bid .px { color: var(--accent); }
+.book-row.ask .px { color: var(--alert); }
+.book-row .sz { color: var(--text-mute); text-align: right; }
+.book-row .tot { color: var(--text-dim); text-align: right; }
+.book-mid {
+  text-align: center; padding: 6px;
+  font-size: 11px; color: var(--text-dim);
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+  margin: 4px 0;
+}
+
+/* =====================================================================
+   11. TIMELINE
+   --------------------------------------------------------------------- */
+.timeline {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border: 1px solid var(--line);
+}
+@media (max-width: 980px) { .timeline { grid-template-columns: 1fr; } }
+.tl-step {
+  padding: var(--s-5);
+  border-right: 1px solid var(--line-soft);
+  position: relative;
+}
+.tl-step:last-child { border-right: 0; }
+@media (max-width: 980px) {
+  .tl-step { border-right: 0; border-bottom: 1px solid var(--line-soft); }
+  .tl-step:last-child { border-bottom: 0; }
+}
+.tl-step.active { background: var(--bg-2); }
+.tl-step.active::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--accent);
+}
+.tl-step .date {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-dim); text-transform: uppercase;
+  letter-spacing: 0.1em; margin-bottom: var(--s-3);
+  display: flex; justify-content: space-between;
+}
+.tl-step .date .stamp { color: var(--accent); }
+.tl-step h4 {
+  font-size: 18px; font-weight: 500; margin-bottom: var(--s-2);
+  letter-spacing: -0.01em;
+}
+.tl-step p { color: var(--text-mute); font-size: 13px; }
+
+/* =====================================================================
+   12. DELIVERABLES + RULES + FAQ + CTA + FOOTER
+   --------------------------------------------------------------------- */
+.deliverables {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-5);
+}
+@media (max-width: 760px) { .deliverables { grid-template-columns: 1fr; } }
+.del {
+  border: 1px solid var(--line);
+  padding: var(--s-6);
+  background: var(--bg-2);
+  position: relative;
+}
+.del .num {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--accent); margin-bottom: var(--s-5);
+  letter-spacing: 0.1em;
+}
+.del h4 {
+  font-size: 22px; font-weight: 500; margin-bottom: var(--s-3);
+  letter-spacing: -0.02em;
+}
+.del p { color: var(--text-mute); font-size: 14px; margin-bottom: var(--s-4); }
+.del .stack {
+  display: flex; flex-wrap: wrap; gap: var(--s-2);
+  font-family: var(--font-mono); font-size: 11px;
+}
+.del .stack span {
+  padding: 4px 8px; border: 1px solid var(--line);
+  color: var(--text-mute);
+}
+
+/* —— Rules grid —— */
+.rules {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--line);
+}
+@media (max-width: 760px) { .rules { grid-template-columns: repeat(2, 1fr); } }
+.rule {
+  padding: var(--s-5);
+  border-right: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+.rule:nth-child(4n) { border-right: 0; }
+.rule:nth-child(n+5) { border-bottom: 0; }
+@media (max-width: 760px) {
+  .rule:nth-child(2n) { border-right: 0; }
+  .rule:nth-child(2n+1) { border-right: 1px solid var(--line-soft); }
+  .rule:nth-child(n+3) { border-bottom: 0; }
+  .rule:nth-child(3), .rule:nth-child(4) { border-bottom: 1px solid var(--line-soft); }
+}
+.rule .k { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: var(--s-2); }
+.rule .v { font-family: var(--font-mono); font-size: 20px; color: var(--text); margin-bottom: var(--s-2); }
+.rule p { font-size: 13px; color: var(--text-mute); }
+
+/* —— FAQ (details/summary, no JS) —— */
+.faq { border-top: 1px solid var(--line-soft); }
+.faq details {
+  border-bottom: 1px solid var(--line-soft);
+  padding: var(--s-5) 0;
+}
+.faq summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 18px; font-weight: 500; letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: "+"; font-family: var(--font-mono); font-size: 24px;
+  color: var(--text-dim); transition: transform .2s ease;
+}
+.faq details[open] summary::after { content: "−"; color: var(--accent); }
+.faq details p {
+  margin-top: var(--s-3); color: var(--text-mute);
+  max-width: 72ch; text-wrap: pretty;
+}
+
+/* —— Closing CTA —— */
+.cta {
+  background:
+    radial-gradient(circle at 50% 100%, oklch(78% 0.17 145 / 0.12), transparent 60%),
+    var(--bg-2);
+  border: 1px solid var(--line);
+  padding: var(--s-9) var(--s-5);
+  text-align: center;
+}
+.cta h2 {
+  font-size: clamp(40px, 6vw, 88px);
+  line-height: 1; letter-spacing: -0.03em; font-weight: 500;
+  margin-bottom: var(--s-5); text-wrap: balance;
+}
+.cta h2 em {
+  font-style: italic; font-weight: 300;
+  color: var(--accent);
+}
+.cta p {
+  color: var(--text-mute); max-width: 50ch; margin: 0 auto var(--s-7);
+}
+.cta .actions { display: inline-flex; gap: var(--s-3); flex-wrap: wrap; justify-content: center; }
+
+/* —— Footer —— */
+footer { padding: var(--s-7) 0; }
+.footer-inner {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-dim); flex-wrap: wrap; gap: var(--s-4);
+}
+.footer-inner a:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- =====================================================================
+     A. TICKER BAR
+     ---------------------------------------------------------------------
+     Mock market tape. Track is duplicated so the loop is seamless.
+     To change items, edit BOTH copies (or convert to JS-rendered).
+===================================================================== -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <!-- Copy 1 -->
+    <span class="ticker-item"><span class="sym">IICPC.HACK</span> <span class="up">▲ ACTIVE</span> <span>2026.05.09</span></span>
+    <span class="ticker-item"><span class="sym">SUBMISSIONS</span> <span>OPEN</span> <span class="up">JUN 03 → JUN 10</span></span>
+    <span class="ticker-item"><span class="sym">TEAMS</span> <span>≤ 3 / TEAM</span></span>
+    <span class="ticker-item"><span class="sym">P99_LATENCY</span> <span class="up">▼ 142µs</span></span>
+    <span class="ticker-item"><span class="sym">TPS_CEILING</span> <span class="up">▲ 2.4M ops/s</span></span>
+    <span class="ticker-item"><span class="sym">BOT_FLEET</span> <span>10,000 nodes</span></span>
+    <span class="ticker-item"><span class="sym">STACK</span> <span>C++ · RUST · GO</span></span>
+    <span class="ticker-item"><span class="sym">PROTO</span> <span>FIX · gRPC · WS</span></span>
+    <span class="ticker-item"><span class="sym">SCORE</span> <span class="up">SPEED × STABILITY × CORRECTNESS</span></span>
+    <!-- Copy 2 (must match copy 1 for seamless loop) -->
+    <span class="ticker-item"><span class="sym">IICPC.HACK</span> <span class="up">▲ ACTIVE</span> <span>2026.05.09</span></span>
+    <span class="ticker-item"><span class="sym">SUBMISSIONS</span> <span>OPEN</span> <span class="up">JUN 03 → JUN 10</span></span>
+    <span class="ticker-item"><span class="sym">TEAMS</span> <span>≤ 3 / TEAM</span></span>
+    <span class="ticker-item"><span class="sym">P99_LATENCY</span> <span class="up">▼ 142µs</span></span>
+    <span class="ticker-item"><span class="sym">TPS_CEILING</span> <span class="up">▲ 2.4M ops/s</span></span>
+    <span class="ticker-item"><span class="sym">BOT_FLEET</span> <span>10,000 nodes</span></span>
+    <span class="ticker-item"><span class="sym">STACK</span> <span>C++ · RUST · GO</span></span>
+    <span class="ticker-item"><span class="sym">PROTO</span> <span>FIX · gRPC · WS</span></span>
+    <span class="ticker-item"><span class="sym">SCORE</span> <span class="up">SPEED × STABILITY × CORRECTNESS</span></span>
+  </div>
+</div>
+
+<!-- =====================================================================
+     B. NAV
+===================================================================== -->
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a href="#" class="logo">
+      <span class="logo-mark"></span>
+      IICPC<span style="color:var(--accent);">/</span>HACK
+      <span class="ver">v2026.05</span>
+    </a>
+    <nav class="nav-links">
+      <a class="nav-link" href="#mission">Mission</a>
+      <a class="nav-link" href="#components">Components</a>
+      <a class="nav-link" href="#leaderboard">Leaderboard</a>
+      <a class="nav-link" href="#timeline">Timeline</a>
+      <a class="nav-link" href="#faq">FAQ</a>
+      <a class="nav-link platform-link" href="platform/dashboard.html" style="color: var(--accent);">Platform ↗</a>
+      <a class="btn btn-primary nav-link cta" href="platform/dashboard.html">
+        Enter platform <span class="arrow">→</span>
+      </a>
+    </nav>
+  </div>
+</header>
+
+<!-- =====================================================================
+     C. HERO
+     ---------------------------------------------------------------------
+     Two-line display headline + lede + CTAs + 4-cell meta strip.
+     The countdown in the meta strip is wired up by JS in §13.
+===================================================================== -->
+<section class="hero" style="border-bottom: 1px solid var(--line);">
+  <div class="hero-grid"></div>
+  <div class="wrap" style="position: relative;">
+    <div class="hero-eyebrow">
+      <span class="pill"><span class="dot"></span>Live · Registration Open</span>
+      <span class="pill mono">Edition 2026.S1</span>
+      <span class="pill mono">May 09 → Jun 10, 2026</span>
+    </div>
+
+    <h1>
+      Build the<br />
+      <span class="accent">exchange</span> that<br />
+      breaks <span class="accent">exchanges<span class="punc">.</span></span>
+    </h1>
+
+    <p class="hero-lede">
+      The <strong>IICPC Summer Hackathon 2026</strong> is for systems engineers,
+      competitive programmers, and algorithmic thinkers who treat latency as
+      a moral obligation. Architect a <strong>distributed benchmarking &amp;
+      hosting platform</strong> that ingests contestant trading code, isolates
+      it, bombards it with thousands of concurrent bots, and scores it on
+      microsecond truth.
+    </p>
+
+    <div class="hero-actions">
+      <a href="platform/dashboard.html" class="btn btn-primary">
+        Enter platform <span class="arrow">→</span>
+      </a>
+      <a href="platform/submit.html" class="btn">Submit code</a>
+      <a href="platform/architecture.html" class="btn">Architecture</a>
+      <a href="#mission" class="btn btn-ghost" style="background:transparent;">Read the brief</a>
+    </div>
+
+    <!-- —— Meta strip —— -->
+    <div class="hero-meta">
+      <div class="cell">
+        <div class="label">// Window</div>
+        <div class="value">May 09 → Jun 10</div>
+        <div class="sub">32 days · submissions open final week</div>
+      </div>
+      <div class="cell">
+        <div class="label">// Countdown to submissions</div>
+        <div class="value" id="countdown">—</div>
+        <div class="sub">opens Jun 03, 2026 · 00:00 UTC</div>
+      </div>
+      <div class="cell">
+        <div class="label">// Team size</div>
+        <div class="value">≤ 3 engineers</div>
+        <div class="sub">solo entries welcome</div>
+      </div>
+      <div class="cell">
+        <div class="label">// Difficulty</div>
+        <div class="value" style="color: var(--alert);">[ HARDCORE ]</div>
+        <div class="sub">not a demo-to-win event</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     D. MISSION (terminal-styled brief)
+===================================================================== -->
+<section id="mission">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">01 / Mission</span>
+        <h2 style="margin-top: var(--s-3);">The brief, exactly.</h2>
+      </div>
+      <p class="section-lede">
+        At IICPC, we champion hardcore engineering excellence. Read this
+        terminal carefully — the platform you build evaluates everyone
+        else's platform. Recursion is the point.
+      </p>
+    </div>
+
+    <!-- Terminal-style brief block.
+         The .ln rows fake a code editor. To edit the brief, change
+         the text inside .ln blocks; line numbers are decorative only. -->
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="title">~ / iicpc / brief.md</div>
+        <div style="margin-left:auto; font-size:11px; color: var(--text-dim);">read-only</div>
+      </div>
+      <div class="terminal-body">
+        <div class="ln"><span class="num">01</span><span><span class="com"># OBJECTIVE</span></span></div>
+        <div class="ln"><span class="num">02</span><span><span class="prompt">$</span> Architect and build a <span class="hl">Distributed Benchmarking &amp; Hosting Platform</span> designed to evaluate contestant-submitted trading infrastructure.</span></div>
+        <div class="ln"><span class="num">03</span><span>&nbsp;</span></div>
+        <div class="ln"><span class="num">04</span><span><span class="com"># PIPELINE</span></span></div>
+        <div class="ln"><span class="num">05</span><span><span class="key">upload</span>  → contestants push a simulated <span class="str">"orderbook"</span> or <span class="str">"matching engine"</span> (C++, Rust, Go).</span></div>
+        <div class="ln"><span class="num">06</span><span><span class="key">isolate</span> → your platform containerises the binary, pins CPU, caps memory, denies syscalls.</span></div>
+        <div class="ln"><span class="num">07</span><span><span class="key">expose</span>  → predefined REST / WebSocket / FIX endpoints surface to a private mesh.</span></div>
+        <div class="ln"><span class="num">08</span><span><span class="key">attack</span>  → spawn a fleet of <span class="hl">distributed bots</span> simulating peak market volatility.</span></div>
+        <div class="ln"><span class="num">09</span><span><span class="key">measure</span> → capture granular telemetry. p50 / p90 / p99. TPS. correctness.</span></div>
+        <div class="ln"><span class="num">10</span><span><span class="key">rank</span>    → stream a composite score to a live leaderboard.</span></div>
+        <div class="ln"><span class="num">11</span><span>&nbsp;</span></div>
+        <div class="ln"><span class="num">12</span><span><span class="com"># NON-NEGOTIABLE</span></span></div>
+        <div class="ln"><span class="num">13</span><span>You may pick any stack. You may use AI.</span></div>
+        <div class="ln"><span class="num">14</span><span>You <span class="hl">must</span> defend every architectural decision: throughput, isolation, scale.</span></div>
+        <div class="ln"><span class="num">15</span><span>&nbsp;</span></div>
+        <div class="ln"><span class="num">16</span><span><span class="prompt">$</span> <span style="color:var(--accent);">echo</span> <span class="str">"this is not a demo-to-win event."</span></span></div>
+        <div class="ln"><span class="num">17</span><span><span style="color:var(--text-dim);">▌</span></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     E. ARCHITECTURE COMPONENTS — 4 required subsystems
+     ---------------------------------------------------------------------
+     Pulled directly from the brief. Each card is its own micro-spec
+     so the user can see the surface area at a glance.
+===================================================================== -->
+<section id="components">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">02 / Architecture</span>
+        <h2 style="margin-top: var(--s-3);">Four subsystems.<br/>One contract.</h2>
+      </div>
+      <p class="section-lede">
+        Your solution must encompass these components. Decoupled,
+        concurrent, resilient. Communication protocols, data stores, and
+        isolation strategies are yours to choose — and yours to defend.
+      </p>
+    </div>
+
+    <div class="components">
+      <!-- ── Component 01 — Sandboxing ─────────────────────────────── -->
+      <div class="component">
+        <div class="index">
+          <span>// 01 · ingestion</span>
+          <span class="tags"><span>docker</span><span>cgroups</span><span>seccomp</span></span>
+        </div>
+        <h3>Submission &amp; Sandboxing Engine</h3>
+        <p>
+          A secure pipeline where contestants upload binaries or source
+          (C++, Rust, Go). Containerise and deploy submissions in
+          strictly isolated environments. Malicious code stays caged;
+          fair contestants get fair resource budgets.
+        </p>
+        <ul>
+          <li>CPU pinning &amp; strict memory caps per submission</li>
+          <li>Filesystem + network namespace isolation</li>
+          <li>Reproducible build pipeline, signed artefacts</li>
+          <li>Hot-swap deploy with zero-downtime rollover</li>
+        </ul>
+      </div>
+
+      <!-- ── Component 02 — Load Generator ─────────────────────────── -->
+      <div class="component">
+        <div class="index">
+          <span>// 02 · load</span>
+          <span class="tags"><span>fix</span><span>ws</span><span>rest</span></span>
+        </div>
+        <h3>Distributed Load Generator</h3>
+        <p>
+          The engine. A scalable traffic-generation service capable of
+          spawning thousands of distributed bots simulating diverse
+          market participants — high-velocity Limit Orders, Market
+          Orders, Cancels — slamming the contestant's endpoints.
+        </p>
+        <ul>
+          <li>Horizontally scalable bot orchestration</li>
+          <li>Pluggable strategies: makers, takers, sniffers, cancels</li>
+          <li>Deterministic seeds for reproducible runs</li>
+          <li>Wire-level fidelity for FIX / gRPC / WebSocket</li>
+        </ul>
+      </div>
+
+      <!-- ── Component 03 — Telemetry ──────────────────────────────── -->
+      <div class="component">
+        <div class="index">
+          <span>// 03 · telemetry</span>
+          <span class="tags"><span>kafka</span><span>timescale</span><span>otel</span></span>
+        </div>
+        <h3>Telemetry &amp; Validation Ingester</h3>
+        <p>
+          A low-latency tracking system monitoring every interaction
+          between bot fleet and contestant exchange. Measure the truth,
+          not vibes.
+        </p>
+        <ul>
+          <li>Latency: p50 / p90 / p99 acknowledgment time</li>
+          <li>Throughput: peak TPS sustained before failure</li>
+          <li>Correctness: price-time priority &amp; fill validation</li>
+          <li>Streamed to the metrics bus, durable on disk</li>
+        </ul>
+      </div>
+
+      <!-- ── Component 04 — Leaderboard ───────────────────────────── -->
+      <div class="component">
+        <div class="index">
+          <span>// 04 · ranking</span>
+          <span class="tags"><span>websocket</span><span>redis</span><span>react</span></span>
+        </div>
+        <h3>Real-Time Leaderboard &amp; Analytics</h3>
+        <p>
+          A frontend interface streaming live metrics from ongoing
+          stress tests. Dynamic ranking on a composite score of speed,
+          stability, and algorithmic accuracy. The mock below is what
+          your panel could look like.
+        </p>
+        <ul>
+          <li>Sub-second update latency on score deltas</li>
+          <li>Drill-down per-team telemetry &amp; replay</li>
+          <li>Public read-only board + private judge view</li>
+          <li>Composite score: speed × stability × correctness</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     F. LIVE LEADERBOARD MOCKUP
+     ---------------------------------------------------------------------
+     Animated mock. Numbers are generated/ticked in JS (§13).
+     The whole block is presentational — replace with a real WS feed
+     when the platform exists.
+===================================================================== -->
+<section id="leaderboard">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">03 / Live Mock</span>
+        <h2 style="margin-top: var(--s-3);">What "real-time scoring"<br/><span style="color:var(--text-dim);font-style:italic;">actually feels like.</span></h2>
+      </div>
+      <p class="section-lede">
+        A simulated stress run. Every cell ticks. Every position
+        re-shuffles. This is the bar — your leaderboard should read
+        as truthfully as a market tape.
+      </p>
+    </div>
+
+    <div class="lb">
+      <!-- Main: leaderboard table -->
+      <div class="lb-main">
+        <div class="lb-head">
+          <h4>// stress.run.0042 · top 8</h4>
+          <span class="live">streaming</span>
+        </div>
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Team</th>
+              <th class="r">p50</th>
+              <th class="r">p99</th>
+              <th class="r">TPS</th>
+              <th class="r">err</th>
+              <th class="r">Score</th>
+            </tr>
+          </thead>
+          <tbody id="lb-body">
+            <!-- Rows are rendered by JS in §13 -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Side: KPIs + mini order book -->
+      <div class="lb-side">
+        <div class="metric">
+          <div class="l">// orders processed</div>
+          <div class="v" id="m-orders">0<small>orders</small></div>
+          <div class="bar" id="m-orders-bar">
+            <span style="height: 30%"></span><span style="height: 50%"></span>
+            <span style="height: 65%"></span><span style="height: 45%"></span>
+            <span style="height: 75%"></span><span style="height: 88%"></span>
+            <span style="height: 70%"></span><span style="height: 95%"></span>
+            <span style="height: 100%"></span><span style="height: 82%"></span>
+            <span style="height: 90%"></span><span style="height: 78%"></span>
+          </div>
+        </div>
+
+        <div class="metric">
+          <div class="l">// active bot fleet</div>
+          <div class="v" id="m-bots">0<small>nodes</small></div>
+          <div class="bar" id="m-bots-bar">
+            <span style="height: 20%"></span><span style="height: 40%"></span>
+            <span style="height: 55%"></span><span style="height: 70%"></span>
+            <span style="height: 65%"></span><span style="height: 80%"></span>
+            <span style="height: 95%"></span><span style="height: 88%"></span>
+            <span style="height: 92%"></span><span style="height: 100%"></span>
+            <span style="height: 90%"></span><span style="height: 85%"></span>
+          </div>
+        </div>
+
+        <div class="metric book">
+          <h5>// orderbook · ETHX-USD · L5</h5>
+          <div id="book"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     G. TIMELINE — 5 phases across the 32-day window
+===================================================================== -->
+<section id="timeline">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">04 / Schedule</span>
+        <h2 style="margin-top: var(--s-3);">32 days. Five phases.</h2>
+      </div>
+      <p class="section-lede">
+        Submissions open in the final week. Use the early phases to
+        build, the middle to harden, the last to ship something that
+        won't fall over under load.
+      </p>
+    </div>
+
+    <div class="timeline">
+      <div class="tl-step active">
+        <div class="date"><span>May 09</span><span class="stamp">NOW</span></div>
+        <h4>Kickoff &amp; team formation</h4>
+        <p>Brief drops. Discord opens. Form teams of up to 3.</p>
+      </div>
+      <div class="tl-step">
+        <div class="date"><span>May 10–22</span><span>Wk 01–02</span></div>
+        <h4>Architecture sprint</h4>
+        <p>Ship the blueprint. Wire submission ingest, sandbox, mesh.</p>
+      </div>
+      <div class="tl-step">
+        <div class="date"><span>May 23–Jun 02</span><span>Wk 03</span></div>
+        <h4>Load &amp; telemetry</h4>
+        <p>Bot fleet, metrics ingest, stream to leaderboard.</p>
+      </div>
+      <div class="tl-step">
+        <div class="date"><span>Jun 03–09</span><span>Wk 04</span></div>
+        <h4>Submissions open</h4>
+        <p>Live stress runs. Public leaderboard. IaC review.</p>
+      </div>
+      <div class="tl-step">
+        <div class="date"><span>Jun 10</span><span class="stamp">FINAL</span></div>
+        <h4>Judging &amp; awards</h4>
+        <p>Architecture defence. Composite score locks. Winners ship.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     H. DELIVERABLES
+===================================================================== -->
+<section id="deliverables">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">05 / Deliverables</span>
+        <h2 style="margin-top: var(--s-3);">What you ship.</h2>
+      </div>
+      <p class="section-lede">
+        Three artefacts. All required. Anything less reads as a demo —
+        and demos do not win this hackathon.
+      </p>
+    </div>
+
+    <div class="deliverables">
+      <article class="del">
+        <div class="num">// DELIVERABLE 01</div>
+        <h4>Working infrastructure prototype</h4>
+        <p>
+          End-to-end pipeline: code upload → containerised deployment →
+          distributed load testing → real-time scoring. Live, observable,
+          reproducible.
+        </p>
+        <div class="stack">
+          <span>upload</span><span>sandbox</span><span>mesh</span>
+          <span>load-gen</span><span>telemetry</span><span>scoring</span>
+        </div>
+      </article>
+
+      <article class="del">
+        <div class="num">// DELIVERABLE 02</div>
+        <h4>Architecture blueprint</h4>
+        <p>
+          A system design doc detailing microservices, inter-service
+          protocols (gRPC, Kafka/Redpanda), data stores
+          (TimescaleDB, Redis), and isolation strategies.
+        </p>
+        <div class="stack">
+          <span>diagrams</span><span>protocols</span><span>data-stores</span>
+          <span>isolation</span><span>SLOs</span>
+        </div>
+      </article>
+
+      <article class="del">
+        <div class="num">// DELIVERABLE 03</div>
+        <h4>Infrastructure as Code</h4>
+        <p>
+          Automated deploy: Terraform, K8s manifests, or Swarm configs.
+          Prove the platform spins up, configures, and scales horizontally
+          in a real cloud environment.
+        </p>
+        <div class="stack">
+          <span>terraform</span><span>k8s</span><span>helm</span>
+          <span>ci/cd</span><span>observability</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     I. RULES (4-up grid of constraints)
+===================================================================== -->
+<section id="rules">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">06 / Rules</span>
+        <h2 style="margin-top: var(--s-3);">Constraints.</h2>
+      </div>
+      <p class="section-lede">
+        Short list. Tight bounds. Treat them as part of the system spec —
+        the platform you build must respect them too.
+      </p>
+    </div>
+
+    <div class="rules">
+      <div class="rule">
+        <div class="k">// team_size</div>
+        <div class="v">≤ 3</div>
+        <p>Up to three engineers per team. Solo entries welcome and judged the same.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// stack</div>
+        <div class="v">FREE</div>
+        <p>Pick any language, framework, or cloud. Defend every choice.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// AI_tooling</div>
+        <div class="v">ALLOWED</div>
+        <p>Use AI freely. We grade the architecture, not the keystrokes.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// scope</div>
+        <div class="v">SYSTEMS</div>
+        <p>UI polish is irrelevant if the system can't survive load.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// submissions</div>
+        <div class="v">WK 04</div>
+        <p>Submissions open Jun 03 → Jun 10. Stress runs are continuous during this window.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// scoring</div>
+        <div class="v">COMPOSITE</div>
+        <p>Speed × stability × correctness. No single metric wins alone.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// isolation</div>
+        <div class="v">STRICT</div>
+        <p>CPU pinning + memory caps + namespace isolation are not optional.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// vibes</div>
+        <div class="v" style="color: var(--alert);">REJECTED</div>
+        <p>This is not a demo-to-win hackathon. Bring numbers.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     J. FAQ
+===================================================================== -->
+<section id="faq">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">07 / FAQ</span>
+        <h2 style="margin-top: var(--s-3);">Common questions.</h2>
+      </div>
+      <p class="section-lede">
+        Asked enough times that we wrote them down. If yours isn't here,
+        ask in the IICPC Discord — the org channel is the source of truth.
+      </p>
+    </div>
+
+    <div class="faq">
+      <details open>
+        <summary>Who is this hackathon for?</summary>
+        <p>Top-tier systems engineers, competitive programmers, and algorithmic thinkers. If "p99 latency" is part of your vocabulary and "horizontal scaling" doesn't make you flinch, you're in the right place.</p>
+      </details>
+      <details>
+        <summary>Can I solo this?</summary>
+        <p>Yes. Teams cap at 3 members but solo entries are welcome and judged on the same rubric. You will, however, sleep less.</p>
+      </details>
+      <details>
+        <summary>Which languages can the platform accept submissions in?</summary>
+        <p>Your platform must accept binaries or source for at minimum C++, Rust, and Go. Anything beyond that is a bonus — and a defendable one in the architecture review.</p>
+      </details>
+      <details>
+        <summary>Is using AI allowed?</summary>
+        <p>Yes. Use any AI tooling you like. We grade the resulting architecture, the resilience of the system, and the rigour of your decisions — not whether your fingers typed every character.</p>
+      </details>
+      <details>
+        <summary>How is scoring computed?</summary>
+        <p>A composite of three signals: <span class="mono">speed</span> (latency &amp; throughput), <span class="mono">stability</span> (failure modes under load), and <span class="mono">correctness</span> (price-time priority + fill accuracy). Weights are published with the submission portal.</p>
+      </details>
+      <details>
+        <summary>Do we need real cloud infrastructure?</summary>
+        <p>You need IaC that proves your platform <em>can</em> spin up and scale on a real cloud. A local K8s cluster + Terraform plan against a real provider is fine; a docker-compose with no scaling story is not.</p>
+      </details>
+      <details>
+        <summary>What happens if my code is malicious?</summary>
+        <p>It shouldn't be. The platform you're building specifically prevents that for incoming contestant code — sandboxing is a graded component. Submissions found attempting sandbox escape are disqualified.</p>
+      </details>
+      <details>
+        <summary>When do submissions open?</summary>
+        <p>The final week — June 3 to June 10, 2026. The earlier phases are for building and hardening your own platform; the final week is the live stress-test gauntlet.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     K. CTA + REGISTER
+===================================================================== -->
+<section id="register" style="border-bottom: 0;">
+  <div class="wrap">
+    <div class="cta">
+      <span class="eyebrow" style="margin-bottom: var(--s-5);">// final · register</span>
+      <h2>Ship the platform that<br /><em>scores everyone else's.</em></h2>
+      <p>
+        Registration is open. The clock is running. May 09 → June 10, 2026.
+        Three engineers, one stack, one chance to prove your system holds.
+      </p>
+      <div class="actions">
+        <a href="platform/dashboard.html" class="btn btn-primary">Enter platform <span class="arrow">→</span></a>
+        <a href="platform/submit.html" class="btn">Submit your engine</a>
+        <a href="platform/leaderboard.html" class="btn">View leaderboard</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     L. FOOTER
+===================================================================== -->
+<footer>
+  <div class="wrap footer-inner">
+    <div>© 2026 IICPC · Summer Hackathon · v2026.05</div>
+    <div style="display:flex; gap: var(--s-5);">
+      <a href="#">code of conduct</a>
+      <a href="#">privacy</a>
+      <a href="#">discord</a>
+      <a href="#">github</a>
+    </div>
+  </div>
+</footer>
+
+<!-- =====================================================================
+     13. JAVASCRIPT
+     ---------------------------------------------------------------------
+     Three small things, no framework:
+       1. Countdown to submissions opening (Jun 3, 2026 UTC)
+       2. Live-feeling leaderboard (renders rows + ticks numbers)
+       3. Mini orderbook depth bars
+     All numbers are mocked; replace with a real WS feed later.
+===================================================================== -->
+<script>
+/* ── 13.1 · Countdown ─────────────────────────────────────────────── */
+(function countdown() {
+  // Submissions open: 2026-06-03 00:00 UTC
+  // To change the target, edit the Date.UTC arguments below.
+  const target = Date.UTC(2026, 5, 3, 0, 0, 0); // months are 0-indexed, so 5 = June
+  const el = document.getElementById('countdown');
+  if (!el) return;
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function tick() {
+    const now = Date.now();
+    const diff = Math.max(0, target - now);
+    const days = Math.floor(diff / 86400000);
+    const hrs  = Math.floor((diff % 86400000) / 3600000);
+    const min  = Math.floor((diff % 3600000) / 60000);
+    const sec  = Math.floor((diff % 60000) / 1000);
+    el.textContent = `${pad(days)}d ${pad(hrs)}h ${pad(min)}m ${pad(sec)}s`;
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+
+/* ── 13.2 · Live-feeling leaderboard ───────────────────────────────
+     - leaderboardData is the source of truth.
+     - render() lays the rows in current rank order.
+     - tick() perturbs metrics, recalculates score, resorts, and flashes
+       any rows that moved ranks.
+     - Every team has slightly different latency volatility so the
+       motion looks organic, not random.
+─────────────────────────────────────────────────────────────────── */
+const leaderboardData = [
+  // Edit here to change displayed team list. score is computed.
+  { team: 'parity-bit',     handle: 'tokyo · 3p',  p50: 18, p99: 142, tps: 2_410_000, err: 0.002, vol: 6 },
+  { team: 'cache-warmers',  handle: 'berlin · 2p', p50: 21, p99: 168, tps: 2_180_000, err: 0.005, vol: 8 },
+  { team: 'fix-or-die',     handle: 'london · 3p', p50: 24, p99: 195, tps: 1_980_000, err: 0.004, vol: 7 },
+  { team: 'lockfree.lol',   handle: 'nyc · 1p',    p50: 27, p99: 210, tps: 1_820_000, err: 0.011, vol: 12 },
+  { team: 'hot-path',       handle: 'sf · 3p',     p50: 31, p99: 245, tps: 1_640_000, err: 0.008, vol: 9 },
+  { team: 'epoch.gg',       handle: 'singapore · 2p', p50: 35, p99: 282, tps: 1_510_000, err: 0.014, vol: 11 },
+  { team: 'rdtsc-rd',       handle: 'mumbai · 3p', p50: 41, p99: 318, tps: 1_390_000, err: 0.019, vol: 13 },
+  { team: 'numa-aware',     handle: 'amsterdam · 2p', p50: 48, p99: 360, tps: 1_240_000, err: 0.022, vol: 15 },
+];
+
+// Composite score: lower latency + higher TPS + lower error = better.
+// Formula is illustrative — edit weights to match your real scoring.
+function score(t) {
+  const speed       = 100000 / (t.p50 + t.p99);     // weighted toward tail latency
+  const throughput  = t.tps / 30000;                // ~80 max
+  const correctness = (1 - t.err) * 50;             // ~50 max
+  return Math.round(speed + throughput + correctness);
+}
+
+const lbBody = document.getElementById('lb-body');
+let prevOrder = []; // tracks last render order so we can flash movers
+
+function render() {
+  // Sort descending by score
+  leaderboardData.sort((a, b) => score(b) - score(a));
+
+  const html = leaderboardData.map((t, i) => {
+    const moved = prevOrder[i] && prevOrder[i] !== t.team;
+    return `
+      <tr class="${moved ? 'flash' : ''}">
+        <td class="rank mono">${String(i + 1).padStart(2, '0')}</td>
+        <td>
+          <div class="team">${t.team}</div>
+          <div class="meta mono">${t.handle}</div>
+        </td>
+        <td class="r ${t.p50 < 30 ? 'lat-good' : ''}">${t.p50}µs</td>
+        <td class="r ${t.p99 < 200 ? 'lat-good' : 'lat-bad'}">${t.p99}µs</td>
+        <td class="r">${(t.tps / 1000).toFixed(0)}k</td>
+        <td class="r ${t.err > 0.015 ? 'lat-bad' : ''}">${(t.err * 100).toFixed(2)}%</td>
+        <td class="r score">${score(t)}</td>
+      </tr>`;
+  }).join('');
+  lbBody.innerHTML = html;
+
+  prevOrder = leaderboardData.map(t => t.team);
+}
+
+function tick() {
+  // Perturb each team's metrics by a small random delta.
+  // .vol controls how jumpy each team's metrics are.
+  for (const t of leaderboardData) {
+    t.p50 = Math.max(10, t.p50 + (Math.random() - 0.5) * t.vol * 0.4);
+    t.p99 = Math.max(t.p50 + 30, t.p99 + (Math.random() - 0.5) * t.vol * 1.2);
+    t.tps = Math.max(800_000, t.tps + (Math.random() - 0.5) * 80_000);
+    t.err = Math.max(0, Math.min(0.05, t.err + (Math.random() - 0.5) * 0.005));
+    // Round display values
+    t.p50 = +t.p50.toFixed(0);
+    t.p99 = +t.p99.toFixed(0);
+    t.tps = +t.tps.toFixed(0);
+  }
+  render();
+}
+render();
+setInterval(tick, 1800);
+
+/* ── 13.3 · Side metrics (orders processed + bot fleet count) ─────── */
+const mOrders = document.getElementById('m-orders');
+const mBots   = document.getElementById('m-bots');
+const ordersBar = document.getElementById('m-orders-bar');
+const botsBar   = document.getElementById('m-bots-bar');
+let ordersTotal = 18_400_000; // running counter
+let botsActive  = 9842;
+
+function fmt(n) {
+  // Compact human format: 1.2M, 9.8K, etc.
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B ';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M ';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K ';
+  return n.toString() + ' ';
+}
+
+function tickSide() {
+  ordersTotal += Math.floor(Math.random() * 90_000 + 60_000);
+  botsActive  += Math.floor((Math.random() - 0.45) * 80);
+  botsActive  = Math.max(8000, Math.min(10500, botsActive));
+
+  mOrders.innerHTML = fmt(ordersTotal) + '<small>orders</small>';
+  mBots.innerHTML   = botsActive.toLocaleString() + '<small>nodes</small>';
+
+  // Animate the bar heights
+  for (const bar of [ordersBar, botsBar]) {
+    [...bar.children].forEach(b => {
+      const h = 30 + Math.random() * 70;
+      b.style.height = h + '%';
+    });
+  }
+}
+tickSide();
+setInterval(tickSide, 1200);
+
+/* ── 13.4 · Mini orderbook ─────────────────────────────────────────
+     Builds 5 ask + 5 bid levels around a midpoint. Sizes randomise
+     each tick. The depth bars are inline-styled widths.
+─────────────────────────────────────────────────────────────────── */
+const bookEl = document.getElementById('book');
+let mid = 3142.50;
+
+function renderBook() {
+  // Walk +5 ticks for asks, -5 for bids. Tick = 0.25.
+  const tick = 0.25;
+  const asks = [];
+  const bids = [];
+  let cumAsk = 0, cumBid = 0;
+  for (let i = 5; i >= 1; i--) {
+    const px = (mid + tick * i).toFixed(2);
+    const sz = +(Math.random() * 18 + 2).toFixed(2);
+    cumAsk += sz;
+    asks.push({ px, sz, tot: cumAsk.toFixed(1) });
+  }
+  for (let i = 1; i <= 5; i++) {
+    const px = (mid - tick * i).toFixed(2);
+    const sz = +(Math.random() * 18 + 2).toFixed(2);
+    cumBid += sz;
+    bids.push({ px, sz, tot: cumBid.toFixed(1) });
+  }
+  const maxTot = Math.max(cumAsk, cumBid);
+
+  const askRows = asks.map(r => `
+    <div class="book-row ask" style="--depth: ${(r.tot / maxTot * 100).toFixed(0)}%;">
+      <span class="px">${r.px}</span>
+      <span class="sz">${r.sz}</span>
+      <span class="tot">${r.tot}</span>
+    </div>`).join('');
+  const bidRows = bids.map(r => `
+    <div class="book-row bid" style="--depth: ${(r.tot / maxTot * 100).toFixed(0)}%;">
+      <span class="px">${r.px}</span>
+      <span class="sz">${r.sz}</span>
+      <span class="tot">${r.tot}</span>
+    </div>`).join('');
+
+  bookEl.innerHTML =
+    askRows +
+    `<div class="book-mid">— mid · ${mid.toFixed(2)} —</div>` +
+    bidRows;
+
+  // Apply depth bar widths via inline ::before width hack:
+  // We can't style ::before width from JS, so instead we set the
+  // background gradient per row using inline style.
+  const rows = bookEl.querySelectorAll('.book-row');
+  rows.forEach(r => {
+    const depth = r.style.getPropertyValue('--depth');
+    const isBid = r.classList.contains('bid');
+    const color = isBid ? 'oklch(78% 0.17 145 / 0.18)' : 'oklch(68% 0.20 25 / 0.18)';
+    if (isBid) {
+      r.style.background = `linear-gradient(to right, ${color} ${depth}, transparent ${depth})`;
+    } else {
+      r.style.background = `linear-gradient(to left, ${color} ${depth}, transparent ${depth})`;
+    }
+  });
+}
+
+function tickBook() {
+  mid += (Math.random() - 0.5) * 0.5;
+  renderBook();
+}
+renderBook();
+setInterval(tickBook, 1500);
+</script>
+</body>
+</html>

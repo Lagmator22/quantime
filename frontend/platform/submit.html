@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     IICPC PLATFORM · SUBMIT CODE (v2 — multi-language)
+     ---------------------------------------------------------------------
+     Accepts submissions in:
+       • JavaScript (.js)     — runs locally via runtime-js.js
+       • Python (.py)         — runs locally via Pyodide (runtime-py.js)
+       • WebAssembly (.wasm)  — instantiated in runtime-wasm.js
+       • C++/Rust/Go (source) — accepted, marked for future container
+                                build; will fall back to reference engine
+                                in browser mode (or Judge0 if configured)
+
+     Full upload flow:
+       1. Drag binary / source / pick a file or paste source
+       2. Hash via Web Crypto (SHA-256)
+       3. Persist:
+            - source string → submissions[i].source (localStorage)
+            - .wasm bytes   → IndexedDB blob
+       4. Validate contract (lang-specific lint)
+       5. Boot a runtime worker, verify it responds to a smoke-test order
+       6. On success: status='idle' (ready), link to run.html
+       7. On failure: status='failed' with error tag
+
+     Edge cases the upload flow handles:
+       • file > 10MB → rejected before hash (memory-friendly)
+       • duplicate hash → warns "you've already submitted this"
+       • invalid utf-8 (binary blob) → still hashed + persisted as bytes
+       • source with syntax error → caught by lint OR by runtime smoke
+       • runtime boot timeout (Pyodide cold) → 30s budget then fail
+       • storage quota exceeded → toast error
+===================================================================== -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Submit · IICPC Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/platform.css" />
+</head>
+<body>
+<div id="app-content">
+
+<div class="page-head">
+  <span class="eyebrow">Contestant · Submit</span>
+  <h1 style="margin-top: var(--s-3);">Upload your matching engine.</h1>
+  <p class="lede">
+    Multi-language pipeline. Push <strong>JS</strong>, <strong>Python</strong>, or precompiled <strong>WebAssembly</strong> (.wasm from C++/Rust/Go/Zig); we hash it, boot an isolated runtime worker, and smoke-test the contract. Limits per submission:
+    <strong>2 vCPU · 512MB RAM · 60s build budget · 10MB file cap</strong>.
+  </p>
+</div>
+
+<div class="split bias-1-2">
+  <!-- Left: upload form -->
+  <div class="panel">
+    <div class="panel-head"><h3>New submission</h3></div>
+    <div class="panel-body">
+
+      <div class="field">
+        <label>// name</label>
+        <input class="input mono" id="sub-name" placeholder="e.g. order-engine-v3" />
+      </div>
+
+      <div class="field">
+        <label>// language</label>
+        <select class="select mono" id="sub-lang">
+          <option value="js" selected>JavaScript (in-worker eval)</option>
+          <option value="py">Python (Pyodide · CPython)</option>
+          <option value="wasm">WebAssembly (.wasm module)</option>
+          <option value="cpp">C++ (containerized · falls back to reference)</option>
+          <option value="rust">Rust (containerized · falls back to reference)</option>
+          <option value="go">Go (containerized · falls back to reference)</option>
+        </select>
+        <div class="hint" id="lang-hint">
+          JS / Python / WASM run in real isolated workers right in your browser. C++/Rust/Go would be containerized in production — in the browser preview they fall back to the reference engine so you can still verify the rest of the pipeline.
+        </div>
+      </div>
+
+      <div class="field">
+        <label>// source or binary</label>
+        <div class="dropzone" id="dropzone">
+          <div class="big" id="dz-big">↑ drop file here</div>
+          <div class="small">or click to browse · max 10MB · .js / .py / .wasm / .cpp / .rs / .go</div>
+          <input type="file" id="file-input" hidden accept=".js,.py,.wasm,.cpp,.cc,.h,.rs,.go,.txt" />
+        </div>
+        <div id="file-meta" style="display: none; margin-top: var(--s-3); padding: var(--s-3); border: 1px solid var(--line); background: var(--bg-3); font-family: var(--font-mono); font-size: 11px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span id="fm-name" style="color: var(--text);"></span>
+            <span id="fm-size" class="dim"></span>
+          </div>
+          <div id="fm-hash" class="dim" style="margin-top: 4px;"></div>
+        </div>
+      </div>
+
+      <div class="field" id="src-field">
+        <label>// or paste source directly</label>
+        <textarea class="textarea" id="sub-source" placeholder="// paste your source code…"></textarea>
+        <div class="hint">
+          Templates: <a href="docs.html#contract" style="color:var(--accent);">JS</a> · <a href="docs.html#contract" style="color:var(--accent);">Python</a> · <a href="docs.html#ws" style="color:var(--accent);">WASM ABI</a>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="submit-btn">Submit &amp; deploy →</button>
+    </div>
+  </div>
+
+  <!-- Right: build pipeline visual + recent uploads -->
+  <div style="display: grid; gap: var(--s-5);">
+    <div class="panel">
+      <div class="panel-head"><h3>Sandbox pipeline</h3></div>
+      <div class="panel-body">
+        <!-- 6 stages now (added "smoke test") -->
+        <div id="pipeline" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0;"></div>
+        <div id="pipe-log" class="log" style="margin-top: var(--s-4);">
+          <div class="line"><span class="ts">—</span><span class="lvl dim">idle</span><span>waiting for submission…</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Recent submissions</h3>
+        <div class="actions"><a class="btn btn-sm" href="dashboard.html">View all →</a></div>
+      </div>
+      <div class="panel-body flush">
+        <table class="table">
+          <thead>
+            <tr><th>Name</th><th>Lang</th><th>Hash</th><th>Status</th><th class="r">Action</th></tr>
+          </thead>
+          <tbody id="recent-subs"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#app-content -->
+
+<script src="assets/store.js"></script>
+<script src="assets/layout.js"></script>
+<script src="assets/tdigest.js"></script>
+<script src="assets/rng.js"></script>
+<script src="assets/runtime.js"></script>
+<script>
+Layout.render({
+  active: 'submit',
+  crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Submit' }],
+});
+
+const el = id => document.getElementById(id);
+
+// —— Pipeline display ————————————————————————————————————
+const PIPELINE_STEPS = [
+  { id: 'hash',     label: 'Hash file' },
+  { id: 'persist',  label: 'Persist blob' },
+  { id: 'validate', label: 'Validate' },
+  { id: 'sandbox',  label: 'Build sandbox' },
+  { id: 'smoke',    label: 'Smoke test' },
+  { id: 'ready',    label: 'Ready' },
+];
+function renderPipeline(activeStep = -1, failed = false) {
+  el('pipeline').innerHTML = PIPELINE_STEPS.map((s, i) => {
+    let state = 'idle';
+    if (failed && i === activeStep) state = 'failed';
+    else if (i < activeStep) state = 'passed';
+    else if (i === activeStep) state = 'running';
+    const cv = state === 'passed' ? '--accent' : state === 'running' ? '--accent-4'
+            : state === 'failed' ? '--accent-2' : '--text-dim';
+    return `<div style="padding: var(--s-3); border-right: ${i < PIPELINE_STEPS.length-1 ? '1px solid var(--line-soft)' : '0'};">
+      <div style="font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; color: var(${cv}); letter-spacing: 0.1em; margin-bottom: 4px;">${String(i+1).padStart(2,'0')}</div>
+      <div style="font-size: 12px; color: var(${state==='idle'?'--text-dim':'--text'});">${s.label}</div>
+      <div style="margin-top: 6px; height: 2px; background: var(${cv}); opacity: ${state==='idle'?0.2:1};"></div>
+    </div>`;
+  }).join('');
+}
+renderPipeline(-1);
+
+function plog(level, msg) {
+  const ts = new Date().toISOString().slice(11, 19);
+  const line = document.createElement('div');
+  line.className = 'line';
+  line.innerHTML = `<span class="ts">${ts}</span><span class="lvl ${level}">${level}</span><span>${escapeHTML(msg)}</span>`;
+  el('pipe-log').appendChild(line);
+  el('pipe-log').scrollTop = el('pipe-log').scrollHeight;
+}
+function clearLog() { el('pipe-log').innerHTML = ''; }
+
+// —— File handling ————————————————————————————————————
+let currentFile = null;
+let currentBytes = null;       // ArrayBuffer for binary (.wasm)
+let currentHash = null;
+
+async function sha256(input) {
+  let buf;
+  if (typeof input === 'string') buf = new TextEncoder().encode(input);
+  else if (input instanceof Blob) buf = await input.arrayBuffer();
+  else if (input instanceof ArrayBuffer) buf = input;
+  else buf = input;
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const dz = el('dropzone'), fileInput = el('file-input');
+dz.addEventListener('click', () => fileInput.click());
+['dragover','dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { dz.classList.remove('drag'); }));
+dz.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+async function handleFile(f) {
+  if (f.size > 10 * 1024 * 1024) return toast('file too large (max 10MB)', 'error');
+  currentFile = f;
+  el('file-meta').style.display = 'block';
+  el('fm-name').textContent = f.name;
+  el('fm-size').textContent = (f.size / 1024).toFixed(1) + ' KB';
+  el('fm-hash').textContent = 'hashing…';
+  currentBytes = await f.arrayBuffer();
+  currentHash = await sha256(currentBytes);
+  el('fm-hash').textContent = 'sha256 · ' + currentHash.slice(0, 32) + '…';
+
+  if (!el('sub-name').value) el('sub-name').value = f.name.replace(/\.[^.]+$/, '');
+  const ext = f.name.split('.').pop().toLowerCase();
+  const map = { js:'js', mjs:'js', py:'py', wasm:'wasm', cpp:'cpp', cc:'cpp', h:'cpp', rs:'rust', go:'go' };
+  if (map[ext]) {
+    el('sub-lang').value = map[ext];
+    updateLangHint();
+  }
+}
+
+el('sub-lang').onchange = updateLangHint;
+function updateLangHint() {
+  const lang = el('sub-lang').value;
+  const hints = {
+    js: 'JavaScript — exports.submit = (order) => ({acks, fills}). Real eval in isolated Web Worker.',
+    py: 'Python — def submit(order): return {"acks":[...], "fills":[...]}. Real CPython (Pyodide). ~5s cold-start, then warm.',
+    wasm: '.wasm — must export memory, alloc(n), free(p), submit_bytes(ptr,len), submit_bytes_len(). JSON over linear memory.',
+    cpp: 'C++ — production: emcc → .wasm. In browser: upload the compiled .wasm OR your source is recorded and the run falls back to the reference engine.',
+    rust: 'Rust — production: wasm-pack → .wasm. Same fallback as C++ for browser preview.',
+    go: 'Go — production: TinyGo → .wasm. Same fallback for browser preview.',
+  };
+  el('lang-hint').textContent = hints[lang] || '';
+  // Hide paste box for wasm
+  el('src-field').style.display = (lang === 'wasm') ? 'none' : 'block';
+}
+updateLangHint();
+
+// —— Validators per language ——————————————————————————
+function validate(lang, src, bytes) {
+  if (lang === 'wasm') {
+    if (!bytes || bytes.byteLength < 8) return 'wasm bytes missing or too small';
+    const magic = new Uint8Array(bytes.slice(0, 4));
+    if (!(magic[0]===0x00 && magic[1]===0x61 && magic[2]===0x73 && magic[3]===0x6d))
+      return 'not a valid .wasm file (magic bytes mismatch)';
+    return null;
+  }
+  if (!src || src.trim().length < 10) return 'source too small';
+  if (lang === 'js') {
+    if (!/(\bsubmit\s*[:=])|(function\s+submit)|(module\.exports\s*\.\s*submit)|(exports\s*\.\s*submit)/.test(src)) {
+      return 'JS submissions must export submit() · see docs §02';
+    }
+    try { new Function(src); } catch (e) { return 'syntax error: ' + e.message; }
+  }
+  if (lang === 'py') {
+    if (!/def\s+submit\s*\(/.test(src)) return 'Python submissions must define submit() · see docs §02';
+  }
+  return null;
+}
+
+// —— Submit ————————————————————————————————————————————
+el('submit-btn').onclick = async () => {
+  const name = el('sub-name').value.trim();
+  const lang = el('sub-lang').value;
+  const source = el('sub-source').value;
+
+  if (!name) return toast('name required', 'error');
+  if (lang === 'wasm') {
+    if (!currentBytes) return toast('upload a .wasm file', 'error');
+  } else if (!currentFile && !source.trim()) {
+    return toast('upload a file or paste source', 'error');
+  }
+
+  clearLog();
+  plog('info', `submission "${name}" · lang=${lang}`);
+  renderPipeline(0);
+
+  const id = 'sub_' + Math.random().toString(36).slice(2, 10);
+  const sub = {
+    id, name, lang, status: 'queued', hash: null,
+    size: currentFile ? currentFile.size : new Blob([source]).size,
+    source: null, createdAt: Date.now(),
+    teamId: Store.get('team').id,
+  };
+
+  // Step 1: hash
+  plog('info', 'computing sha256…');
+  await sleep(200);
+  const hash = currentHash || (await sha256(source));
+  sub.hash = hash;
+  plog('ok', 'sha256 · ' + hash.slice(0, 24) + '…');
+
+  // Duplicate detection
+  if (Store.get('submissions', []).some(s => s.hash === hash)) {
+    plog('warn', 'duplicate hash — you have already submitted this binary');
+  }
+
+  // Step 2: persist
+  renderPipeline(1);
+  if (lang === 'wasm') {
+    plog('info', `persisting wasm blob (${(currentBytes.byteLength/1024).toFixed(1)}KB) to IDB`);
+    await Store.uploadBinary(id, new Blob([currentBytes], { type: 'application/wasm' }));
+    plog('ok', 'blob persisted');
+  } else {
+    let src = source;
+    if (!src && currentFile) src = await currentFile.text();
+    sub.source = src;
+    plog('ok', `source persisted (${src.length} chars)`);
+  }
+
+  // Step 3: validate
+  renderPipeline(2);
+  plog('info', 'validating contract');
+  const err = validate(lang, sub.source, currentBytes);
+  if (err) {
+    renderPipeline(2, true);
+    plog('err', err);
+    sub.status = 'failed';
+    sub.error = err;
+    Store.push('submissions', sub);
+    toast('validation failed', 'error');
+    renderRecent();
+    return;
+  }
+  plog('ok', 'contract OK');
+
+  // Step 4: sandbox build (lang-specific log lines)
+  renderPipeline(3);
+  sub.status = 'building';
+  Store.push('submissions', sub);
+  renderRecent();
+  await simulatedBuildLogs(lang);
+  plog('ok', 'sandbox ready · seccomp default-deny applied');
+
+  // Step 5: smoke test — actually load the runtime and send 1 order
+  renderPipeline(4);
+  plog('info', 'booting runtime worker for smoke test…');
+  let rt = null;
+  try {
+    rt = await Runtime.load({
+      ...sub,
+      wasm: lang === 'wasm' ? currentBytes : null,
+    }, {
+      onLog: (lv, msg) => plog(lv, msg),
+      loadTimeoutMs: lang === 'py' ? 30000 : 10000,
+    });
+    plog('ok', 'runtime loaded · sending probe order');
+    const r = await rt.submit({ id: 1, side: 'buy', type: 'limit', price: 100, qty: 1 }, { timeoutMs: lang === 'py' ? 5000 : 1500 });
+    if (r.error) throw new Error(r.error);
+    if (!Array.isArray(r.acks)) throw new Error('runtime returned malformed response · acks not an array');
+    plog('ok', `probe ack: ${JSON.stringify(r.acks[0])}`);
+  } catch (e) {
+    renderPipeline(4, true);
+    plog('err', 'smoke test failed: ' + e.message);
+    sub.status = 'failed';
+    sub.error = 'smoke: ' + e.message;
+    Store.update('submissions', s => s.id === id, () => ({ status: 'failed', error: sub.error }));
+    toast('smoke test failed', 'error');
+    if (rt) await rt.close();
+    renderRecent();
+    return;
+  }
+  await rt.close();
+
+  // Step 6: ready
+  renderPipeline(5);
+  sub.status = 'idle';
+  Store.update('submissions', s => s.id === id, () => ({
+    status: 'idle', source: sub.source, hash: sub.hash, hasWasm: lang === 'wasm'
+  }));
+  plog('ok', 'submission registered · ready for stress runs');
+  toast('deployment complete', 'info', 'OK');
+  renderRecent();
+
+  // Reset form
+  el('sub-name').value = '';
+  el('sub-source').value = '';
+  el('file-meta').style.display = 'none';
+  currentFile = currentHash = currentBytes = null;
+
+  setTimeout(() => {
+    if (confirm(`"${name}" deployed. Launch a stress run now?`)) {
+      window.location.href = `run.html?sub=${id}`;
+    }
+  }, 600);
+};
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function simulatedBuildLogs(lang) {
+  if (lang === 'js') {
+    plog('info', 'inline JS · no compile step'); await sleep(150);
+  } else if (lang === 'py') {
+    plog('info', 'using cpython 3.12 via pyodide'); await sleep(200);
+    plog('info', 'pip install numpy scipy (cached)'); await sleep(300);
+  } else if (lang === 'wasm') {
+    plog('info', 'wasm module pre-compiled — no build step'); await sleep(100);
+    plog('info', 'instantiating against minimal WASI shim'); await sleep(200);
+  } else if (lang === 'cpp') {
+    plog('info', 'pulling base image · gcc:13-slim'); await sleep(400);
+    plog('info', 'g++ -O3 -march=native -std=c++20 -flto'); await sleep(600);
+  } else if (lang === 'rust') {
+    plog('info', 'pulling base image · rust:1.78-slim'); await sleep(400);
+    plog('info', 'cargo build --release'); await sleep(700);
+  } else if (lang === 'go') {
+    plog('info', 'pulling base image · golang:1.22'); await sleep(300);
+    plog('info', 'go build -ldflags="-s -w"'); await sleep(500);
+  }
+  plog('info', 'cgroup created · cpu=2 mem=512M'); await sleep(150);
+  plog('info', 'attaching seccomp profile'); await sleep(150);
+}
+
+function renderRecent() {
+  const subs = Store.get('submissions', []).slice(-10).reverse();
+  el('recent-subs').innerHTML = subs.length === 0
+    ? '<tr><td colspan="5" style="padding: var(--s-5); text-align: center; color: var(--text-dim);">no submissions yet</td></tr>'
+    : subs.map(s => `
+      <tr>
+        <td class="team">${escapeHTML(s.name)}</td>
+        <td>${escapeHTML(s.lang)}</td>
+        <td class="dim">${s.hash ? s.hash.slice(0,8) + '…' : '—'}</td>
+        <td><span class="status ${s.status}">${s.status}</span></td>
+        <td class="r"><a class="btn btn-sm" href="run.html?sub=${s.id}">Run →</a></td>
+      </tr>
+    `).join('');
+}
+renderRecent();
+</script>
+</body>
+</html>

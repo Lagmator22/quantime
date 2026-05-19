@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     IICPC PLATFORM · LIVE STRESS RUN (v2)
+     ---------------------------------------------------------------------
+     What it does:
+       • If a submission is selected, boot its Runtime worker (multi-
+         language: JS / Python / WASM). All bot calls go through that
+         worker via postMessage. Workers terminate cleanly on Stop or
+         when the user navigates away.
+       • If no submission is selected, fall back to bot-worker.js which
+         carries an in-worker copy of the platform reference engine
+         and measures direct latency (sharded mode, fastest possible).
+       • Streaming percentiles via t-digest (no sort).
+       • Per-call timeout via Runtime layer.
+       • Stress profiles: sustained / burst / adversarial.
+       • Optional live market feed (Binance) drives bot mid-price.
+       • Abort: stop button terminates everything in <500ms.
+===================================================================== -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Stress Run · IICPC Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/platform.css" />
+<style>
+.live-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0; border: 1px solid var(--line); }
+.live-cell { padding: var(--s-4); border-right: 1px solid var(--line-soft); }
+.live-cell:last-child { border-right: 0; }
+.live-cell .l { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.12em; }
+.live-cell .v { font-family: var(--font-mono); font-size: 32px; font-weight: 500; margin-top: 4px; }
+.chart-wrap { height: 200px; position: relative; }
+.chart-wrap svg { width: 100%; height: 100%; }
+.book-row { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 4px 8px; gap: var(--s-3); font-family: var(--font-mono); font-size: 11px; position: relative; }
+.book-row .px { color: var(--text); }
+.book-row.bid .px { color: var(--accent); }
+.book-row.ask .px { color: var(--accent-2); }
+.book-row .sz { color: var(--text-mute); text-align: right; }
+.book-row .tot { color: var(--text-dim); text-align: right; }
+.book-mid { text-align: center; padding: 6px; font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); margin: 4px 0; letter-spacing: 0.1em; }
+.feed-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid var(--line); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-mute); }
+.feed-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); }
+.feed-pill.live::before { background: var(--accent); animation: pulse 1.4s infinite; }
+.feed-pill.live { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="app-content">
+
+<div class="page-head">
+  <span class="eyebrow">Contestant · Stress Run</span>
+  <h1 style="margin-top: var(--s-3);">Launch a stress test.</h1>
+  <p class="lede">
+    Spawn a distributed bot fleet against your deployed runtime
+    (JS / Python / WASM / containerized). Each bot worker streams
+    real <strong>t-digest p50/p99</strong> back; failures, timeouts and
+    out-of-bound outputs are tracked separately from correctness.
+  </p>
+</div>
+
+<!-- ── Run configuration ─────────────────────────────────── -->
+<div class="panel" style="margin-bottom: var(--s-5);">
+  <div class="panel-head">
+    <h3>Run configuration</h3>
+    <div class="actions">
+      <span class="status idle" id="run-status">idle</span>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div class="split cols-4" style="margin-bottom: var(--s-5);">
+      <div class="field" style="margin-bottom: 0;">
+        <label>// target submission</label>
+        <select class="select mono" id="cfg-sub"></select>
+      </div>
+      <div class="field" style="margin-bottom: 0;">
+        <label>// stress profile</label>
+        <select class="select mono" id="cfg-profile">
+          <option value="sustained" selected>sustained — constant load</option>
+          <option value="burst">burst — 5× spikes every 1s</option>
+          <option value="adversarial">adversarial — cancels + flicker</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom: 0;">
+        <label>// bot workers</label>
+        <select class="select mono" id="cfg-workers">
+          <option value="1">1 worker</option>
+          <option value="2">2 workers</option>
+          <option value="4" selected>4 workers</option>
+          <option value="8">8 workers</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom: 0;">
+        <label>// ops / tick / worker</label>
+        <select class="select mono" id="cfg-ops">
+          <option value="50">50 (light)</option>
+          <option value="200" selected>200 (medium)</option>
+          <option value="500">500 (heavy)</option>
+          <option value="1000">1000 (peak)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="split cols-4" style="margin-bottom: var(--s-5);">
+      <div class="field" style="margin-bottom: 0;">
+        <label>// tick rate</label>
+        <select class="select mono" id="cfg-hz">
+          <option value="10">10 Hz</option>
+          <option value="20" selected>20 Hz</option>
+          <option value="50">50 Hz</option>
+          <option value="100">100 Hz</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom: 0;">
+        <label>// seed (deterministic replay)</label>
+        <input class="input mono" id="cfg-seed" type="number" value="1337" />
+      </div>
+      <div class="field" style="margin-bottom: 0;">
+        <label>// duration cap</label>
+        <select class="select mono" id="cfg-dur">
+          <option value="0" selected>manual stop</option>
+          <option value="30">30s</option>
+          <option value="60">60s</option>
+          <option value="120">120s</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom: 0;">
+        <label>// live market feed (binance)</label>
+        <select class="select mono" id="cfg-feed">
+          <option value="">disabled (synthetic flow)</option>
+          <option value="btcusdt">BTC/USDT</option>
+          <option value="ethusdt">ETH/USDT</option>
+          <option value="solusdt">SOL/USDT</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap;">
+      <button class="btn btn-primary" id="btn-start">▶ Launch stress run</button>
+      <button class="btn btn-danger" id="btn-stop" disabled>■ Stop &amp; record</button>
+      <span class="dim mono" style="align-self: center; font-size: 11px;" id="run-time">00:00.0</span>
+      <span class="feed-pill" id="feed-pill">market feed · off</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Live KPIs ────────────────────────────────────────── -->
+<div class="live-grid" style="margin-bottom: var(--s-5);">
+  <div class="live-cell">
+    <div class="l">// p50 latency</div>
+    <div class="v" id="kpi-p50">—<small style="font-size:13px;color:var(--text-mute);"> µs</small></div>
+  </div>
+  <div class="live-cell">
+    <div class="l">// p99 latency</div>
+    <div class="v" id="kpi-p99">—<small style="font-size:13px;color:var(--text-mute);"> µs</small></div>
+  </div>
+  <div class="live-cell">
+    <div class="l">// throughput</div>
+    <div class="v" id="kpi-tps">—<small style="font-size:13px;color:var(--text-mute);"> ops/s</small></div>
+  </div>
+  <div class="live-cell">
+    <div class="l">// error rate</div>
+    <div class="v" id="kpi-err">—<small style="font-size:13px;color:var(--text-mute);"> %</small></div>
+  </div>
+</div>
+
+<!-- ── Charts ───────────────────────────────────────────── -->
+<div class="split cols-2" style="margin-bottom: var(--s-5);">
+  <div class="panel">
+    <div class="panel-head"><h3>Latency timeline (µs)</h3><div class="actions"><span class="dim mono" id="chart-lat-info">—</span></div></div>
+    <div class="panel-body">
+      <div class="chart-wrap"><svg id="chart-lat" viewBox="0 0 800 200" preserveAspectRatio="none"></svg></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Throughput timeline (ops/s)</h3><div class="actions"><span class="dim mono" id="chart-tps-info">—</span></div></div>
+    <div class="panel-body">
+      <div class="chart-wrap"><svg id="chart-tps" viewBox="0 0 800 200" preserveAspectRatio="none"></svg></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Orderbook + fleet ──────────────────────────────── -->
+<div class="split cols-2" style="margin-bottom: var(--s-5);">
+  <div class="panel">
+    <div class="panel-head"><h3>Live orderbook · L5</h3><div class="actions"><span class="dim mono" id="book-symbol">ETHX-USD</span></div></div>
+    <div class="panel-body flush" style="padding: var(--s-3);">
+      <div id="book-render"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Worker fleet</h3><div class="actions"><span class="dim mono" id="fleet-info">0 active</span></div></div>
+    <div class="panel-body flush">
+      <table class="table">
+        <thead><tr><th>Worker</th><th>Status</th><th class="r">Ops</th><th class="r">p99</th><th class="r">Errors</th></tr></thead>
+        <tbody id="fleet-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Run log ─────────────────────────────────────────── -->
+<div class="panel">
+  <div class="panel-head"><h3>Run log</h3></div>
+  <div class="panel-body">
+    <div class="log" id="run-log"></div>
+  </div>
+</div>
+
+</div><!-- /#app-content -->
+
+<script src="assets/store.js"></script>
+<script src="assets/layout.js"></script>
+<script src="assets/engine.js"></script>
+<script src="assets/tdigest.js"></script>
+<script src="assets/rng.js"></script>
+<script src="assets/runtime.js"></script>
+<script src="assets/market-feed.js"></script>
+<script>
+Layout.render({
+  active: 'run',
+  crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Stress Run' }],
+});
+
+const el = id => document.getElementById(id);
+const btnStart = el('btn-start'), btnStop = el('btn-stop');
+
+// —— Populate submissions ————————————————————————————
+function refreshSubsDropdown() {
+  const subs = Store.get('submissions', []).filter(s => s.status === 'idle' || s.status === 'passed');
+  el('cfg-sub').innerHTML = '<option value="">platform reference engine (default — fastest, no IPC)</option>' +
+    subs.map(s => `<option value="${s.id}">${s.name} · ${s.lang} · ${s.hash.slice(0,8)}</option>`).join('');
+  const q = new URLSearchParams(location.search).get('sub');
+  if (q) el('cfg-sub').value = q;
+}
+refreshSubsDropdown();
+
+// —— Run state ————————————————————————————————————————
+let workers = [];           // bot workers
+let runtime = null;         // runtime worker (for contestant code)
+let running = false;
+let startTime = 0;
+let runId = null;
+let submissionId = null;
+let durationTimeout = null;
+let feed = null;
+
+// Telemetry
+let latencyDigest = new TDigest(200);
+let tpsHistory = [];
+let latHistory = [];
+let totalOps = 0;
+let totalErrors = 0;
+let totalFills = 0;
+let totalTimeouts = 0;
+let workerStats = [];
+
+// —— Log —————————————————————————————————————————————
+function log(level, msg) {
+  const logEl = el('run-log');
+  const ts = new Date().toISOString().slice(11, 23);
+  const line = document.createElement('div');
+  line.className = 'line';
+  line.innerHTML = `<span class="ts">${ts}</span><span class="lvl ${level}">${level}</span><span>${escapeHTML(msg)}</span>`;
+  logEl.appendChild(line);
+  while (logEl.children.length > 200) logEl.removeChild(logEl.firstChild);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// —— Launch ————————————————————————————————————————————
+btnStart.onclick = async () => {
+  if (running) return;
+  running = true;
+  startTime = Date.now();
+  runId = 'run_' + Math.random().toString(36).slice(2, 10);
+  submissionId = el('cfg-sub').value || null;
+
+  // Reset state
+  latencyDigest = new TDigest(200);
+  tpsHistory = []; latHistory = [];
+  totalOps = totalErrors = totalFills = totalTimeouts = 0;
+  workerStats = [];
+  el('run-log').innerHTML = '';
+
+  el('run-status').textContent = 'running';
+  el('run-status').className = 'status running';
+  btnStart.disabled = true;
+  btnStop.disabled = false;
+
+  log('info', `run ${runId} starting · seed=${el('cfg-seed').value} · profile=${el('cfg-profile').value}`);
+
+  const cfg = {
+    workers: +el('cfg-workers').value,
+    opsPerTick: +el('cfg-ops').value,
+    tickHz: +el('cfg-hz').value,
+    profile: el('cfg-profile').value,
+    seed: +el('cfg-seed').value,
+    duration: +el('cfg-dur').value,
+    mix: { maker: 0.5, taker: 0.35, sniper: 0.15 },
+  };
+  log('ok', `config · ${cfg.workers}w × ${cfg.opsPerTick}ops × ${cfg.tickHz}Hz`);
+
+  // —— Optional market feed —————————————————————
+  const feedSym = el('cfg-feed').value;
+  if (feedSym) {
+    log('info', `connecting binance ws · ${feedSym}`);
+    feed = new MarketFeed(feedSym);
+    feed.connect();
+    feed.onTrade(t => {
+      // Push to every bot worker
+      workers.forEach(w => w.postMessage({ type: 'inject-trade', trade: t }));
+    });
+    el('feed-pill').textContent = 'market feed · connecting…';
+    el('feed-pill').className = 'feed-pill';
+    setTimeout(() => {
+      el('feed-pill').textContent = feed.connected ? `market feed · ${feedSym}` : 'market feed · failed';
+      el('feed-pill').className = 'feed-pill' + (feed.connected ? ' live' : '');
+    }, 1500);
+    el('book-symbol').textContent = feedSym.toUpperCase();
+  }
+
+  // —— Two paths: with-runtime vs fallback ————————
+  if (submissionId) {
+    const sub = Store.get('submissions', []).find(s => s.id === submissionId);
+    if (!sub) {
+      log('warn', 'submission not found · falling back to reference engine');
+      submissionId = null;
+    } else {
+      log('info', `loading ${sub.lang} runtime for "${sub.name}" (cold-start may be slow)`);
+      try {
+        // For wasm, hydrate bytes from IDB
+        let wasmBytes = null;
+        if (sub.lang === 'wasm' && sub.hasWasm) {
+          const blob = await Store.fetchBinary(sub.id);
+          if (blob) wasmBytes = await blob.arrayBuffer();
+        }
+        runtime = await Runtime.load({ ...sub, wasm: wasmBytes }, {
+          onLog: (lv, msg) => log(lv, '[rt] ' + msg),
+        });
+        log('ok', `runtime ready · ${sub.lang}`);
+      } catch (e) {
+        log('err', 'runtime load failed: ' + e.message);
+        log('info', 'falling back to platform reference engine');
+        runtime = null; submissionId = null;
+      }
+    }
+  }
+
+  if (runtime) {
+    // —— Drive runtime worker from main thread ————————————
+    // The bot generation runs here; every order goes through postMessage
+    // to the runtime worker. Throughput is dominated by IPC, ~50-100K
+    // ops/s typically. This is the FAITHFUL measurement.
+    driveRuntimeMode(cfg);
+  } else {
+    // —— Fallback: bot workers run reference engine in-process ——
+    // Each worker has its own engine. Pure latency measurement;
+    // peak TPS in the millions.
+    for (let i = 0; i < cfg.workers; i++) spawnBotWorker(i, cfg);
+  }
+
+  // —— Auto-stop if duration is set ————————————
+  if (cfg.duration > 0) {
+    durationTimeout = setTimeout(() => {
+      log('info', `auto-stop after ${cfg.duration}s`);
+      btnStop.click();
+    }, cfg.duration * 1000);
+  }
+
+  startTimer();
+};
+
+// ────────────────────────────────────────────────────────
+// Mode A: contestant runtime in dedicated worker
+// ────────────────────────────────────────────────────────
+function driveRuntimeMode(cfg) {
+  workerStats.push({ idx: 0, ops: 0, errors: 0, p99: 0, status: 'running' });
+  const rng = new RNG(cfg.seed);
+  let mid = 3142.50, idSeq = 0;
+
+  function makeOrder() {
+    const r = rng.next();
+    let strat = 'maker';
+    if (cfg.profile === 'adversarial') {
+      strat = r < 0.5 ? 'maker' : r < 0.7 ? 'taker' : r < 0.85 ? 'sniper' : 'cancel';
+    } else {
+      strat = r < cfg.mix.maker ? 'maker' : r < cfg.mix.maker + cfg.mix.taker ? 'taker' : 'sniper';
+    }
+    if (strat === 'maker') {
+      const side = rng.next() < 0.5 ? 'buy' : 'sell';
+      const offset = 1 + rng.int(10);
+      return { id: ++idSeq, side, type: 'limit', price: +((side === 'buy' ? mid - offset*0.25 : mid + offset*0.25)).toFixed(2), qty: +(rng.next()*5+1).toFixed(2) };
+    }
+    if (strat === 'taker') return { id: ++idSeq, side: rng.next()<0.5?'buy':'sell', type:'market', price:0, qty: +(rng.next()*8+0.5).toFixed(2) };
+    if (strat === 'cancel') return { id: ++idSeq, type: 'cancel', targetId: Math.max(1, idSeq - rng.int(20)), side: 'buy', price: 0, qty: 0 };
+    const side = rng.next() < 0.5 ? 'buy' : 'sell';
+    return { id: ++idSeq, side, type: 'limit', price: +(side==='buy'?mid+1:mid-1).toFixed(2), qty: +(rng.next()*15+1).toFixed(2) };
+  }
+
+  // In-flight order budget — keeps memory bounded if runtime is slow
+  const INFLIGHT_CAP = 256;
+  let inflight = 0;
+
+  async function loopBatch() {
+    if (!running) return;
+    const t0 = performance.now();
+    const burst = cfg.profile === 'burst' && (Date.now() % 1000) < 200;
+    const batchSize = cfg.opsPerTick * cfg.workers * (burst ? 5 : 1);
+
+    const promises = [];
+    for (let i = 0; i < batchSize && inflight < INFLIGHT_CAP; i++) {
+      const order = makeOrder();
+      inflight++;
+      const p = runtime.submit(order, { timeoutMs: cfg.profile === 'adversarial' ? 2000 : 1000 })
+        .then(r => {
+          inflight--;
+          if (r.error === 'timeout >' + (cfg.profile === 'adversarial' ? 2000 : 1000) + 'ms') totalTimeouts++;
+          latencyDigest.add((r.latencyNs || 0) / 1000);
+          if (r.error) totalErrors++;
+          if (r.fills?.length) totalFills += r.fills.length;
+        });
+      promises.push(p);
+    }
+    await Promise.all(promises);
+
+    totalOps += batchSize;
+    workerStats[0].ops = totalOps;
+    workerStats[0].errors = totalErrors;
+    workerStats[0].p99 = latencyDigest.quantile(0.99) | 0;
+
+    pushAggregate(Date.now());
+
+    const elapsed = performance.now() - t0;
+    const targetMs = 1000 / cfg.tickHz;
+    setTimeout(loopBatch, Math.max(0, targetMs - elapsed));
+  }
+  loopBatch();
+}
+
+// ────────────────────────────────────────────────────────
+// Mode B: bot workers with reference engine in-process
+// ────────────────────────────────────────────────────────
+function spawnBotWorker(idx, cfg) {
+  const w = new Worker('assets/bot-worker.js');
+  workers.push(w);
+  workerStats.push({ idx, ops: 0, errors: 0, p99: 0, status: 'running' });
+  w.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === 'log') log(m.level, m.msg);
+    if (m.type === 'tele') ingestBatch(m.batch, idx);
+    if (m.type === 'done') {
+      log('ok', `worker[${idx}] stopped · ${m.stats?.ordersProcessed || 0} ops`);
+      workerStats[idx].status = 'stopped';
+      renderFleet();
+    }
+  };
+  w.postMessage({ type: 'start', workerId: idx, config: { ...cfg, startMid: 3142.50 } });
+}
+
+function ingestBatch(batch, workerIdx) {
+  totalOps += batch.ops;
+  totalFills += batch.fills;
+  totalErrors += batch.errors;
+
+  // Merge latencies into shared digest
+  for (const ns of batch.latencies) latencyDigest.add(ns / 1000);
+
+  const ws = workerStats[workerIdx];
+  if (ws) {
+    ws.ops += batch.ops;
+    ws.errors += batch.errors;
+    ws.p99 = batch.p99 || 0;
+  }
+  pushAggregate(batch.ts);
+}
+
+// —— Aggregate computation + chart push ————————————————
+let lastUiUpdate = 0;
+function pushAggregate(ts) {
+  const now = performance.now();
+  if (now - lastUiUpdate < 100) return;
+  lastUiUpdate = now;
+
+  const elapsed = (Date.now() - startTime) / 1000;
+  const p50 = latencyDigest.quantile(0.50) || 0;
+  const p99 = latencyDigest.quantile(0.99) || 0;
+  const tps = totalOps / Math.max(elapsed, 0.001);
+  const errPct = totalOps > 0 ? totalErrors / totalOps : 0;
+
+  el('kpi-p50').innerHTML = (p50 | 0) + '<small style="font-size:13px;color:var(--text-mute);"> µs</small>';
+  el('kpi-p99').innerHTML = (p99 | 0) + '<small style="font-size:13px;color:var(--text-mute);"> µs</small>';
+  el('kpi-tps').innerHTML = formatTPS(tps);
+  el('kpi-err').innerHTML = (errPct * 100).toFixed(3) + '<small style="font-size:13px;color:var(--text-mute);"> %</small>';
+
+  el('kpi-p50').className = 'v ' + (p50 < 50 ? 'up' : '');
+  el('kpi-p99').className = 'v ' + (p99 < 200 ? 'up' : p99 > 500 ? 'down' : '');
+  el('kpi-err').className = 'v ' + (errPct < 0.005 ? 'up' : errPct > 0.02 ? 'down' : 'warn');
+
+  latHistory.push({ ts, p50, p99 });
+  tpsHistory.push({ ts, tps });
+  if (latHistory.length > 240) latHistory.shift();
+  if (tpsHistory.length > 240) tpsHistory.shift();
+
+  drawLatChart(); drawTpsChart(); renderFleet();
+}
+
+function formatTPS(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + '<small style="font-size:13px;color:var(--text-mute);"> M ops/s</small>';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + '<small style="font-size:13px;color:var(--text-mute);"> K ops/s</small>';
+  return (n | 0) + '<small style="font-size:13px;color:var(--text-mute);"> ops/s</small>';
+}
+
+// —— SVG charts ————————————————————————————————————————
+function buildPath(values, max) {
+  if (values.length === 0) return '';
+  const w = 800, h = 200;
+  return values.map((v, i) => {
+    const x = (i / Math.max(values.length - 1, 1)) * w;
+    const y = h - (v / Math.max(max, 1)) * h * 0.9 - 10;
+    return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+}
+function drawLatChart() {
+  const p50s = latHistory.map(p => p.p50);
+  const p99s = latHistory.map(p => p.p99);
+  const maxV = Math.max(...p99s, 100);
+  el('chart-lat').innerHTML = `
+    ${[0.25, 0.5, 0.75].map(y => `<line x1="0" x2="800" y1="${200*y}" y2="${200*y}" stroke="oklch(28% 0.008 240)" stroke-dasharray="2,4" stroke-width="1"/>`).join('')}
+    <path d="${buildPath(p99s, maxV)}" stroke="oklch(68% 0.20 25)" stroke-width="1.5" fill="none"/>
+    <path d="${buildPath(p50s, maxV)}" stroke="oklch(78% 0.17 145)" stroke-width="1.5" fill="none"/>
+  `;
+  el('chart-lat-info').textContent = `p99 ${p99s[p99s.length-1]|0}µs · p50 ${p50s[p50s.length-1]|0}µs · max ${maxV|0}µs`;
+}
+function drawTpsChart() {
+  const t = tpsHistory.map(p => p.tps);
+  const maxT = Math.max(...t, 100);
+  const path = buildPath(t, maxT);
+  let area = path;
+  if (t.length > 0) area = path + ` L800,200 L0,200 Z`;
+  el('chart-tps').innerHTML = `
+    ${[0.25, 0.5, 0.75].map(y => `<line x1="0" x2="800" y1="${200*y}" y2="${200*y}" stroke="oklch(28% 0.008 240)" stroke-dasharray="2,4" stroke-width="1"/>`).join('')}
+    <path d="${area}" fill="oklch(72% 0.16 240 / 0.15)"/>
+    <path d="${path}" stroke="oklch(72% 0.16 240)" stroke-width="1.5" fill="none"/>
+  `;
+  el('chart-tps-info').textContent = `cur ${((t[t.length-1]||0)/1000).toFixed(1)}K · peak ${(maxT/1000).toFixed(1)}K`;
+}
+
+function renderFleet() {
+  el('fleet-info').textContent = `${workerStats.filter(w => w.status === 'running').length} active · ${workerStats.length} total`;
+  el('fleet-body').innerHTML = workerStats.map(w => `
+    <tr>
+      <td class="dim">${runtime ? 'runtime-worker' : 'worker[' + w.idx + ']'}</td>
+      <td><span class="status ${w.status === 'running' ? 'running' : 'idle'}">${w.status}</span></td>
+      <td class="r">${w.ops.toLocaleString()}</td>
+      <td class="r">${w.p99}µs</td>
+      <td class="r ${w.errors > 0 ? 'down' : 'dim'}">${w.errors}</td>
+    </tr>
+  `).join('');
+}
+
+// —— Live orderbook visualisation ——————————————————————
+let displayMid = 3142.50;
+function renderBook() {
+  if (!running) return;
+  if (feed && feed.connected) {
+    // We don't have a precise bid/ask here without snapshot, so use mid drift.
+    // (run.html could subscribe to feed.onBookTicker too if we want exact prices.)
+  }
+  displayMid += (Math.random() - 0.5) * 0.4;
+  const tick = 0.25, asks = [], bids = [];
+  let cumAsk = 0, cumBid = 0;
+  for (let i = 5; i >= 1; i--) {
+    const px = (displayMid + tick * i).toFixed(2);
+    const sz = +(Math.random() * 18 + 2).toFixed(2);
+    cumAsk += sz;
+    asks.push({ px, sz, tot: cumAsk.toFixed(1) });
+  }
+  for (let i = 1; i <= 5; i++) {
+    const px = (displayMid - tick * i).toFixed(2);
+    const sz = +(Math.random() * 18 + 2).toFixed(2);
+    cumBid += sz;
+    bids.push({ px, sz, tot: cumBid.toFixed(1) });
+  }
+  const maxTot = Math.max(cumAsk, cumBid);
+  el('book-render').innerHTML =
+    asks.map(r => {
+      const p = (r.tot/maxTot)*100;
+      return `<div class="book-row ask" style="background: linear-gradient(to left, oklch(68% 0.20 25 / 0.18) ${p}%, transparent ${p}%);"><span class="px">${r.px}</span><span class="sz">${r.sz}</span><span class="tot">${r.tot}</span></div>`;
+    }).join('') +
+    `<div class="book-mid">— mid · ${displayMid.toFixed(2)} —</div>` +
+    bids.map(r => {
+      const p = (r.tot/maxTot)*100;
+      return `<div class="book-row bid" style="background: linear-gradient(to right, oklch(78% 0.17 145 / 0.18) ${p}%, transparent ${p}%);"><span class="px">${r.px}</span><span class="sz">${r.sz}</span><span class="tot">${r.tot}</span></div>`;
+    }).join('');
+}
+setInterval(renderBook, 800);
+
+// Feed → updates displayMid when connected
+function wireFeedToBook(feed) {
+  if (!feed) return;
+  feed.onBookTicker(b => { displayMid = (b.bid + b.ask) / 2; });
+}
+// Hook will be set when feed exists; see launch
+
+// —— Stop + finalize ————————————————————————————————
+btnStop.onclick = async () => {
+  if (!running) return;
+  running = false;
+  if (durationTimeout) { clearTimeout(durationTimeout); durationTimeout = null; }
+
+  el('run-status').textContent = 'finished';
+  el('run-status').className = 'status passed';
+  btnStart.disabled = false;
+  btnStop.disabled = true;
+
+  // Tear down workers
+  workers.forEach(w => w.postMessage({ type: 'stop' }));
+  setTimeout(() => { workers.forEach(w => w.terminate()); workers = []; }, 500);
+
+  if (runtime) {
+    await runtime.close().catch(() => {});
+    runtime = null;
+  }
+  if (feed) {
+    feed.close(); feed = null;
+    el('feed-pill').textContent = 'market feed · off';
+    el('feed-pill').className = 'feed-pill';
+  }
+
+  // Finalize metrics
+  const elapsed = (Date.now() - startTime) / 1000;
+  const metrics = {
+    p50: latencyDigest.quantile(0.50) | 0,
+    p90: latencyDigest.quantile(0.90) | 0,
+    p99: latencyDigest.quantile(0.99) | 0,
+    tps: (totalOps / elapsed) | 0,
+    err: totalOps > 0 ? totalErrors / totalOps : 0,
+    timeouts: totalTimeouts,
+    fills: totalFills,
+    totalOps,
+    duration: elapsed,
+  };
+
+  // Score
+  const cfg = Store.get('config');
+  const wts = cfg.weights;
+  const speedScore = Math.max(0, 100 - metrics.p99 / 5);
+  const tpsScore = Math.min(100, metrics.tps / 30000);
+  const corrScore = Math.max(0, 100 - metrics.err * 5000);
+  metrics.score = Math.round(speedScore*wts.speed + tpsScore*wts.throughput + corrScore*wts.correctness);
+
+  log('ok', `run finalised · score ${metrics.score} · p99=${metrics.p99}µs · tps=${formatTPSText(metrics.tps)} · err=${(metrics.err*100).toFixed(2)}% · timeouts=${metrics.timeouts}`);
+
+  // Persist
+  const subs = Store.get('submissions', []);
+  const sub = subs.find(s => s.id === submissionId);
+  const team = Store.get('team');
+  const run = {
+    id: runId,
+    submissionId,
+    submissionName: sub?.name || 'platform-reference',
+    teamId: team.id, teamName: team.name,
+    status: 'passed',
+    profile: el('cfg-profile').value,
+    seed: +el('cfg-seed').value,
+    metrics, duration: elapsed * 1000, finishedAt: Date.now(),
+  };
+  Store.push('runs', run);
+
+  // Update leaderboard
+  const lb = Store.get('leaderboard', []);
+  const existing = lb.find(r => r.teamId === team.id);
+  if (existing) {
+    if (metrics.score > existing.score) Object.assign(existing, { name: team.name, score: metrics.score, p50: metrics.p50, p99: metrics.p99, tps: metrics.tps, err: metrics.err, lastRun: Date.now() });
+    else existing.lastRun = Date.now();
+  } else {
+    lb.push({ teamId: team.id, name: team.name, region: 'self', score: metrics.score, p50: metrics.p50, p99: metrics.p99, tps: metrics.tps, err: metrics.err, lastRun: Date.now() });
+  }
+  Store.set('leaderboard', lb);
+  Store.broadcast('runs', { type: 'finished', run });
+
+  toast(`run ${runId.slice(0,8)} · score ${metrics.score}`, 'info', 'OK');
+};
+
+function formatTPSText(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(n);
+}
+
+function startTimer() {
+  const update = () => {
+    if (!running) return;
+    const e = (Date.now() - startTime) / 1000;
+    el('run-time').textContent = `${(e | 0).toString().padStart(2, '0')}:${(((e * 10) | 0) % 10)}s`;
+    requestAnimationFrame(update);
+  };
+  update();
+}
+
+Store.subscribe('submissions', refreshSubsDropdown);
+</script>
+</body>
+</html>

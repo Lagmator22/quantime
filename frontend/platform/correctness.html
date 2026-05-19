@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     IICPC PLATFORM · CORRECTNESS SUITE
+     ---------------------------------------------------------------------
+     Runs the validation suite (assets/correctness.js) against a
+     selected submission. This is what a quant judge would write to
+     stress-test a matching engine for protocol + priority + cross +
+     cancel + robustness defects.
+
+     Result: severity-weighted correctness score [0,100] that feeds
+     into the leaderboard's composite score.
+===================================================================== -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Correctness Suite · IICPC Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/platform.css" />
+<style>
+.test-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 80px 80px;
+  gap: var(--s-3);
+  padding: 8px var(--s-4);
+  border-bottom: 1px solid var(--line-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  align-items: center;
+}
+.test-row .name { color: var(--text); }
+.test-row .cat { color: var(--text-dim); text-transform: uppercase; font-size: 10px; letter-spacing: 0.1em; }
+.test-row .sev { color: var(--text-dim); text-transform: uppercase; font-size: 10px; letter-spacing: 0.1em; }
+.test-row.passed .check { color: var(--accent); }
+.test-row.failed .check { color: var(--accent-2); }
+.test-row.idle .check { color: var(--text-dim); }
+.test-row.running .check { color: var(--accent-4); animation: pulse 1s infinite; }
+.test-row .details { grid-column: 2 / -1; padding-top: 4px; color: var(--accent-2); font-size: 11px; }
+.score-display {
+  font-family: var(--font-mono);
+  font-size: 56px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  min-width: 100px;            /* reserve space so labels don't fight for room */
+  flex-shrink: 0;
+  line-height: 1;
+}
+.score-stats {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  min-width: 0;                /* allow grid items to shrink */
+}
+.score-stats > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s-3);
+}
+.score-stats .label {
+  color: var(--text-dim);
+  white-space: nowrap;         /* labels never wrap */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.score-stats .value {
+  flex-shrink: 0;              /* values always visible */
+  white-space: nowrap;
+}
+.cat-pill { display: inline-block; padding: 2px 6px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid var(--line); color: var(--text-mute); }
+</style>
+</head>
+<body>
+<div id="app-content">
+
+<div class="page-head">
+  <span class="eyebrow">Reference · Correctness</span>
+  <h1 style="margin-top: var(--s-3);">Correctness validation suite.</h1>
+  <p class="lede">17 tests across 6 categories (protocol, priority, cross, cancel, robust, idempotence). Severity-weighted into a 0–100 score. Judges run this — you should too.</p>
+</div>
+
+<!-- Run controls -->
+<div class="panel" style="margin-bottom: var(--s-5);">
+  <div class="panel-head">
+    <h3>Target</h3>
+    <div class="actions">
+      <span class="status idle" id="suite-status">idle</span>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div class="split cols-2" style="margin-bottom: var(--s-4);">
+      <div class="field" style="margin-bottom:0;">
+        <label>// submission</label>
+        <select class="select mono" id="cfg-sub"></select>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>// runtime · auto-detected from submission language</label>
+        <div class="mono dim" id="rt-info" style="padding: 10px 12px; background: var(--bg-3); border: 1px solid var(--line); font-size: 12px;">—</div>
+      </div>
+    </div>
+    <div style="display: flex; gap: var(--s-3);">
+      <button class="btn btn-primary" id="run-suite">▶ Run suite</button>
+      <button class="btn" id="export-report" disabled>Export report</button>
+      <span class="mono dim" style="align-self: center; font-size: 11px;" id="progress">—</span>
+    </div>
+  </div>
+</div>
+
+<!-- Score + summary -->
+<div class="split cols-2" style="margin-bottom: var(--s-5);">
+  <div class="panel">
+    <div class="panel-head"><h3>Correctness score</h3></div>
+    <div class="panel-body" style="display: flex; align-items: center; gap: var(--s-5);">
+      <div class="score-display" id="score">—</div>
+      <div class="score-stats">
+        <div><span class="label">tests passed</span><span class="value up" id="t-passed">—</span></div>
+        <div><span class="label">critical failures</span><span class="value down" id="t-crit">—</span></div>
+        <div><span class="label">major failures</span><span class="value warn" id="t-maj">—</span></div>
+        <div><span class="label">minor failures</span><span class="value dim" id="t-min">—</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>Category breakdown</h3></div>
+    <div class="panel-body">
+      <div id="cat-breakdown" style="display:grid;gap:var(--s-3);font-family: var(--font-mono); font-size: 12px;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Tests</h3></div>
+  <div class="panel-body flush">
+    <div id="test-list"></div>
+  </div>
+</div>
+
+</div><!-- /#app-content -->
+
+<script src="assets/store.js"></script>
+<script src="assets/layout.js"></script>
+<script src="assets/engine.js"></script>
+<script src="assets/tdigest.js"></script>
+<script src="assets/rng.js"></script>
+<script src="assets/runtime.js"></script>
+<script src="assets/correctness.js"></script>
+<script>
+Layout.render({ active: 'correctness', crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Correctness' }] });
+
+const el = id => document.getElementById(id);
+
+function refreshSubs() {
+  const subs = Store.get('submissions', []).filter(s => s.status === 'idle' || s.status === 'passed');
+  const sel = el('cfg-sub');
+  sel.innerHTML = '<option value="">(reference engine — built-in)</option>' +
+    subs.map(s => `<option value="${s.id}">${s.name} · ${s.lang} · ${s.hash.slice(0,8)}</option>`).join('');
+  // pre-select from URL
+  const q = new URLSearchParams(location.search).get('sub');
+  if (q) sel.value = q;
+  updateRtInfo();
+}
+function updateRtInfo() {
+  const id = el('cfg-sub').value;
+  const sub = Store.get('submissions', []).find(s => s.id === id);
+  if (!sub) {
+    el('rt-info').textContent = 'using built-in reference matching engine (js)';
+  } else {
+    el('rt-info').textContent = `runtime: ${sub.lang} · ${sub.lang === 'js' ? 'in-worker eval' : sub.lang === 'py' ? 'pyodide (cold start ~5s)' : sub.lang === 'wasm' ? 'wasm instantiate' : 'fallback'}`;
+  }
+}
+el('cfg-sub').onchange = updateRtInfo;
+
+function renderTestList(results = []) {
+  const tests = Correctness.TESTS;
+  el('test-list').innerHTML = tests.map((t, i) => {
+    const r = results[i];
+    const cls = !r ? 'idle' : r.passed ? 'passed' : 'failed';
+    const checkChar = !r ? '·' : r.passed ? '✓' : '✗';
+    return `
+      <div class="test-row ${cls}" id="t-${i}">
+        <div class="check">${checkChar}</div>
+        <div class="name">${t.name}</div>
+        <div class="cat">${t.category}</div>
+        <div class="sev">${t.severity}</div>
+        ${r && !r.passed && r.details ? `<div class="details">→ ${escapeHTML(r.details)}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+renderTestList();
+
+// —— Runtime factory ————————————————————————————————
+async function buildRuntime() {
+  const id = el('cfg-sub').value;
+  let sub;
+  if (id) {
+    sub = Store.get('submissions', []).find(s => s.id === id);
+  }
+  if (!sub) {
+    // Synthesize a built-in reference submission for testing the suite itself
+    sub = { id: 'ref', name: 'reference', lang: 'js', source: REFERENCE_ENGINE_SOURCE, hash: 'ref' };
+  }
+  try {
+    return await Runtime.load(sub, { onLog: (lv, msg) => {} });
+  } catch (e) {
+    toast('runtime load failed: ' + e.message, 'error');
+    throw e;
+  }
+}
+
+let lastReport = null;
+el('run-suite').onclick = async () => {
+  el('run-suite').disabled = true;
+  el('export-report').disabled = true;
+  el('suite-status').textContent = 'running';
+  el('suite-status').className = 'status running';
+  renderTestList();
+  el('score').textContent = '—';
+
+  const partial = new Array(Correctness.TESTS.length).fill(null);
+  try {
+    const report = await Correctness.runSuite(buildRuntime, {
+      onProgress: (i, n, t, r) => {
+        partial[i - 1] = r;
+        el('progress').textContent = `${i} / ${n} · ${t.name}`;
+        renderTestList(partial);
+      },
+    });
+    lastReport = report;
+    renderSummary(report);
+    el('suite-status').textContent = report.critical_failures + report.major_failures === 0 ? 'passed' : 'failed';
+    el('suite-status').className = 'status ' + (report.critical_failures + report.major_failures === 0 ? 'passed' : 'failed');
+    el('export-report').disabled = false;
+    toast(`suite complete · ${report.passed}/${report.total} · score ${report.score}`, report.score > 85 ? 'info' : 'warn', 'OK');
+
+    // Persist on the run record
+    persistCorrectness(report);
+  } catch (e) {
+    toast('suite errored: ' + e.message, 'error');
+    el('suite-status').textContent = 'errored';
+    el('suite-status').className = 'status failed';
+  } finally {
+    el('run-suite').disabled = false;
+  }
+};
+
+function renderSummary(r) {
+  el('score').textContent = r.score;
+  el('score').style.color = r.score > 85 ? 'var(--accent)' : r.score > 60 ? 'var(--accent-3)' : 'var(--accent-2)';
+  el('t-passed').textContent = `${r.passed}/${r.total}`;
+  el('t-crit').textContent = r.critical_failures;
+  el('t-maj').textContent = r.major_failures;
+  el('t-min').textContent = r.minor_failures;
+
+  // Category breakdown
+  const cats = {};
+  r.results.forEach(t => {
+    cats[t.category] ||= { total: 0, passed: 0 };
+    cats[t.category].total++;
+    if (t.passed) cats[t.category].passed++;
+  });
+  el('cat-breakdown').innerHTML = Object.entries(cats).map(([k, v]) => {
+    const pct = (v.passed / v.total * 100) | 0;
+    const colorVar = pct === 100 ? '--accent' : pct > 60 ? '--accent-3' : '--accent-2';
+    return `
+      <div style="display:flex;align-items:center;gap:var(--s-3);">
+        <span class="cat-pill">${k}</span>
+        <span style="flex:1;height:4px;background:var(--bg-3);"><i style="display:block;height:100%;width:${pct}%;background:var(${colorVar});"></i></span>
+        <span style="width: 60px; text-align: right;" class="${pct === 100 ? 'up' : ''}">${v.passed} / ${v.total}</span>
+      </div>`;
+  }).join('');
+}
+
+function persistCorrectness(report) {
+  // Stamp every recent run for this submission with correctness score.
+  // (In production this would be its own table; we colocate for simplicity.)
+  const subId = el('cfg-sub').value;
+  if (!subId) return;
+  Store.update('submissions', s => s.id === subId, (s) => ({
+    correctness: { score: report.score, passed: report.passed, total: report.total, ts: Date.now() }
+  }));
+}
+
+el('export-report').onclick = () => {
+  if (!lastReport) return;
+  const blob = new Blob([JSON.stringify(lastReport, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'correctness-report-' + Date.now() + '.json';
+  a.click();
+  toast('report exported', 'info');
+};
+
+// —— Default reference engine (used when no submission selected) ——
+const REFERENCE_ENGINE_SOURCE = `
+const bids = new Map();
+const asks = new Map();
+const orders = new Map();
+let fillId = 1;
+function bestPrice(book, isBid) {
+  if (book.size === 0) return null;
+  let b = null;
+  for (const p of book.keys()) if (b === null || (isBid ? p > b : p < b)) b = p;
+  return b;
+}
+function match(side, type, price, qty, id) {
+  const opp = side === 'buy' ? asks : bids;
+  const fills = [];
+  while (qty > 0) {
+    const px = bestPrice(opp, side === 'sell');
+    if (px === null) break;
+    const crosses = type === 'market'
+      || (side === 'buy' ? px <= price : px >= price);
+    if (!crosses) break;
+    const q = opp.get(px);
+    while (q.length && qty > 0) {
+      const rest = q[0];
+      const m = Math.min(qty, rest.qty);
+      qty -= m; rest.qty -= m;
+      fills.push({ id: fillId++, price: px, qty: m, makerId: rest.id, takerId: id });
+      if (rest.qty === 0) { q.shift(); orders.delete(rest.id); }
+    }
+    if (q.length === 0) opp.delete(px);
+  }
+  return { qty, fills };
+}
+function submit(order) {
+  if (!order || typeof order.qty !== 'number' || isNaN(order.qty) || order.qty <= 0) {
+    return { acks: [{id: order && order.id, status: 'rejected'}], fills: [] };
+  }
+  if (order.type === 'cancel') {
+    const rec = orders.get(order.targetId);
+    if (rec) {
+      const book = rec.side === 'buy' ? bids : asks;
+      const q = book.get(rec.price);
+      if (q) {
+        const idx = q.findIndex(o => o.id === order.targetId);
+        if (idx >= 0) q.splice(idx, 1);
+        if (q.length === 0) book.delete(rec.price);
+      }
+      orders.delete(order.targetId);
+      return { acks: [{id: order.id, status: 'cancelled'}], fills: [] };
+    }
+    return { acks: [{id: order.id, status: 'cancel-miss'}], fills: [] };
+  }
+  const r = match(order.side, order.type, order.price, order.qty, order.id);
+  if (order.type === 'limit' && r.qty > 0 && isFinite(order.price)) {
+    const book = order.side === 'buy' ? bids : asks;
+    if (!book.has(order.price)) book.set(order.price, []);
+    book.get(order.price).push({ id: order.id, qty: r.qty });
+    orders.set(order.id, { side: order.side, price: order.price, qty: r.qty });
+  }
+  const status = r.fills.length === 0 ? 'accepted'
+               : r.qty === 0 ? 'filled' : 'partial';
+  return { acks: [{id: order.id, status, filled: order.qty - r.qty, remaining: r.qty}], fills: r.fills };
+}
+module.exports = { submit };
+`;
+
+refreshSubs();
+Store.subscribe('submissions', refreshSubs);
+</script>
+</body>
+</html>

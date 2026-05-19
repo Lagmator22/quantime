@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     IICPC PLATFORM · REAL-TIME LEADERBOARD
+     ---------------------------------------------------------------------
+     Reads from Store.leaderboard, which is updated by run.html when
+     stress tests complete. Also receives BroadcastChannel pings for
+     near-instant updates across tabs.
+
+     Features:
+       • Top-N table with full metrics
+       • Filter by region / search
+       • Highlight your own team
+       • Auto-resort with row-flash animation on rank change
+       • Side panel: aggregate stats (total runs, fastest p99, peak TPS)
+       • Inline sparkline of score over time per team (mock per-team
+         history; in production, hydrate from telemetry store)
+===================================================================== -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Leaderboard · IICPC Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/platform.css" />
+<style>
+.lb-row-me { background: oklch(78% 0.17 145 / 0.06) !important; }
+.lb-row-me .team { color: var(--accent) !important; }
+.rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid var(--line); font-family: var(--font-mono); font-size: 11px; color: var(--text); }
+.rank-badge.r1 { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.rank-badge.r2 { background: var(--bg-3); color: var(--text); }
+.rank-badge.r3 { background: var(--bg-3); color: var(--text-mute); }
+.score-bar { height: 4px; background: var(--bg-3); margin-top: 4px; position: relative; }
+.score-bar > i { display: block; height: 100%; background: var(--accent); }
+</style>
+</head>
+<body>
+<div id="app-content">
+
+<div class="page-head">
+  <div style="display: flex; align-items: end; justify-content: space-between; gap: var(--s-5); flex-wrap: wrap;">
+    <div>
+      <span class="eyebrow">Public · Live</span>
+      <h1 style="margin-top: var(--s-3);">Leaderboard.</h1>
+      <p class="lede">Composite score = <span class="mono up">speed</span> × <span class="mono info">throughput</span> × <span class="mono warn">correctness</span>. Updates stream from finalised stress runs. Last sync: <span class="mono" id="last-sync">—</span></p>
+    </div>
+    <div style="display: flex; gap: var(--s-3); align-items: center;">
+      <span class="pill"><span class="dot"></span>streaming</span>
+      <input class="input mono" id="search" placeholder="filter teams…" style="width: 220px;" />
+    </div>
+  </div>
+</div>
+
+<div class="kpi-grid" style="margin-bottom: var(--s-6);">
+  <div class="kpi">
+    <div class="l">// teams ranked</div>
+    <div class="v" id="kpi-teams">—</div>
+  </div>
+  <div class="kpi">
+    <div class="l">// fastest p99</div>
+    <div class="v" id="kpi-fastest">—<small>µs</small></div>
+  </div>
+  <div class="kpi">
+    <div class="l">// peak TPS</div>
+    <div class="v" id="kpi-peak-tps">—<small>ops/s</small></div>
+  </div>
+  <div class="kpi">
+    <div class="l">// total runs</div>
+    <div class="v" id="kpi-total-runs">—</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>Live ranking</h3>
+    <div class="actions">
+      <button class="btn btn-sm" id="export-csv">Export CSV</button>
+      <a class="btn btn-sm" href="run.html">Launch run →</a>
+    </div>
+  </div>
+  <div class="panel-body flush">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Team</th>
+          <th>Region</th>
+          <th class="r">p50</th>
+          <th class="r">p99</th>
+          <th class="r">TPS</th>
+          <th class="r">Err</th>
+          <th class="r">Score</th>
+          <th class="r">Last run</th>
+        </tr>
+      </thead>
+      <tbody id="lb-body"></tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- /#app-content -->
+
+<script src="assets/store.js"></script>
+<script src="assets/layout.js"></script>
+<script>
+/* =====================================================================
+   LEADERBOARD CONTROLLER
+===================================================================== */
+Layout.render({
+  active: 'leaderboard',
+  crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Leaderboard' }],
+});
+
+const team = Store.get('team');
+let prevOrder = [];
+let filter = '';
+
+function fmtAgo(ts) {
+  if (!ts) return '—';
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+function fmtTPS(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return Math.round(n).toString();
+}
+
+function render() {
+  const lb = Store.get('leaderboard', []).slice();
+  lb.sort((a, b) => b.score - a.score);
+
+  // KPIs
+  document.getElementById('kpi-teams').textContent = lb.length;
+  document.getElementById('kpi-fastest').innerHTML = lb.length ? (Math.min(...lb.map(r => r.p99))) + '<small>µs</small>' : '—';
+  document.getElementById('kpi-peak-tps').innerHTML = lb.length ? fmtTPS(Math.max(...lb.map(r => r.tps))) + '<small>ops/s</small>' : '—';
+  document.getElementById('kpi-total-runs').textContent = Store.get('runs', []).length;
+  document.getElementById('last-sync').textContent = new Date().toISOString().slice(11, 19);
+
+  const maxScore = Math.max(...lb.map(r => r.score), 1);
+  const fil = filter.toLowerCase();
+  const filtered = lb.filter(r => !fil || r.name.toLowerCase().includes(fil) || (r.region || '').toLowerCase().includes(fil));
+
+  const body = document.getElementById('lb-body');
+  body.innerHTML = filtered.map((r, i) => {
+    const rank = lb.indexOf(r) + 1;
+    const moved = prevOrder[i] && prevOrder[i] !== r.teamId;
+    const isMe = r.teamId === team.id;
+    return `
+      <tr class="${moved ? 'flash' : ''} ${isMe ? 'lb-row-me' : ''}">
+        <td><span class="rank-badge ${rank <= 3 ? 'r' + rank : ''}">${String(rank).padStart(2, '0')}</span></td>
+        <td>
+          <div class="team">${escapeHTML(r.name)} ${isMe ? '<span class="dim mono" style="font-size:10px;">· you</span>' : ''}</div>
+          <div class="score-bar"><i style="width: ${(r.score / maxScore * 100).toFixed(0)}%;"></i></div>
+        </td>
+        <td class="dim">${escapeHTML(r.region || '—')}</td>
+        <td class="r">${r.p50}µs</td>
+        <td class="r ${r.p99 > 250 ? 'down' : 'up'}">${r.p99}µs</td>
+        <td class="r">${fmtTPS(r.tps)}</td>
+        <td class="r ${r.err > 0.02 ? 'down' : ''}">${(r.err * 100).toFixed(2)}%</td>
+        <td class="r up" style="font-weight: 500;">${r.score}</td>
+        <td class="r dim">${fmtAgo(r.lastRun)}</td>
+      </tr>`;
+  }).join('');
+
+  prevOrder = lb.map(r => r.teamId);
+}
+
+document.getElementById('search').oninput = (e) => { filter = e.target.value; render(); };
+document.getElementById('export-csv').onclick = () => {
+  const lb = Store.get('leaderboard', []).slice().sort((a, b) => b.score - a.score);
+  const rows = ['rank,team,region,p50_us,p99_us,tps,err_pct,score,last_run'];
+  lb.forEach((r, i) => {
+    rows.push([i+1, r.name, r.region || '', r.p50, r.p99, r.tps, (r.err*100).toFixed(3), r.score, new Date(r.lastRun).toISOString()].join(','));
+  });
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'leaderboard-' + Date.now() + '.csv';
+  a.click();
+  toast('CSV exported', 'info');
+};
+
+render();
+Store.subscribe('leaderboard', render);
+Store.onBroadcast('runs', render);
+// Periodically refresh "last run" relative times
+setInterval(render, 10000);
+</script>
+</body>
+</html>

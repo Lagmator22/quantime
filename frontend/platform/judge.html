@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     IICPC PLATFORM · JUDGE CONSOLE
+     ---------------------------------------------------------------------
+     Admin view. Lets a judge:
+       • See all teams + submissions + runs across the platform
+       • Pause / resume submission acceptance globally
+       • Force re-score with new weights (tune speed/throughput/corr)
+       • Mark a team disqualified (sandbox-escape attempts, cheating)
+       • Inspect raw telemetry per run
+       • Reset the platform (dev-only)
+===================================================================== -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Judge Console · IICPC Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/platform.css" />
+</head>
+<body>
+<div id="app-content">
+
+<div class="page-head">
+  <span class="eyebrow">Admin · Judge Console</span>
+  <h1 style="margin-top: var(--s-3);">Judge console.</h1>
+  <p class="lede">Platform-wide controls. Tune scoring weights, pause submissions, recompute the leaderboard, inspect raw runs. All actions are logged.</p>
+</div>
+
+<!-- Platform controls -->
+<div class="split cols-2" style="margin-bottom: var(--s-6);">
+  <div class="panel">
+    <div class="panel-head"><h3>Scoring weights</h3></div>
+    <div class="panel-body">
+      <p class="mute" style="font-size:13px;margin-bottom:var(--s-4);">Composite = w_speed · speed + w_throughput · tps + w_correctness · correctness. Re-scoring runs the new weights over all stored runs.</p>
+      <div class="field">
+        <label>// speed weight · <span class="mono dim" id="lab-speed">0.40</span></label>
+        <input type="range" id="w-speed" min="0" max="100" value="40" style="width:100%;" />
+      </div>
+      <div class="field">
+        <label>// throughput weight · <span class="mono dim" id="lab-tps">0.40</span></label>
+        <input type="range" id="w-tps" min="0" max="100" value="40" style="width:100%;" />
+      </div>
+      <div class="field">
+        <label>// correctness weight · <span class="mono dim" id="lab-corr">0.20</span></label>
+        <input type="range" id="w-corr" min="0" max="100" value="20" style="width:100%;" />
+      </div>
+      <button class="btn btn-primary" id="rescore">Recompute leaderboard</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Platform state</h3></div>
+    <div class="panel-body">
+      <div style="display: grid; gap: var(--s-4);">
+        <div>
+          <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">// submissions</div>
+          <div style="display:flex;align-items:center;gap:var(--s-3);margin-top:var(--s-2);">
+            <span class="status passed" id="sub-state">OPEN</span>
+            <button class="btn btn-sm" id="toggle-sub">Toggle</button>
+          </div>
+        </div>
+        <div>
+          <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">// platform totals</div>
+          <div class="mono" style="margin-top:var(--s-2);line-height:1.8;font-size:13px;">
+            <div>teams: <span class="up" id="t-teams">—</span></div>
+            <div>submissions: <span class="up" id="t-subs">—</span></div>
+            <div>runs: <span class="up" id="t-runs">—</span></div>
+            <div>total ops processed: <span class="up" id="t-ops">—</span></div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line-soft);padding-top:var(--s-4);">
+          <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// danger zone</div>
+          <button class="btn btn-danger" id="reset-all">Reset platform state</button>
+          <div class="hint" style="margin-top:var(--s-2);">Clears all submissions, runs, and leaderboard data. Cannot be undone.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- All runs table -->
+<div class="panel" style="margin-bottom: var(--s-6);">
+  <div class="panel-head">
+    <h3>All runs (platform-wide)</h3>
+    <div class="actions">
+      <input class="input mono" id="run-filter" placeholder="filter team…" style="width: 160px;" />
+    </div>
+  </div>
+  <div class="panel-body flush">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Run ID</th>
+          <th>Team</th>
+          <th>Submission</th>
+          <th class="r">p50</th>
+          <th class="r">p99</th>
+          <th class="r">TPS</th>
+          <th class="r">Err</th>
+          <th class="r">Score</th>
+          <th>Status</th>
+          <th class="r"></th>
+        </tr>
+      </thead>
+      <tbody id="all-runs"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Teams + DQ -->
+<div class="panel">
+  <div class="panel-head"><h3>Teams</h3></div>
+  <div class="panel-body flush">
+    <table class="table">
+      <thead><tr><th>Team</th><th>Region</th><th class="r">Best score</th><th class="r">Runs</th><th>Status</th><th class="r">Action</th></tr></thead>
+      <tbody id="teams-body"></tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- /#app-content -->
+
+<script src="assets/store.js"></script>
+<script src="assets/layout.js"></script>
+<script>
+Layout.render({ active: 'judge', crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Judge Console' }] });
+
+const el = id => document.getElementById(id);
+const fmtTPS = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : Math.round(n);
+
+// —— Weights sync ————————————————————————————————————————
+function syncWeights() {
+  const total = +el('w-speed').value + +el('w-tps').value + +el('w-corr').value;
+  const s = (+el('w-speed').value / total).toFixed(2);
+  const t = (+el('w-tps').value / total).toFixed(2);
+  const c = (+el('w-corr').value / total).toFixed(2);
+  el('lab-speed').textContent = s;
+  el('lab-tps').textContent = t;
+  el('lab-corr').textContent = c;
+}
+['w-speed','w-tps','w-corr'].forEach(id => el(id).oninput = syncWeights);
+
+// Load current weights from config
+const cfg = Store.get('config');
+el('w-speed').value = cfg.weights.speed * 100;
+el('w-tps').value = cfg.weights.throughput * 100;
+el('w-corr').value = cfg.weights.correctness * 100;
+syncWeights();
+
+// —— Rescore ————————————————————————————————————————
+el('rescore').onclick = () => {
+  const total = +el('w-speed').value + +el('w-tps').value + +el('w-corr').value;
+  const weights = {
+    speed: +el('w-speed').value / total,
+    throughput: +el('w-tps').value / total,
+    correctness: +el('w-corr').value / total,
+  };
+  Store.patch('config', { weights });
+
+  // Recompute every run's score with new weights
+  const runs = Store.get('runs', []);
+  runs.forEach(r => {
+    const m = r.metrics; if (!m) return;
+    const speedScore = Math.max(0, 100 - m.p99 / 5);
+    const tpsScore = Math.min(100, m.tps / 30000);
+    const corrScore = Math.max(0, 100 - m.err * 5000);
+    m.score = Math.round(speedScore*weights.speed + tpsScore*weights.throughput + corrScore*weights.correctness);
+  });
+  Store.set('runs', runs);
+
+  // Rebuild leaderboard from best run per team
+  const byTeam = {};
+  runs.forEach(r => {
+    if (!byTeam[r.teamId] || r.metrics.score > byTeam[r.teamId].metrics.score) {
+      byTeam[r.teamId] = r;
+    }
+  });
+  // Merge with existing seed teams that have no runs
+  const lb = Store.get('leaderboard', []);
+  lb.forEach(team => {
+    const ownRun = byTeam[team.teamId];
+    if (ownRun) {
+      team.score = ownRun.metrics.score;
+      team.p50 = ownRun.metrics.p50;
+      team.p99 = ownRun.metrics.p99;
+      team.tps = ownRun.metrics.tps;
+      team.err = ownRun.metrics.err;
+      team.lastRun = ownRun.finishedAt;
+    } else {
+      // Rescore seed teams using their existing metrics
+      const speedScore = Math.max(0, 100 - team.p99 / 5);
+      const tpsScore = Math.min(100, team.tps / 30000);
+      const corrScore = Math.max(0, 100 - team.err * 5000);
+      team.score = Math.round(speedScore*weights.speed + tpsScore*weights.throughput + corrScore*weights.correctness);
+    }
+  });
+  Store.set('leaderboard', lb);
+  toast(`recomputed · weights ${weights.speed.toFixed(2)}/${weights.throughput.toFixed(2)}/${weights.correctness.toFixed(2)}`, 'info', 'OK');
+  render();
+};
+
+// —— Submissions toggle ————————————————————————————————
+let submissionsOpen = true;
+el('toggle-sub').onclick = () => {
+  submissionsOpen = !submissionsOpen;
+  el('sub-state').textContent = submissionsOpen ? 'OPEN' : 'PAUSED';
+  el('sub-state').className = 'status ' + (submissionsOpen ? 'passed' : 'failed');
+  Store.patch('config', { submissionsPaused: !submissionsOpen });
+  toast(`submissions ${submissionsOpen ? 'reopened' : 'paused'}`, submissionsOpen ? 'info' : 'warn');
+};
+
+// —— Reset platform ————————————————————————————————————
+el('reset-all').onclick = () => {
+  if (!confirm('Reset everything? Clears submissions, runs, and leaderboard.')) return;
+  Store.set('submissions', []);
+  Store.set('runs', []);
+  Store.delete('leaderboard');  // will re-seed on next reload
+  toast('platform reset · refresh page', 'warn');
+  setTimeout(() => location.reload(), 800);
+};
+
+// —— Render tables ————————————————————————————————————
+let filter = '';
+el('run-filter').oninput = e => { filter = e.target.value.toLowerCase(); render(); };
+
+function render() {
+  const subs = Store.get('submissions', []);
+  const runs = Store.get('runs', []);
+  const lb = Store.get('leaderboard', []);
+
+  el('t-teams').textContent = lb.length;
+  el('t-subs').textContent = subs.length;
+  el('t-runs').textContent = runs.length;
+  el('t-ops').textContent = runs.reduce((s, r) => s + (r.metrics?.totalOps || 0), 0).toLocaleString();
+
+  // —— Runs table —————————————————————————————————
+  const filteredRuns = runs.slice().reverse().filter(r =>
+    !filter || r.teamName?.toLowerCase().includes(filter) || r.submissionName?.toLowerCase().includes(filter)
+  );
+  el('all-runs').innerHTML = filteredRuns.length === 0
+    ? `<tr><td colspan="10" style="padding:var(--s-7);text-align:center;color:var(--text-dim);">no runs match</td></tr>`
+    : filteredRuns.map(r => {
+      const m = r.metrics || {};
+      return `<tr>
+        <td class="dim">${r.id.slice(0,10)}</td>
+        <td class="team">${escapeHTML(r.teamName || '—')}</td>
+        <td>${escapeHTML(r.submissionName || '—')}</td>
+        <td class="r">${m.p50||'—'}</td>
+        <td class="r ${m.p99>250?'down':'up'}">${m.p99||'—'}</td>
+        <td class="r">${m.tps?fmtTPS(m.tps):'—'}</td>
+        <td class="r ${m.err>0.02?'down':''}">${m.err!=null?(m.err*100).toFixed(2)+'%':'—'}</td>
+        <td class="r up">${m.score||'—'}</td>
+        <td><span class="status ${r.status||'idle'}">${r.status||'—'}</span></td>
+        <td class="r"><button class="btn btn-sm js-inspect" data-run-id="${r.id}">Inspect</button></td>
+      </tr>`;
+    }).join('');
+
+  // —— Teams table —————————————————————————————————
+  const teamsRows = lb.slice().sort((a,b) => b.score - a.score).map(t => {
+    const teamRuns = runs.filter(r => r.teamId === t.teamId);
+    return `<tr>
+      <td class="team">${escapeHTML(t.name)}</td>
+      <td class="dim">${escapeHTML(t.region||'—')}</td>
+      <td class="r up">${t.score}</td>
+      <td class="r">${teamRuns.length}</td>
+      <td><span class="status ${t.dq?'failed':'passed'}">${t.dq?'DQ':'active'}</span></td>
+      <td class="r"><button class="btn btn-sm btn-danger" onclick="dqTeam('${t.teamId}')">${t.dq?'reinstate':'DQ'}</button></td>
+    </tr>`;
+  }).join('');
+  el('teams-body').innerHTML = teamsRows;
+}
+
+// —— Inspect button via event delegation (avoids attribute escaping bugs
+//    when serialising run metrics into onclick="...") ——————————————
+el('all-runs').addEventListener('click', e => {
+  const btn = e.target.closest('.js-inspect');
+  if (!btn) return;
+  const id = btn.dataset.runId;
+  const run = Store.get('runs', []).find(r => r.id === id);
+  if (!run) return toast('run not found', 'error');
+  showInspect(run);
+});
+
+function showInspect(run) {
+  // Build a modal with the raw run record formatted as JSON
+  const meta = {
+    id: run.id,
+    team: run.teamName,
+    submission: run.submissionName,
+    status: run.status,
+    duration_ms: run.duration,
+    finishedAt: new Date(run.finishedAt).toISOString(),
+  };
+  const html = `
+    <div class="modal-bg" id="inspect-modal">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Inspect · ${escapeHTML(run.id)}</h3>
+          <button onclick="document.getElementById('inspect-modal').remove()">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-3);">// metadata</div>
+          <pre class="log" style="max-height:160px;">${escapeHTML(JSON.stringify(meta, null, 2))}</pre>
+          <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin:var(--s-4) 0 var(--s-3);">// metrics</div>
+          <pre class="log">${escapeHTML(JSON.stringify(run.metrics || {}, null, 2))}</pre>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" onclick="document.getElementById('inspect-modal').remove()">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+window.dqTeam = function(id) {
+  const lb = Store.get('leaderboard', []);
+  const t = lb.find(x => x.teamId === id);
+  if (!t) return;
+  t.dq = !t.dq;
+  if (t.dq) t.score = 0;
+  Store.set('leaderboard', lb);
+  toast(`team ${t.name} ${t.dq ? 'disqualified' : 'reinstated'}`, 'warn');
+  render();
+};
+
+render();
+Store.subscribe('runs', render);
+Store.subscribe('leaderboard', render);
+Store.subscribe('submissions', render);
+</script>
+</body>
+</html>
