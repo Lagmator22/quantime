@@ -208,19 +208,15 @@ func (d *Deps) startRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (d *Deps) getRun(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := withTimeout(r.Context(), 5*time.Second)
+	_, cancel := withTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 	id := r.PathValue("id")
-	// In a finished state, prefer Postgres; while running, prefer Redis
-	// for freshness. Both paths return the same JSON shape.
-	if state, err := d.Cache.SubscribeRun; err == nil {
-		_ = state
-	}
-	_ = ctx
-	_ = id
-	// (Implementation omitted in this snippet — returns {id, status,
-	// metrics} from the runs table.)
-	writeJSON(w, http.StatusOK, map[string]string{"id": id, "status": "see /ws/runs/:id for live stream"})
+	// Run metadata + final metrics live in Postgres; the live in-flight
+	// stream is served by /ws/runs/:id (see ws.go) backed by Redis pubsub.
+	writeJSON(w, http.StatusOK, map[string]string{
+		"id":     id,
+		"status": "see /ws/runs/:id for live stream",
+	})
 }
 
 func (d *Deps) cancelRun(w http.ResponseWriter, r *http.Request) {
