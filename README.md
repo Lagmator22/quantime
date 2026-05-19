@@ -68,7 +68,53 @@ docker compose up -d --scale botfleet=4
 
 ---
 
-## Deploy to AWS
+## Hosted demo paths
+
+| Path | What's hosted | Cost | Always-on? |
+|---|---|---|---|
+| **GitHub Pages** | Frontend only (localStorage prototype) | Free | Yes |
+| **GitHub Codespaces** | Full stack via `docker compose up` | 180 hrs/mo free w/ Student Pack | On-demand |
+| **DigitalOcean droplet** | Full stack always running | $200 student credit ≈ 8 months on $24/mo | Yes |
+| **AWS Terraform (below)** | Full stack on EC2 | $30–60/mo | Yes |
+
+### A. GitHub Pages (frontend only)
+
+The `.github/workflows/pages.yml` action publishes `frontend/` on every push to `master`. After the first run:
+
+1. Repo → **Settings → Pages → Source: GitHub Actions**
+2. Site goes live at `https://<your-handle>.github.io/iicpc-platform/`
+
+What's published: the in-browser prototype. The correctness suite + UI all work; there's no real distributed backend (that needs B, C, or D below).
+
+### B. GitHub Codespaces (full stack, on-demand)
+
+Click **Code → Codespaces → Create codespace on master**. The `.devcontainer/devcontainer.json` provisions:
+
+- Docker-in-Docker (so the gateway can spawn submission containers)
+- Go 1.22, Terraform, kubectl
+- Port 8080 auto-forwards with a public preview URL
+
+Inside the Codespace shell:
+
+```bash
+docker compose up --build
+```
+
+Click the forwarded `:8080` URL to demo. Stop the Codespace when done to preserve free hours.
+
+### C. DigitalOcean droplet (full stack, always-on, cheapest with student credit)
+
+```bash
+# One-shot via doctl:
+SSH_KEY=<your-fingerprint> ./deploy/digitalocean/deploy.sh
+
+# Or paste deploy/digitalocean/cloud-init.yaml into the DO console:
+#   Create Droplet → Advanced options → Add Initialization scripts (user data)
+```
+
+Droplet boots, installs Docker, clones the repo, brings the stack up via systemd. ~5 minutes from "Create" to public URL.
+
+### D. AWS via Terraform
 
 ```bash
 cd terraform

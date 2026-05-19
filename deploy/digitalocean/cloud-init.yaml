@@ -1,0 +1,63 @@
+#cloud-config
+# =====================================================================
+# IICPC PLATFORM · DigitalOcean droplet bootstrap
+# ---------------------------------------------------------------------
+# Paste this entire file into the "User Data" field when creating a
+# droplet (Droplet → Advanced options → Add Initialization scripts →
+# User data). On boot it installs Docker + compose, clones your repo,
+# and brings the stack up. ~3 minutes from "Create" to "live URL".
+#
+# Recommended droplet:
+#   - Image:    Ubuntu 22.04 LTS
+#   - Size:     4 GB / 2 vCPU ($24/mo — fits in the $200 student credit)
+#   - Region:   BLR1 / SGP1 (closest to IICPC participants)
+#   - Firewall: allow 22 (SSH), 80 (HTTP), 443 (HTTPS)
+#
+# After the droplet's public IPv4 appears in the console, browse to it.
+# To rebuild after a code change:   ssh root@<ip> 'cd /opt/iicpc && git pull && docker compose up -d --build'
+# =====================================================================
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - gnupg
+
+write_files:
+  - path: /etc/systemd/system/iicpc.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=IICPC Platform (docker compose)
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/opt/iicpc
+      ExecStart=/usr/bin/docker compose up -d --build
+      ExecStop=/usr/bin/docker compose down
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # Install Docker (official repo)
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  - chmod a+r /etc/apt/keyrings/docker.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable --now docker
+
+  # Clone + start
+  - mkdir -p /opt && cd /opt && git clone https://github.com/Lagmator22/iicpc-platform.git iicpc
+  - systemctl enable --now iicpc.service
+
+  # Optional: simple Caddy → public hostname (uncomment + edit if you
+  # have a domain pointed at the droplet's IP)
+  # - sed -i 's|:80|your-domain.com|' /opt/iicpc/Caddyfile
+  # - cd /opt/iicpc && docker compose up -d --build caddy

@@ -1,0 +1,59 @@
+{
+  "//": "=====================================================================",
+  "//1": "IICPC PLATFORM · Codespaces / VS Code Dev Container",
+  "//2": "---------------------------------------------------------------------",
+  "//3": "Opens the repo in a Codespace with Docker-in-Docker enabled so the",
+  "//4": "gateway can spawn submission containers. `docker compose up` works.",
+  "//5": "",
+  "//6": "Free tier: 60 hrs/month; GitHub Student Pack bumps it to 180 hrs.",
+  "//7": "Port 8080 auto-forwards and is given a public preview URL.",
+  "//8": "=====================================================================",
+
+  "name": "IICPC Platform",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true,
+      "dockerDashComposeVersion": "v2"
+    },
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.22"
+    },
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {}
+  },
+
+  "forwardPorts": [8080, 7070, 5432, 6379, 4222, 8222],
+  "portsAttributes": {
+    "8080": { "label": "Caddy (frontend + API)", "onAutoForward": "openPreview" },
+    "7070": { "label": "Gateway (internal)",     "onAutoForward": "silent" },
+    "5432": { "label": "TimescaleDB",            "onAutoForward": "silent" },
+    "6379": { "label": "Redis",                  "onAutoForward": "silent" },
+    "4222": { "label": "NATS",                   "onAutoForward": "silent" },
+    "8222": { "label": "NATS monitor",           "onAutoForward": "silent" }
+  },
+
+  "postCreateCommand": "echo 'ready. run: docker compose up --build'",
+  "postStartCommand":  "",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "hashicorp.terraform",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "go.useLanguageServer": true,
+        "files.eol": "\n"
+      }
+    }
+  },
+
+  "remoteUser": "vscode"
+}
