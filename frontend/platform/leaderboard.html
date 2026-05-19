@@ -103,6 +103,7 @@
 </div><!-- /#app-content -->
 
 <script src="assets/store.js"></script>
+<script src="assets/api.js"></script>
 <script src="assets/layout.js"></script>
 <script>
 /* =====================================================================
@@ -191,6 +192,24 @@ Store.subscribe('leaderboard', render);
 Store.onBroadcast('runs', render);
 // Periodically refresh "last run" relative times
 setInterval(render, 10000);
+
+// —— Backend bridge ————————————————————————————————————————————
+// When the gateway is reachable, hydrate Store.leaderboard from the
+// real /api/leaderboard endpoint every 3s. This replaces the seeded
+// mock data with live numbers without touching the render path.
+(async () => {
+  await API.ready;
+  if (!API.online) return;
+  async function pull() {
+    try {
+      const rows = await API.leaderboard();
+      // API rows already match the Store shape (see Postgres LeaderboardRow JSON tags)
+      Store.set('leaderboard', rows);
+    } catch (e) { /* transient; next tick retries */ }
+  }
+  pull();
+  setInterval(pull, 3000);
+})();
 </script>
 </body>
 </html>
