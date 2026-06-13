@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/iicpc/gateway/internal/store"
+	"github.com/iicpc/gateway/internal/validator"
 )
 
 // ── POST /api/submissions ─────────────────────────────────────────────
@@ -117,6 +118,17 @@ func (d *Deps) buildAndDeploy(subID, hash string, archive []byte) {
 	endpoint := "http://" + containerName + ":9001"
 	_ = d.DB.UpdateSubmissionStatus(ctx, subID, "deployed", tag, endpoint)
 	log.Printf("[gateway] submission %s deployed at %s", subID, endpoint)
+
+	// Correctness oracle: replay a deterministic order sequence through the
+	// deployed engine and an independent reference book, diff the fills, and
+	// persist a real price-time-priority / fill-accuracy score.
+	cres := validator.Validate(ctx, endpoint, d.Now)
+	if cj, err := json.Marshal(cres); err == nil {
+		if uerr := d.DB.UpdateSubmissionCorrectness(ctx, subID, cj); uerr != nil {
+			log.Printf("[gateway] store correctness %s: %v", subID, uerr)
+		}
+	}
+	log.Printf("[gateway] submission %s correctness: %.0f%% (%d/%d cases)", subID, cres.Score, cres.Passed, cres.Total)
 }
 
 func (d *Deps) getSubmission(w http.ResponseWriter, r *http.Request) {

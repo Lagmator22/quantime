@@ -365,7 +365,21 @@ func finalizeRun(ctx context.Context, pool *pgxpool.Pool, rdb *redis.Client, s s
 	// Lower latency / higher tps = higher score. Errors cost points.
 	speedScore := 100.0 * mathExpDecay(p99, 200_000_000) // p99 in ns, 200ms yields ~37
 	tputScore := 100.0 * mathSat(tps, 200_000)           // 200k ops/s caps at 100
+
+	// Correctness: prefer the real oracle score (price-time-priority + fill
+	// accuracy, validated at deploy time and stored on the submission) for
+	// this run's submission. Fall back to the transport error-rate proxy only
+	// when no oracle score is available.
 	correctnessScore := 100.0 * (1 - errRate)
+	var oracle *float64
+	if qerr := pool.QueryRow(ctx, `
+		SELECT (s.correctness->>'score')::float
+		FROM runs r JOIN submissions s ON s.id = r.submission_id
+		WHERE r.id = $1 AND s.correctness IS NOT NULL
+	`, s.RunID).Scan(&oracle); qerr == nil && oracle != nil {
+		correctnessScore = *oracle
+	}
+
 	composite := 0.4*speedScore + 0.4*tputScore + 0.2*correctnessScore
 
 	metrics, _ := json.Marshal(map[string]any{

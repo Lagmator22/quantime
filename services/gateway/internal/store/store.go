@@ -65,16 +65,17 @@ func (d *DB) Close() { d.pool.Close() }
 // ── Submissions ───────────────────────────────────────────────────────
 
 type Submission struct {
-	ID        string
-	TeamID    string
-	Name      string
-	Lang      string
-	Hash      string
-	ImageTag  string
-	Endpoint  string
-	Status    string
-	SizeBytes int64
-	CreatedAt time.Time
+	ID          string
+	TeamID      string
+	Name        string
+	Lang        string
+	Hash        string
+	ImageTag    string
+	Endpoint    string
+	Status      string
+	SizeBytes   int64
+	Correctness *string `json:",omitempty"` // raw JSON: {score,passed,total,cases,ts}
+	CreatedAt   time.Time
 }
 
 func (d *DB) InsertSubmission(ctx context.Context, s *Submission) error {
@@ -90,13 +91,19 @@ func (d *DB) InsertSubmission(ctx context.Context, s *Submission) error {
 func (d *DB) GetSubmission(ctx context.Context, id string) (*Submission, error) {
 	s := &Submission{}
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, team_id, name, lang, hash, COALESCE(image_tag,''), COALESCE(endpoint,''), status, COALESCE(size_bytes,0), created_at
+		SELECT id, team_id, name, lang, hash, COALESCE(image_tag,''), COALESCE(endpoint,''), status, COALESCE(size_bytes,0), correctness::text, created_at
 		FROM submissions WHERE id = $1
-	`, id).Scan(&s.ID, &s.TeamID, &s.Name, &s.Lang, &s.Hash, &s.ImageTag, &s.Endpoint, &s.Status, &s.SizeBytes, &s.CreatedAt)
+	`, id).Scan(&s.ID, &s.TeamID, &s.Name, &s.Lang, &s.Hash, &s.ImageTag, &s.Endpoint, &s.Status, &s.SizeBytes, &s.Correctness, &s.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	return s, err
+}
+
+// UpdateSubmissionCorrectness stores the correctness-oracle result (raw JSON).
+func (d *DB) UpdateSubmissionCorrectness(ctx context.Context, id string, correctnessJSON []byte) error {
+	_, err := d.pool.Exec(ctx, `UPDATE submissions SET correctness=$2 WHERE id=$1`, id, string(correctnessJSON))
+	return err
 }
 
 func (d *DB) UpdateSubmissionStatus(ctx context.Context, id, status, imageTag, endpoint string) error {

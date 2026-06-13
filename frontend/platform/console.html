@@ -196,6 +196,7 @@ $('use-sample').onclick = async () => {
     $('sub-status').innerHTML = 'using <span class="up">sub_sample</span> · <span class="up">deployed</span>';
     setStep(1,'done'); setStep(2,'done'); setStep(3,'on');
     $('do-run').disabled = false;
+    showCorrectness('sub_sample');
     toast('Sample engine ready — launch a benchmark', 'info');
   } catch(e){ toast('could not load sample: '+e.message, 'error'); }
 };
@@ -220,11 +221,22 @@ async function pollDeploy(id){
     const s = await API.getSubmission(id);
     const st = s && (s.Status || s.status);
     if ($('poll')) $('poll').textContent = st;
-    if (st === 'deployed'){ currentSub = id; $('do-run').disabled = false; setStep(2,'done'); setStep(3,'on'); toast('Engine deployed — ready to run','info'); return; }
+    if (st === 'deployed'){ currentSub = id; $('do-run').disabled = false; setStep(2,'done'); setStep(3,'on'); showCorrectness(id); toast('Engine deployed — ready to run','info'); return; }
     if (st === 'failed'){ if($('poll')) $('poll').innerHTML='<span class="down">build failed</span>'; setStep(2,'fail'); toast('Build failed — check the Dockerfile','error'); return; }
     await new Promise(r=>setTimeout(r,2000));
   }
   toast('deploy timed out','warn');
+}
+
+// ── Correctness oracle result (price-time priority + fill accuracy) ──
+async function showCorrectness(id){
+  try {
+    const s = await API.getSubmission(id);
+    if (!s || !s.Correctness) return;
+    const c = typeof s.Correctness === 'string' ? JSON.parse(s.Correctness) : s.Correctness;
+    const cls = c.score >= 100 ? 'up' : c.score >= 70 ? 'info' : 'down';
+    $('sub-status').innerHTML += ` · correctness <span class="${cls}">${c.score.toFixed(0)}%</span> <span class="dim">(${c.passed}/${c.total} oracle cases)</span>`;
+  } catch(e){ /* no correctness yet */ }
 }
 
 // ── Step 3: launch run ──────────────────────────────────────────────

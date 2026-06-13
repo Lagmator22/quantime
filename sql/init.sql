@@ -133,7 +133,12 @@ ON CONFLICT (id) DO NOTHING;
 -- launch a stress run immediately (POST /api/runs {"submissionId":"sub_sample"})
 -- WITHOUT the upload→build→deploy path, so the load→telemetry→score→
 -- leaderboard half of the pipeline is demoable on its own.
-INSERT INTO submissions (id, team_id, name, lang, hash, image_tag, endpoint, status, size_bytes)
+-- correctness is seeded to a perfect score because sample-engine is the
+-- reference price-time-priority CLOB the oracle itself is modelled on
+-- (verified: it passes all 10 oracle cases). Uploaded engines get this
+-- score computed for real at deploy time.
+INSERT INTO submissions (id, team_id, name, lang, hash, image_tag, endpoint, status, size_bytes, correctness)
 VALUES ('sub_sample', 't_demo', 'sample-engine', 'go', 'seed-sample',
-        'iicpc/sample-engine:seed', 'http://sample-engine:9001', 'deployed', 0)
+        'iicpc/sample-engine:seed', 'http://sample-engine:9001', 'deployed', 0,
+        '{"score":100,"passed":10,"total":10}')
 ON CONFLICT (team_id, hash) DO NOTHING;
