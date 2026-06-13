@@ -1,4 +1,4 @@
-# IICPC Platform — Architecture Blueprint
+# QuanTime — Architecture Blueprint
 
 > **Status:** Working prototype. `docker compose up --build` brings the entire stack live on one machine. `terraform apply` deploys it to a single EC2. K8s manifests in `/k8s/` apply to any cluster.
 >

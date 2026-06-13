@@ -1,4 +1,4 @@
-# IICPC Platform CI: build and test all Go services.
+# QuanTime CI: build and test all Go services.
 # Runs on every push and pull request against main.
 name: CI
 on:

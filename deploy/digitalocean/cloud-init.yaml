@@ -29,7 +29,7 @@ write_files:
     permissions: '0644'
     content: |
       [Unit]
-      Description=IICPC Platform (docker compose)
+      Description=QuanTime (docker compose)
       After=docker.service
       Requires=docker.service
 

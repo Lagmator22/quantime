@@ -1,35 +1,36 @@
-# IICPC Platform
+# QuanTime
 
-A distributed benchmarking and hosting platform for the **IICPC Summer Hackathon 2026** trading-infrastructure challenge.
+A distributed benchmarking & hosting platform for trading infrastructure — built for the **IICPC Summer Hackathon 2026** challenge.
 
-> Contestants upload a matching engine. The platform containerizes it, hammers it with a distributed bot fleet, captures real telemetry, and ranks teams on a composite of latency, throughput, and correctness.
+> Contestants upload a matching engine. QuanTime containerizes it under strict isolation, hammers it with a distributed bot fleet, captures real telemetry, and ranks teams on a live composite of latency, throughput, and correctness.
 
-**Two documents you should read alongside this one:**
+**Read these alongside this file:**
+- [DESIGN.md](DESIGN.md) — full system design document (architecture, data flow, scoring, ADRs, verified results)
 - [BLUEPRINT.md](BLUEPRINT.md) — architecture, data model, scoring formula
-- [LIMITATIONS.md](LIMITATIONS.md) — what's not built and why
+- [LIMITATIONS.md](LIMITATIONS.md) — what's built vs. roadmap, honestly
+
+> **Status:** The full pipeline — upload → containerized deploy → distributed load → real-time scoring — is implemented and verified end-to-end via `docker compose up`. See [§ Verified results](#verified-results).
 
 ---
 
 ## Quickstart — one command
 
 ```bash
-git clone <this-repo> && cd iicpc-platform
+git clone https://github.com/Lagmator22/quantime.git && cd quantime
 docker compose up --build
 ```
 
-Open <http://localhost:8080>.
-
-That brings up:
+Open <http://localhost:8080>. That brings up:
 
 | Service | Port | What it is |
 |---|---|---|
 | Caddy (frontend + reverse proxy) | 8080 | Open this in a browser |
 | Gateway (HTTP/WS API) | internal | `/api/*`, `/ws/*` |
-| AI Analyzer | internal | Multi-agent code analysis via Gemini |
+| AI Analyzer | internal | Multi-agent code analysis (Gemini; local-LLM on roadmap) |
 | Bot fleet | internal | Load generator (scale with `--scale botfleet=N`) |
-| Telemetry ingester | internal | NATS -> TimescaleDB |
+| Telemetry ingester | internal | NATS → TimescaleDB + Redis |
 | TimescaleDB | 5432 | Time-series DB |
-| Redis | 6379 | Hot state |
+| Redis | 6379 | Hot state + live pub/sub |
 | NATS | 4222 | Message bus |
 | Sample submission | internal | Reference engine on port 9001 |
 
@@ -37,196 +38,162 @@ That brings up:
 
 ## End-to-end demo (5 minutes)
 
+The whole pipeline, against a real upload. (`jq` and a running Docker are the only prerequisites.)
+
 ```bash
 # 1. Boot the stack
 docker compose up -d --build
+until curl -sf http://localhost:8080/api/health; do sleep 2; done
 
-# 2. Submit the sample engine to the platform
-curl -F "teamId=t_demo" -F "name=sample" -F "lang=go" \
-     -F "source=@examples/sample-engine-go" \
-     http://localhost:8080/api/submissions
-# → {"id":"sub_xxx","hash":"...","status":"uploaded"}
+# 2. Package + submit the sample engine.
+#    NOTE: curl uploads a TAR ARCHIVE, not a directory — pack it first.
+tar -czf /tmp/sample.tar.gz -C examples/sample-engine-go .
+SUB=$(curl -s -F "teamId=t_demo" -F "name=sample" -F "lang=go" \
+      -F "source=@/tmp/sample.tar.gz" http://localhost:8080/api/submissions | jq -r .id)
+echo "submission: $SUB"
 
-# 3. Wait for build + deploy (poll status)
-watch -n1 'curl -s http://localhost:8080/api/submissions/sub_xxx'
-# → status transitions: uploaded → building → built → deployed
+# 3. Wait for build + deploy (SaveSource → docker build → isolated sibling container)
+until [ "$(curl -s http://localhost:8080/api/submissions/$SUB | jq -r .Status)" = "deployed" ]; do
+  echo "  building…"; sleep 2
+done
 
-# 4. Launch a stress run
-curl -H "Content-Type: application/json" -X POST \
-     -d '{"submissionId":"sub_xxx","profile":"sustained","seed":42,"durationSec":30,"botsPerFleet":50}' \
-     http://localhost:8080/api/runs
-# → {"id":"run_yyy","status":"running"}
+# 4. Launch a 30s stress run
+RUN=$(curl -s -H "Content-Type: application/json" -X POST \
+      -d "{\"submissionId\":\"$SUB\",\"profile\":\"sustained\",\"seed\":42,\"durationSec\":30,\"botsPerFleet\":50}" \
+      http://localhost:8080/api/runs | jq -r .id)
+echo "run: $RUN"
 
-# 5. Watch live telemetry
-wscat -c ws://localhost:8080/ws/runs/run_yyy
+# 5. Watch live telemetry stream (npm i -g wscat first, or just watch the leaderboard)
+wscat -c ws://localhost:8080/ws/runs/$RUN
+#   → {"type":"metrics","orders":...,"tps":...,"avgLatMs":...} every 1s, then {"type":"final",...}
 
-# 6. After 30s, see the leaderboard
-curl http://localhost:8080/api/leaderboard | jq .
+# 6. After it finishes, see the score + leaderboard
+curl -s http://localhost:8080/api/runs/$RUN | jq .          # status:finished, score, finishedAt
+curl -s http://localhost:8080/api/leaderboard | jq .        # ranked teams w/ p50/p99/tps
 
-# 7. AI code analysis (requires GEMINI_API_KEY in .env)
-curl -H "Content-Type: application/json" -X POST \
+# 7. AI code analysis (optional — requires GEMINI_API_KEY in .env, see AI setup below)
+curl -s -H "Content-Type: application/json" -X POST \
      -d '{"sourceCode":"package main\nfunc submit(o Order) {}"}' \
      http://localhost:8080/api/analyze | jq .
-# -> {"riskScore":45,"findings":[...],"recommendations":[...]}
+#   → {"riskScore":45,"findings":[...],"recommendations":[...]}
 
 # 8. Scale the bot fleet horizontally
 docker compose up -d --scale botfleet=4
 ```
 
+**Fastest path (skip the upload):** the stack seeds a pre-deployed submission `sub_sample`, so you
+can launch a run immediately — `POST /api/runs` with `{"submissionId":"sub_sample", …}` — to see
+load → telemetry → score → leaderboard without building anything.
+
 ---
 
-## Hosted demo paths
+## Hosting & deployment
+
+> **What's verified:** **Docker Compose** is the fully-tested, end-to-end path (local, Codespaces,
+> or any VM). The Kubernetes, Terraform, and DigitalOcean assets below are **reference
+> Infrastructure-as-Code** that demonstrate the horizontal-scale design; they are provided as a
+> starting point, not a one-click guarantee. See [LIMITATIONS.md](LIMITATIONS.md) for the honest status of each.
 
 | Path | What's hosted | Cost | Always-on? |
 |---|---|---|---|
-| **GitHub Pages** | Frontend only (localStorage prototype) | Free | Yes |
+| **Docker Compose** (verified) | Full stack, one command, any machine with Docker | Free | While running |
 | **GitHub Codespaces** | Full stack via `docker compose up` | 180 hrs/mo free w/ Student Pack | On-demand |
-| **DigitalOcean droplet** | Full stack always running | $200 student credit ≈ 8 months on $24/mo | Yes |
-| **AWS Terraform (below)** | Full stack on EC2 | $30–60/mo | Yes |
+| **GitHub Pages** | Frontend **prototype only** — a self-contained browser simulation, **not** the real backend | Free | Yes |
+| **DigitalOcean / AWS Terraform** | Full stack on a single VM | student credit / ~$30–60/mo | Yes |
 
-### A. GitHub Pages (frontend only)
+> ⚠️ **About GitHub Pages:** Pages can only serve static files, so it hosts the in-browser
+> *prototype* (`frontend/`), which simulates the pipeline in JavaScript. The real distributed
+> system needs Docker/Postgres/Redis/NATS and runs via Compose on a real machine — it cannot run
+> on Pages. To get a live public URL for the real backend, run Compose on a VM (or your own
+> machine) and expose it with a free tunnel (e.g. Cloudflare Tunnel).
 
-The `.github/workflows/pages.yml` action publishes `frontend/` on every push to `master`. After the first run:
+### GitHub Codespaces (full stack, on-demand)
 
-1. Repo → **Settings → Pages → Source: GitHub Actions**
-2. Site goes live at `https://<your-handle>.github.io/iicpc-platform/`
+**Code → Codespaces → Create codespace on master.** The `.devcontainer/devcontainer.json`
+provisions Docker-in-Docker, Go 1.22, Terraform, and kubectl, and forwards port 8080 with a public
+preview URL. Inside the shell: `docker compose up --build`, then open the forwarded `:8080`.
 
-What's published: the in-browser prototype. The correctness suite + UI all work; there's no real distributed backend (that needs B, C, or D below).
-
-### B. GitHub Codespaces (full stack, on-demand)
-
-Click **Code → Codespaces → Create codespace on master**. The `.devcontainer/devcontainer.json` provisions:
-
-- Docker-in-Docker (so the gateway can spawn submission containers)
-- Go 1.22, Terraform, kubectl
-- Port 8080 auto-forwards with a public preview URL
-
-Inside the Codespace shell:
+### DigitalOcean droplet
 
 ```bash
-docker compose up --build
-```
-
-Click the forwarded `:8080` URL to demo. Stop the Codespace when done to preserve free hours.
-
-### C. DigitalOcean droplet (full stack, always-on, cheapest with student credit)
-
-```bash
-# One-shot via doctl:
 SSH_KEY=<your-fingerprint> ./deploy/digitalocean/deploy.sh
-
-# Or paste deploy/digitalocean/cloud-init.yaml into the DO console:
-#   Create Droplet → Advanced options → Add Initialization scripts (user data)
+# Or paste deploy/digitalocean/cloud-init.yaml into the DO console (Advanced → user data).
 ```
 
-Droplet boots, installs Docker, clones the repo, brings the stack up via systemd. ~5 minutes from "Create" to public URL.
-
-### D. AWS via Terraform
+### AWS via Terraform
 
 ```bash
 cd terraform
 terraform init
-terraform apply -var "repo_url=https://github.com/your-team/iicpc-platform.git"
-# → outputs: public_ip, url
+terraform apply -var "repo_url=https://github.com/Lagmator22/quantime.git"
 open $(terraform output -raw url)
 ```
 
-Single t3.large EC2 + EBS + Elastic IP + SSM Session Manager (no SSH key required).
+Single EC2 + EBS + Elastic IP + SSM Session Manager (no SSH key required).
 
----
-
-## Deploy to Kubernetes
+### Kubernetes (reference manifests)
 
 ```bash
-# Any cluster: EKS, GKE, AKS, kind, k3s, …
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/datastores.yaml
 kubectl apply -f k8s/services.yaml
 kubectl apply -f k8s/ingress.yaml
-
-kubectl -n iicpc get pods   # wait for everything Ready
-kubectl -n iicpc port-forward svc/caddy 8080:80   # access locally
+kubectl -n iicpc get pods
+kubectl -n iicpc port-forward svc/caddy 8080:80
 ```
 
-The K8s deploy adds:
-- 3-node NATS JetStream cluster
-- HPAs for gateway (2..10) and bot fleet (4..50)
-- NetworkPolicy isolating submission pods (only the bot fleet can reach them)
-- RBAC for the gateway to spawn submission pods dynamically
+The manifests model the horizontal-scale design: a NATS JetStream cluster, HPAs for the gateway
+and bot fleet (4→50), a NetworkPolicy isolating submission pods, and RBAC. They require published
+service images + the init SQL synced as a ConfigMap before they will fully run (see LIMITATIONS).
 
 ---
 
 ## Repo layout
 
 ```
-iicpc-platform/
+quantime/
 ├── README.md                — this file
+├── DESIGN.md                — full system design document
 ├── BLUEPRINT.md             — architecture
-├── LIMITATIONS.md           — what's not built and why
-├── docker-compose.yml       — one-command local stack
+├── LIMITATIONS.md           — what's built vs roadmap, honestly
+├── docker-compose.yml       — one-command local stack (verified)
 ├── Caddyfile                — edge / reverse proxy
 ├── .env.example             — env config (copy to .env)
 ├── sql/init.sql             — TimescaleDB schema + hypertable + cagg
-├── frontend/                — static UI (HTML/CSS/JS, design bundle)
+├── frontend/                — static UI (HTML/CSS/JS prototype)
 │   ├── index.html           — public landing
 │   └── platform/            — contestant portal pages
-│       ├── dashboard.html
-│       ├── submit.html
-│       ├── run.html
-│       ├── correctness.html
+│       ├── dashboard.html  submit.html  run.html  correctness.html
 │       ├── analyze.html     — AI code analysis page (NEW)
-│       ├── leaderboard.html
-│       ├── judge.html
-│       ├── architecture.html
-│       ├── docs.html
+│       ├── leaderboard.html  judge.html  architecture.html  docs.html
 │       └── assets/          — shared CSS/JS, engine, runtimes
 ├── services/
 │   ├── gateway/             — Go: HTTP/WS API, Docker sandbox spawner
-│   │   ├── cmd/main.go
-│   │   └── internal/
-│   │       ├── api/         — handlers, ws, middleware
-│   │       ├── store/       — pgx + TimescaleDB
-│   │       ├── cache/       — Redis pubsub + ZSET
-│   │       ├── bus/         — NATS / JetStream
-│   │       └── sandbox/     — docker build + run with strict flags
-│   ├── ai-analyzer/         — Go: Multi-agent code review via Gemini (NEW)
-│   │   ├── cmd/main.go      — HTTP API for /api/analyze, /api/report
-│   │   └── internal/
-│   │       ├── agents/      — security, performance, correctness agents + synthesizer
-│   │       ├── gemini/      — raw HTTP Gemini API client (no SDK)
-│   │       └── report/      — post-run performance report generator
-│   ├── botfleet/            — Go: goroutine-per-bot, fasthttp client
-│   │   ├── cmd/main.go
-│   │   └── internal/bot/    — bot loop + xoshiro256** RNG
-│   └── telemetry/           — Go: NATS → batched COPY → TimescaleDB + Redis ZADD
-│       └── cmd/main.go
+│   │   └── internal/        — api · store(pgx) · cache(redis) · bus(nats) · sandbox(docker)
+│   ├── ai-analyzer/         — Go: multi-agent code review via LLM (NEW)
+│   │   └── internal/        — agents(security/perf/correctness + synthesizer) · gemini · report
+│   ├── botfleet/            — Go: goroutine-per-bot, fasthttp, xoshiro256** RNG
+│   └── telemetry/           — Go: NATS → batched CopyFrom → TimescaleDB + Redis ZADD + live WS
 ├── tests/                   — standalone unit tests (27 tests)
 │   ├── sandbox_test.go      — archive extraction, path traversal, Dockerfile validation
 │   ├── scoring_test.go      — composite score math, edge cases
 │   └── agent_test.go        — risk scoring, recommendation dedup, strengths
-├── examples/
-│   └── sample-engine-go/    — reference matching engine (the "submission")
-│       ├── Dockerfile
-│       └── main.go
-├── .github/workflows/ci.yml — CI pipeline: build + vet + test + docker
-├── terraform/               — single-EC2 AWS deploy
-├── k8s/                     — production Kubernetes manifests
-├── deploy/digitalocean/     — doctl + cloud-init deploy
-├── scripts/
-│   └── demo.sh              — end-to-end demo script
-└── docs/                    — additional diagrams (if any)
+├── examples/sample-engine-go/ — reference matching engine (the "submission")
+├── .github/workflows/ci.yml — CI: build + vet + test(-race) + docker build
+├── terraform/  k8s/  deploy/digitalocean/   — reference IaC
+└── scripts/demo.sh          — end-to-end demo script
 ```
 
 ---
 
 ## Engineering principles
 
-1. **Honest about what's a prototype.** See LIMITATIONS.md. We've shipped a working distributed system; we have *not* shipped a hardened production system. Judges will respect the distinction.
-2. **Real container isolation, not Web-Worker theatre.** Submissions run in `docker run` containers with `--memory --cpus --pids-limit --read-only --cap-drop=ALL --security-opt no-new-privileges`. Network-isolated bridge.
+1. **Honest about what's a prototype.** See LIMITATIONS.md. We've shipped a working distributed system that's verified end-to-end; we have *not* shipped a hardened production system. Judges respect the distinction.
+2. **Real container isolation, not Web-Worker theatre.** Submissions run in `docker run` containers with `--memory --cpus --pids-limit --read-only --cap-drop=ALL --security-opt no-new-privileges` on a network-isolated bridge.
 3. **Integer ticks for prices, BIGINT for quantities.** Floats in a matching engine are a quant red flag.
 4. **Deterministic replay.** Same `(submission, seed)` → same bot order stream. Forensic replay is `SELECT * FROM telemetry WHERE run_id=$1 ORDER BY ts`.
-5. **One database, one bus, one cache.** Postgres+Timescale for relational + time-series, NATS for messaging, Redis for hot state. No premature CQRS, no exotic stores, no service mesh — until justified.
-6. **Comments explain *why*, not *what*.** Every file's header explains what the thing is and why it exists. Inline comments mark non-obvious decisions only.
+5. **One database, one bus, one cache.** Postgres+Timescale (relational + time-series), NATS (messaging), Redis (hot state + live pub/sub). No premature CQRS, no exotic stores, no service mesh — until justified.
+6. **Comments explain *why*, not *what*.** Every file header explains what the thing is and why it exists.
 
 ---
 
@@ -237,7 +204,7 @@ Each service has its own Go module. To work on one:
 ```bash
 cd services/gateway
 go mod tidy
-go test ./...
+go vet ./...
 go run ./cmd
 ```
 
@@ -249,19 +216,23 @@ go test -v -count=1 -race ./...
 # 27 tests: sandbox extraction, scoring math, agent risk scoring
 ```
 
-Run the full stack via `docker compose up --build` and iterate. Hot-reload isn't wired (`reflex` or `air` would do it); for now `docker compose up --build gateway` rebuilds just that service.
+Run the full stack via `docker compose up --build` and iterate; `docker compose up --build gateway` rebuilds just that service.
 
-### AI Analysis Setup
+### AI analysis setup
+
+The AI Analyzer currently uses Google's **Gemini** API (generous free tier, no card required):
 
 ```bash
-# 1. Get a Gemini API key from https://aistudio.google.com/app/apikey
-# 2. Add it to your .env file
+# 1. Get a free key at https://aistudio.google.com/app/apikey
 cp .env.example .env
 echo "GEMINI_API_KEY=your-key-here" >> .env
-
-# 3. Rebuild and start
+# 2. Rebuild and start
 docker compose up --build ai-analyzer
 ```
+
+> **Roadmap — local/offline AI:** a pluggable backend for a local LLM (e.g. Ollama + Qwen2.5-Coder)
+> so proprietary trading code never leaves your infrastructure. Tracked in LIMITATIONS.md. Until
+> then, the AI features are optional — the core benchmarking pipeline runs without any API key.
 
 ---
 
@@ -269,6 +240,19 @@ docker compose up --build ai-analyzer
 
 | Test File | Tests | What it verifies |
 |---|---|---|
-| `sandbox_test.go` | 6 | tar.gz/zip extraction, Dockerfile validation, path traversal protection |
+| `sandbox_test.go` | 6 | tar.gz/zip extraction, Dockerfile validation, path-traversal protection |
 | `scoring_test.go` | 13 | Composite scoring formula, edge cases (zero, negative, overflow) |
 | `agent_test.go` | 8 | Risk score computation, recommendation dedup, strength detection |
+
+---
+
+## <a name="verified-results"></a>Verified results
+
+Measured on a developer laptop (Apple Silicon, 16 GB) with `docker compose up`, 50 bots, ~20 s:
+
+- **480,480** telemetry rows ingested; **~24,000 orders/sec** (single host, one bot-fleet replica)
+- Order-ack latency **p50 0.25 ms / p99 35 ms**, **0 %** transport errors, composite score 58.8
+- Score written to Postgres `runs` + Redis leaderboard ZSET; **live metrics streamed over WebSocket**
+- Full **upload path** verified: tarball → build → isolated sibling container → run finished (337k rows, score 61.05)
+
+See [DESIGN.md § 19](DESIGN.md) for the full methodology and the honest roadmap.
