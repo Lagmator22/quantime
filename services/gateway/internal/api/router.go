@@ -6,9 +6,12 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -101,6 +104,23 @@ type statusWriter struct {
 func (s *statusWriter) WriteHeader(code int) {
 	s.status = code
 	s.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack lets the WebSocket library take over the raw connection for the
+// /ws/* upgrade. Without this passthrough the wrapped ResponseWriter no
+// longer satisfies http.Hijacker and websocket.Accept fails with 501.
+func (s *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := s.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, errors.New("underlying ResponseWriter does not support hijacking")
+}
+
+// Flush passes through streaming flushes (used by the WS keepalive path).
+func (s *statusWriter) Flush() {
+	if fl, ok := s.ResponseWriter.(http.Flusher); ok {
+		fl.Flush()
+	}
 }
 
 // writeJSON marshals + flushes a response body with the right content
