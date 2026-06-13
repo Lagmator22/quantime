@@ -5,7 +5,7 @@ package agents
 import (
 	"context"
 
-	"github.com/iicpc/ai-analyzer/internal/gemini"
+	"github.com/iicpc/ai-analyzer/internal/llm"
 )
 
 const correctnessPrompt = `You are a financial exchange compliance auditor reviewing a matching engine implementation.
@@ -34,15 +34,15 @@ Return your analysis as a JSON object with a "findings" array.
 Be precise. Only report real violations visible in the code.`
 
 // RunCorrectness checks matching engine invariant compliance.
-func RunCorrectness(ctx context.Context, client *gemini.Client, sourceCode string) ([]Finding, error) {
-	req := &gemini.GenerateRequest{
-		SystemInstruct: &gemini.Content{
-			Parts: []gemini.Part{{Text: correctnessPrompt}},
+func RunCorrectness(ctx context.Context, provider llm.Provider, sourceCode string) ([]Finding, error) {
+	req := &llm.GenerateRequest{
+		SystemInstruct: &llm.Content{
+			Parts: []llm.Part{{Text: correctnessPrompt}},
 		},
-		Contents: []gemini.Content{
-			{Role: "user", Parts: []gemini.Part{{Text: sourceCode}}},
+		Contents: []llm.Content{
+			{Role: "user", Parts: []llm.Part{{Text: sourceCode}}},
 		},
-		GenerationConfig: &gemini.GenerationConfig{
+		GenerationConfig: &llm.GenerationConfig{
 			ResponseMimeType: "application/json",
 			Temperature:      0.1,
 			MaxOutputTokens:  4096,
@@ -52,7 +52,7 @@ func RunCorrectness(ctx context.Context, client *gemini.Client, sourceCode strin
 	var result struct {
 		Findings []Finding `json:"findings"`
 	}
-	if err := client.GenerateJSON(ctx, req, &result); err != nil {
+	if err := llm.GenerateJSON(ctx, provider, req, &result); err != nil {
 		return nil, err
 	}
 

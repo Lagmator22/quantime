@@ -5,7 +5,7 @@ package agents
 import (
 	"context"
 
-	"github.com/iicpc/ai-analyzer/internal/gemini"
+	"github.com/iicpc/ai-analyzer/internal/llm"
 )
 
 const securityPrompt = `You are a security auditor for a competitive programming platform.
@@ -37,15 +37,15 @@ If the code is clean, return an empty findings array.
 Be precise. Do not hallucinate issues that do not exist in the code.`
 
 // RunSecurity analyzes code for security vulnerabilities.
-func RunSecurity(ctx context.Context, client *gemini.Client, sourceCode string) ([]Finding, error) {
-	req := &gemini.GenerateRequest{
-		SystemInstruct: &gemini.Content{
-			Parts: []gemini.Part{{Text: securityPrompt}},
+func RunSecurity(ctx context.Context, provider llm.Provider, sourceCode string) ([]Finding, error) {
+	req := &llm.GenerateRequest{
+		SystemInstruct: &llm.Content{
+			Parts: []llm.Part{{Text: securityPrompt}},
 		},
-		Contents: []gemini.Content{
-			{Role: "user", Parts: []gemini.Part{{Text: sourceCode}}},
+		Contents: []llm.Content{
+			{Role: "user", Parts: []llm.Part{{Text: sourceCode}}},
 		},
-		GenerationConfig: &gemini.GenerationConfig{
+		GenerationConfig: &llm.GenerationConfig{
 			ResponseMimeType: "application/json",
 			Temperature:      0.1, // Low temp for precise analysis
 			MaxOutputTokens:  4096,
@@ -55,7 +55,7 @@ func RunSecurity(ctx context.Context, client *gemini.Client, sourceCode string) 
 	var result struct {
 		Findings []Finding `json:"findings"`
 	}
-	if err := client.GenerateJSON(ctx, req, &result); err != nil {
+	if err := llm.GenerateJSON(ctx, provider, req, &result); err != nil {
 		return nil, err
 	}
 

@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/iicpc/ai-analyzer/internal/agents"
-	"github.com/iicpc/ai-analyzer/internal/gemini"
+	"github.com/iicpc/ai-analyzer/internal/llm"
 	"github.com/iicpc/ai-analyzer/internal/report"
 )
 
@@ -31,13 +31,41 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 	log.Println("[ai-analyzer] booting")
 
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	if apiKey == "" {
-		log.Println("[ai-analyzer] WARNING: GEMINI_API_KEY not set, analysis will fail")
+	providerName := os.Getenv("AI_PROVIDER")
+	if providerName == "" {
+		providerName = "local"
 	}
 
-	model := os.Getenv("GEMINI_MODEL")
-	client := gemini.NewClient(apiKey, model)
+	model := os.Getenv("AI_MODEL")
+	var provider llm.Provider
+
+	switch providerName {
+	case "openai":
+		key := os.Getenv("OPENAI_API_KEY")
+		baseURL := os.Getenv("OPENAI_BASE_URL")
+		provider = llm.NewOpenAIProvider(key, model, baseURL)
+		log.Printf("[ai-analyzer] using openai provider (model=%s)", model)
+	case "claude":
+		key := os.Getenv("ANTHROPIC_API_KEY")
+		provider = llm.NewClaudeProvider(key, model)
+		log.Printf("[ai-analyzer] using claude provider (model=%s)", model)
+	case "gemini":
+		key := os.Getenv("GEMINI_API_KEY")
+		provider = llm.NewGeminiProvider(key, model)
+		log.Printf("[ai-analyzer] using gemini provider (model=%s)", model)
+	case "local":
+		fallthrough
+	default:
+		baseURL := os.Getenv("LOCAL_LLM_URL")
+		if baseURL == "" {
+			baseURL = "http://local-llm:8000/v1/chat/completions"
+		}
+		if model == "" {
+			model = "Llama-3.2-3B-Instruct-INT4"
+		}
+		provider = llm.NewOpenAIProvider("", model, baseURL)
+		log.Printf("[ai-analyzer] using local provider (url=%s, model=%s)", baseURL, model)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -46,8 +74,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", healthHandler)
-	mux.HandleFunc("POST /api/analyze", analyzeHandler(client))
-	mux.HandleFunc("POST /api/report", reportHandler(client))
+	mux.HandleFunc("POST /api/analyze", analyzeHandler(provider))
+	mux.HandleFunc("POST /api/report", reportHandler(provider))
 
 	srv := &http.Server{
 		Addr:              ":" + port,
@@ -91,17 +119,21 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // analyzeRequest is the JSON body for POST /api/analyze.
 type analyzeRequest struct {
-	SourceCode   string `json:"sourceCode"`
-	SubmissionID string `json:"submissionId"`
-	Language     string `json:"language"`
+	RunID      string `json:"runId,omitempty"` // For testing reference
+	SourceCode string `json:"sourceCode"`
+	Provider   string `json:"provider,omitempty"`
+	Model      string `json:"model,omitempty"`
+	APIKey     string `json:"apiKey,omitempty"`
+	Language   string `json:"language,omitempty"`
 }
 
 // analyzeHandler runs the multi-agent analysis pipeline on submitted code.
-func analyzeHandler(client *gemini.Client) http.HandlerFunc {
+func analyzeHandler(provider llm.Provider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 		defer cancel()
 
+		var req analyzeRequest
 		var sourceCode string
 
 		// Accept either JSON body or multipart file upload
@@ -126,9 +158,12 @@ func analyzeHandler(client *gemini.Client) http.HandlerFunc {
 			sourceCode = string(data)
 		} else {
 			// JSON body
-			var req analyzeRequest
 			if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
 				httpErr(w, http.StatusBadRequest, "invalid json: "+err.Error())
+				return
+			}
+			if req.SourceCode == "" {
+				httpErr(w, http.StatusBadRequest, "missing sourceCode")
 				return
 			}
 			sourceCode = req.SourceCode
@@ -145,7 +180,32 @@ func analyzeHandler(client *gemini.Client) http.HandlerFunc {
 		}
 
 		log.Printf("[ai-analyzer] analyzing %d bytes of source code", len(sourceCode))
-		analysisReport, err := agents.Analyze(ctx, client, sourceCode)
+		
+		// Determine which provider to use
+		p := provider
+		if req.Provider != "" {
+			switch req.Provider {
+			case "openai":
+				p = llm.NewOpenAIProvider(req.APIKey, req.Model, "")
+				log.Printf("[ai-analyzer] using request-override provider: openai (model=%s)", req.Model)
+			case "claude":
+				p = llm.NewClaudeProvider(req.APIKey, req.Model)
+				log.Printf("[ai-analyzer] using request-override provider: claude (model=%s)", req.Model)
+			case "gemini":
+				p = llm.NewGeminiProvider(req.APIKey, req.Model)
+				log.Printf("[ai-analyzer] using request-override provider: gemini (model=%s)", req.Model)
+			case "local":
+				baseURL := "http://local-llm:8000/v1/chat/completions"
+				model := req.Model
+				if model == "" {
+					model = "Llama-3.2-3B-Instruct-INT4"
+				}
+				p = llm.NewOpenAIProvider("", model, baseURL)
+				log.Printf("[ai-analyzer] using request-override provider: local (model=%s)", model)
+			}
+		}
+
+		analysisReport, err := agents.Analyze(ctx, p, sourceCode)
 		if err != nil {
 			log.Printf("[ai-analyzer] analysis error: %v", err)
 			httpErr(w, http.StatusInternalServerError, "analysis failed: "+err.Error())
@@ -159,13 +219,16 @@ func analyzeHandler(client *gemini.Client) http.HandlerFunc {
 
 // reportRequest is the JSON body for POST /api/report.
 type reportRequest struct {
+	RunID      string         `json:"runId"`
 	SourceCode string         `json:"sourceCode"`
 	Metrics    report.Metrics `json:"metrics"`
-	RunID      string         `json:"runId"`
+	Provider   string         `json:"provider,omitempty"`
+	Model      string         `json:"model,omitempty"`
+	APIKey     string         `json:"apiKey,omitempty"`
 }
 
 // reportHandler generates a post-run performance report.
-func reportHandler(client *gemini.Client) http.HandlerFunc {
+func reportHandler(provider llm.Provider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 		defer cancel()
@@ -185,8 +248,28 @@ func reportHandler(client *gemini.Client) http.HandlerFunc {
 			req.SourceCode = req.SourceCode[:100_000]
 		}
 
+		// Determine which provider to use
+		p := provider
+		if req.Provider != "" {
+			switch req.Provider {
+			case "openai":
+				p = llm.NewOpenAIProvider(req.APIKey, req.Model, "")
+			case "claude":
+				p = llm.NewClaudeProvider(req.APIKey, req.Model)
+			case "gemini":
+				p = llm.NewGeminiProvider(req.APIKey, req.Model)
+			case "local":
+				baseURL := "http://local-llm:8000/v1/chat/completions"
+				model := req.Model
+				if model == "" {
+					model = "Llama-3.2-3B-Instruct-INT4"
+				}
+				p = llm.NewOpenAIProvider("", model, baseURL)
+			}
+		}
+
 		log.Printf("[ai-analyzer] generating report for run %s", req.RunID)
-		perfReport, err := report.GeneratePerformanceReport(ctx, client, req.SourceCode, req.Metrics)
+		perfReport, err := report.GeneratePerformanceReport(ctx, p, req.SourceCode, req.Metrics)
 		if err != nil {
 			log.Printf("[ai-analyzer] report error: %v", err)
 			httpErr(w, http.StatusInternalServerError, "report generation failed: "+err.Error())

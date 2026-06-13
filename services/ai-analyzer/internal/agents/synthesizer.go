@@ -4,11 +4,12 @@ package agents
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"sync"
 
-	"github.com/iicpc/ai-analyzer/internal/gemini"
+	"github.com/iicpc/ai-analyzer/internal/llm"
 )
 
 // severityWeight maps severity to a numeric weight for risk score calculation.
@@ -22,7 +23,7 @@ var severityWeight = map[string]int{
 
 // Analyze runs all three agents concurrently and synthesizes results.
 // Returns a complete AnalysisReport with risk score and recommendations.
-func Analyze(ctx context.Context, client *gemini.Client, sourceCode string) (*AnalysisReport, error) {
+func Analyze(ctx context.Context, provider llm.Provider, sourceCode string) (*AnalysisReport, error) {
 	var (
 		secFindings  []Finding
 		perfFindings []Finding
@@ -37,15 +38,15 @@ func Analyze(ctx context.Context, client *gemini.Client, sourceCode string) (*An
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		secFindings, secErr = RunSecurity(ctx, client, sourceCode)
+		secFindings, secErr = RunSecurity(ctx, provider, sourceCode)
 	}()
 	go func() {
 		defer wg.Done()
-		perfFindings, perfErr = RunPerformance(ctx, client, sourceCode)
+		perfFindings, perfErr = RunPerformance(ctx, provider, sourceCode)
 	}()
 	go func() {
 		defer wg.Done()
-		corrFindings, corrErr = RunCorrectness(ctx, client, sourceCode)
+		corrFindings, corrErr = RunCorrectness(ctx, provider, sourceCode)
 	}()
 	wg.Wait()
 
@@ -90,10 +91,12 @@ func Analyze(ctx context.Context, client *gemini.Client, sourceCode string) (*An
 
 	// Sort findings by severity (critical first)
 	sort.Slice(allFindings, func(i, j int) bool {
-		return severityWeight[allFindings[i].Severity] > severityWeight[allFindings[j].Severity]
+		wi := severityWeight[allFindings[i].Severity]
+		wj := severityWeight[allFindings[j].Severity]
+		return wi > wj // Descending order
 	})
 
-	// Compute risk score: sum of severity weights, capped at 100
+	// Generate the summary and risk score
 	riskScore := 0
 	for _, f := range allFindings {
 		riskScore += severityWeight[f.Severity]
@@ -102,67 +105,50 @@ func Analyze(ctx context.Context, client *gemini.Client, sourceCode string) (*An
 		riskScore = 100
 	}
 
-	// Build top recommendations from the highest severity findings
-	var recommendations []string
-	seen := map[string]bool{}
-	for _, f := range allFindings {
-		if len(recommendations) >= 3 {
-			break
-		}
-		key := f.Category + ":" + f.Location
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		recommendations = append(recommendations, f.Suggestion)
+	// Now ask LLM to synthesize a summary paragraph and top recommendations
+	findingsJSON, _ := json.Marshal(allFindings)
+	prompt := fmt.Sprintf(synthesizerPrompt, string(findingsJSON))
+
+	req := &llm.GenerateRequest{
+		Contents: []llm.Content{
+			{Role: "user", Parts: []llm.Part{{Text: prompt}}},
+		},
+		GenerationConfig: &llm.GenerationConfig{
+			ResponseMimeType: "application/json",
+			Temperature:      0.2, // Low temp for factual synthesis
+			MaxOutputTokens:  1024,
+		},
 	}
 
-	// Identify strengths (areas with no findings)
-	var strengths []string
-	hasSec := len(secFindings) > 0 || secErr != nil
-	hasPerf := len(perfFindings) > 0 || perfErr != nil
-	hasCorr := len(corrFindings) > 0 || corrErr != nil
-	if !hasSec {
-		strengths = append(strengths, "No security vulnerabilities detected")
-	}
-	if !hasPerf {
-		strengths = append(strengths, "No performance bottlenecks detected")
-	}
-	if !hasCorr {
-		strengths = append(strengths, "Matching engine invariants appear correct")
+	var synthesis struct {
+		Summary         string   `json:"summary"`
+		Strengths       []string `json:"strengths"`
+		Recommendations []string `json:"recommendations"`
 	}
 
-	// Generate summary
-	summary := generateSummary(len(allFindings), riskScore, len(secFindings), len(perfFindings), len(corrFindings))
+	// If the synthesizer LLM fails, we still return the raw findings
+	if err := llm.GenerateJSON(ctx, provider, req, &synthesis); err != nil {
+		synthesis.Summary = "Failed to generate AI summary: " + err.Error()
+	}
 
 	return &AnalysisReport{
 		Findings:        allFindings,
 		RiskScore:       riskScore,
-		Summary:         summary,
-		Strengths:       strengths,
-		Recommendations: recommendations,
+		Summary:         synthesis.Summary,
+		Strengths:       synthesis.Strengths,
+		Recommendations: synthesis.Recommendations,
 	}, nil
 }
 
-// generateSummary creates a human-readable overview of the analysis.
-func generateSummary(total, risk, sec, perf, corr int) string {
-	if total == 0 {
-		return "Analysis complete. No issues found. The code appears well-written and safe for deployment."
-	}
+const synthesizerPrompt = `You are the lead engineer reviewing a matching engine.
+Below is a JSON array of findings from the security, performance, and correctness automated agents.
 
-	riskLevel := "low"
-	if risk > 70 {
-		riskLevel = "critical"
-	} else if risk > 40 {
-		riskLevel = "high"
-	} else if risk > 20 {
-		riskLevel = "moderate"
-	}
+Your job is to synthesize these findings into three fields:
+1. "summary": A single, concise, professional paragraph summarizing the overall quality and the most glaring issues.
+2. "strengths": An array of 1-3 strings noting what the code does well (e.g., "No memory leaks", "Fast integer arithmetic"). If none, leave empty.
+3. "recommendations": An array of 1-3 strings noting the most critical things the developer should fix first.
 
-	return fmt.Sprintf(
-		"Analysis complete. Found %d issues (risk score: %d/100, level: %s). "+
-			"Security: %d findings, Performance: %d findings, Correctness: %d findings. "+
-			"Address critical and high severity items before stress testing.",
-		total, risk, riskLevel, sec, perf, corr,
-	)
-}
+Return ONLY a JSON object matching this schema. Do not include markdown formatting or explanation.
+
+Findings JSON:
+%s`

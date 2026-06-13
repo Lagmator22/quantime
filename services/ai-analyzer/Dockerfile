@@ -1,7 +1,7 @@
 # IICPC AI ANALYZER: multi-stage build, minimal runtime
 # Static Go binary calling Gemini API for code analysis.
 # No special OS deps needed. Alpine base for ca-certificates.
-FROM golang:1.22-alpine AS build
+FROM golang:1.24-alpine AS build
 WORKDIR /src
 RUN apk add --no-cache git
 COPY go.mod go.sum* ./

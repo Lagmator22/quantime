@@ -4,10 +4,11 @@ package report
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/iicpc/ai-analyzer/internal/agents"
-	"github.com/iicpc/ai-analyzer/internal/gemini"
+	"github.com/iicpc/ai-analyzer/internal/llm"
 )
 
 // Metrics holds the telemetry data from a completed stress test run.
@@ -43,40 +44,28 @@ Do not hallucinate. Only reference code patterns that actually exist.`
 
 // GeneratePerformanceReport creates a post-run analysis correlating
 // telemetry data with source code patterns.
-func GeneratePerformanceReport(ctx context.Context, client *gemini.Client, sourceCode string, metrics Metrics) (*agents.PerformanceReport, error) {
-	metricsText := fmt.Sprintf(`Stress Test Results:
-- p50 latency: %.0f ns (%.2f ms)
-- p90 latency: %.0f ns (%.2f ms)
-- p99 latency: %.0f ns (%.2f ms)
-- Throughput: %.0f orders/sec
-- Error rate: %.2f%%
-- Test duration: %.1f seconds`,
-		metrics.P50Ns, metrics.P50Ns/1e6,
-		metrics.P90Ns, metrics.P90Ns/1e6,
-		metrics.P99Ns, metrics.P99Ns/1e6,
-		metrics.TPS,
-		metrics.ErrPct,
-		metrics.Duration,
-	)
+func GeneratePerformanceReport(ctx context.Context, provider llm.Provider, sourceCode string, metrics Metrics) (*agents.PerformanceReport, error) {
+	metricsJSON, _ := json.MarshalIndent(metrics, "", "  ")
 
-	userContent := fmt.Sprintf("SOURCE CODE:\n```\n%s\n```\n\nTELEMETRY DATA:\n%s", sourceCode, metricsText)
+	userContent := fmt.Sprintf("## SOURCE CODE\n```\n%s\n```\n\n## STRESS TEST METRICS\n```json\n%s\n```",
+		sourceCode, string(metricsJSON))
 
-	req := &gemini.GenerateRequest{
-		SystemInstruct: &gemini.Content{
-			Parts: []gemini.Part{{Text: reportPrompt}},
+	req := &llm.GenerateRequest{
+		SystemInstruct: &llm.Content{
+			Parts: []llm.Part{{Text: reportPrompt}},
 		},
-		Contents: []gemini.Content{
-			{Role: "user", Parts: []gemini.Part{{Text: userContent}}},
+		Contents: []llm.Content{
+			{Role: "user", Parts: []llm.Part{{Text: userContent}}},
 		},
-		GenerationConfig: &gemini.GenerationConfig{
+		GenerationConfig: &llm.GenerationConfig{
 			ResponseMimeType: "application/json",
-			Temperature:      0.2, // Slightly higher for natural language
+			Temperature:      0.2,
 			MaxOutputTokens:  4096,
 		},
 	}
 
 	var perfReport agents.PerformanceReport
-	if err := client.GenerateJSON(ctx, req, &perfReport); err != nil {
+	if err := llm.GenerateJSON(ctx, provider, req, &perfReport); err != nil {
 		return nil, fmt.Errorf("generate performance report: %w", err)
 	}
 

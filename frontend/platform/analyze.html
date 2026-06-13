@@ -136,6 +136,32 @@
 <div class="split bias-1-2">
   <!-- Left: source input -->
   <div>
+    <div class="panel" style="margin-bottom: var(--s-4);">
+      <div class="panel-head"><h3>AI Configuration</h3></div>
+      <div class="panel-body">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); margin-bottom: var(--s-3);">
+          <div class="field">
+            <label>Provider</label>
+            <select class="select mono" id="ai-provider">
+              <option value="">System Default</option>
+              <option value="local">Local (OpenVINO)</option>
+              <option value="openai">OpenAI / DeepSeek / Kimi</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="claude">Anthropic Claude</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Model (optional)</label>
+            <input type="text" class="input mono" id="ai-model" placeholder="e.g. gpt-4o">
+          </div>
+        </div>
+        <div class="field">
+          <label>API Key (stored locally)</label>
+          <input type="password" class="input mono" id="ai-key" placeholder="sk-...">
+        </div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-head"><h3>Source code</h3></div>
       <div class="panel-body">
@@ -258,11 +284,25 @@ subs.forEach(s => {
   el('sub-select').appendChild(opt);
 });
 
+const q = new URLSearchParams(location.search).get('sub');
+if (q) {
+  el('sub-select').value = q;
+  localStorage.setItem('active_sub', q);
+} else {
+  const active = localStorage.getItem('active_sub');
+  if (active !== null) el('sub-select').value = active;
+}
+if (el('sub-select').value) {
+  const sub = subs.find(s => s.id === el('sub-select').value);
+  if (sub && sub.source) el('source-input').value = sub.source;
+}
+
 el('sub-select').onchange = () => {
   const id = el('sub-select').value;
   if (!id) return;
   const sub = subs.find(s => s.id === id);
   if (sub && sub.source) el('source-input').value = sub.source;
+  saveAnalyzeState();
 };
 
 // Agent status animation
@@ -291,10 +331,19 @@ el('analyze-btn').onclick = async () => {
   setAgentStatus('correctness', 'running', 'scanning...');
 
   try {
+    const provider = el('ai-provider').value.trim();
+    const model = el('ai-model').value.trim();
+    const apiKey = el('ai-key').value.trim();
+
+    const payload = { sourceCode: source };
+    if (provider) payload.provider = provider;
+    if (model) payload.model = model;
+    if (apiKey) payload.apiKey = apiKey;
+
     const resp = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sourceCode: source }),
+      body: JSON.stringify(payload),
     });
 
     if (!resp.ok) {
@@ -303,6 +352,7 @@ el('analyze-btn').onclick = async () => {
     }
 
     currentReport = await resp.json();
+    localStorage.setItem('analyze_report_' + (el('sub-select').value || 'ref'), JSON.stringify(currentReport));
     renderReport(currentReport);
 
     // Update agent statuses
@@ -390,6 +440,57 @@ el('filter-category').onchange = () => {
     renderFindings(currentReport.findings || [], el('filter-category').value);
   }
 };
+
+// --- State Retention ---
+function saveAnalyzeState() {
+  localStorage.setItem('analyze_state', JSON.stringify({
+    source: el('source-input').value,
+    provider: el('ai-provider').value,
+    model: el('ai-model').value,
+    apiKey: el('ai-key').value
+  }));
+  localStorage.setItem('active_sub', el('sub-select').value);
+}
+function restoreAnalyzeState() {
+  try {
+    const s = JSON.parse(localStorage.getItem('analyze_state') || '{}');
+    if (s.source && !el('source-input').value) el('source-input').value = s.source;
+    if (s.provider) el('ai-provider').value = s.provider;
+    if (s.model) el('ai-model').value = s.model;
+    if (s.apiKey) el('ai-key').value = s.apiKey;
+  } catch(e){}
+}
+document.querySelectorAll('select, textarea, input').forEach(e => {
+  e.addEventListener('change', saveAnalyzeState);
+  e.addEventListener('input', saveAnalyzeState);
+});
+restoreAnalyzeState();
+
+function loadAnalyzeReport() {
+  const sId = el('sub-select').value || 'ref';
+  try {
+    const rep = JSON.parse(localStorage.getItem('analyze_report_' + sId) || 'null');
+    if (rep && rep.findings) {
+      currentReport = rep;
+      renderReport(currentReport);
+      const secCount = currentReport.findings.filter(f => f.category === 'security').length;
+      const perfCount = currentReport.findings.filter(f => f.category === 'performance').length;
+      const corrCount = currentReport.findings.filter(f => f.category === 'correctness').length;
+      setAgentStatus('security', secCount > 0 ? 'error' : 'done', secCount > 0 ? `${secCount} issues` : 'clean');
+      setAgentStatus('performance', perfCount > 0 ? 'error' : 'done', perfCount > 0 ? `${perfCount} issues` : 'clean');
+      setAgentStatus('correctness', corrCount > 0 ? 'error' : 'done', corrCount > 0 ? `${corrCount} issues` : 'clean');
+      return;
+    }
+  } catch(e){}
+
+  currentReport = null;
+  el('results').style.display = 'none';
+  setAgentStatus('security', 'idle', 'waiting');
+  setAgentStatus('performance', 'idle', 'waiting');
+  setAgentStatus('correctness', 'idle', 'waiting');
+}
+el('sub-select').addEventListener('change', loadAnalyzeReport);
+loadAnalyzeReport();
 </script>
 </body>
 </html>

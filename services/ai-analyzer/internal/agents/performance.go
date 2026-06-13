@@ -5,7 +5,7 @@ package agents
 import (
 	"context"
 
-	"github.com/iicpc/ai-analyzer/internal/gemini"
+	"github.com/iicpc/ai-analyzer/internal/llm"
 )
 
 const performancePrompt = `You are a performance engineer reviewing a matching engine (order book) implementation.
@@ -34,15 +34,15 @@ Focus on issues that would cause p99 latency spikes under load.
 Be precise. Do not hallucinate issues that do not exist in the code.`
 
 // RunPerformance analyzes code for latency and throughput issues.
-func RunPerformance(ctx context.Context, client *gemini.Client, sourceCode string) ([]Finding, error) {
-	req := &gemini.GenerateRequest{
-		SystemInstruct: &gemini.Content{
-			Parts: []gemini.Part{{Text: performancePrompt}},
+func RunPerformance(ctx context.Context, provider llm.Provider, sourceCode string) ([]Finding, error) {
+	req := &llm.GenerateRequest{
+		SystemInstruct: &llm.Content{
+			Parts: []llm.Part{{Text: performancePrompt}},
 		},
-		Contents: []gemini.Content{
-			{Role: "user", Parts: []gemini.Part{{Text: sourceCode}}},
+		Contents: []llm.Content{
+			{Role: "user", Parts: []llm.Part{{Text: sourceCode}}},
 		},
-		GenerationConfig: &gemini.GenerationConfig{
+		GenerationConfig: &llm.GenerationConfig{
 			ResponseMimeType: "application/json",
 			Temperature:      0.1,
 			MaxOutputTokens:  4096,
@@ -52,7 +52,7 @@ func RunPerformance(ctx context.Context, client *gemini.Client, sourceCode strin
 	var result struct {
 		Findings []Finding `json:"findings"`
 	}
-	if err := client.GenerateJSON(ctx, req, &result); err != nil {
+	if err := llm.GenerateJSON(ctx, provider, req, &result); err != nil {
 		return nil, err
 	}
 
