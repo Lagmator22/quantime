@@ -752,7 +752,7 @@ footer { padding: var(--s-7) 0; }
       <a class="nav-link" href="#leaderboard">Leaderboard</a>
       <a class="nav-link" href="#timeline">Timeline</a>
       <a class="nav-link" href="#faq">FAQ</a>
-      <a class="nav-link platform-link" href="platform/console.html" style="color: var(--accent);">Platform ↗</a>
+      <a class="nav-link" href="#register">Register</a>
       <a class="btn btn-primary nav-link cta" href="platform/console.html">
         Enter platform <span class="arrow">→</span>
       </a>
@@ -1245,43 +1245,39 @@ footer { padding: var(--s-7) 0; }
         <h2 style="margin-top: var(--s-3);">Common questions.</h2>
       </div>
       <p class="section-lede">
-        Asked enough times that we wrote them down. If yours isn't here,
-        ask in the IICPC Discord — the org channel is the source of truth.
+        Everything you need to know about QuanTime's architecture, distributed bot fleet, 
+        sandboxing limits, telemetry collection, and the correctness verification engine.
       </p>
     </div>
 
     <div class="faq">
       <details open>
-        <summary>Who is this hackathon for?</summary>
-        <p>Top-tier systems engineers, competitive programmers, and algorithmic thinkers. If "p99 latency" is part of your vocabulary and "horizontal scaling" doesn't make you flinch, you're in the right place.</p>
+        <summary>What is QuanTime?</summary>
+        <p>QuanTime is a high-performance distributed benchmarking and hosting platform for financial order books and matching engines. It automates compilation, sandbox deployment, real-time load testing, and telemetry collection to rank engine implementations on performance and correctness.</p>
       </details>
       <details>
-        <summary>Can I solo this?</summary>
-        <p>Yes. Teams cap at 3 members but solo entries are welcome and judged on the same rubric. You will, however, sleep less.</p>
+        <summary>How is correctness verified?</summary>
+        <p>Correctness is verified by an inline execution oracle that matches order submissions to a strict Price-Time Priority FIFO state representation. It audits fill accuracy, trade executions, order cancellations, and order state transition validity (no double-fills, accurate remaining quantity, correct pricing, valid sequence numbers).</p>
       </details>
       <details>
-        <summary>Which languages can the platform accept submissions in?</summary>
-        <p>Your platform must accept binaries or source for at minimum C++, Rust, and Go. Anything beyond that is a bonus — and a defendable one in the architecture review.</p>
+        <summary>What languages and runtimes are supported?</summary>
+        <p>Any matching engine packaged with a Dockerfile can be benchmarked. We natively support and provide templates for Go, C++, and Rust matching engines, but any runtime that compiles inside a standard Linux container and exposes a REST/WebSocket API is compatible.</p>
       </details>
       <details>
-        <summary>Is using AI allowed?</summary>
-        <p>Yes. Use any AI tooling you like. We grade the resulting architecture, the resilience of the system, and the rigour of your decisions — not whether your fingers typed every character.</p>
+        <summary>How does the sandboxing model work?</summary>
+        <p>To ensure isolated and repeatable latency benchmarks, matching engines are run inside containerized sandboxes with restricted resource allocations: strict CPU pinning (via cgroups), limits on memory consumption, and no external internet access. Network communication is isolated on a dedicated bridge network.</p>
       </details>
       <details>
-        <summary>How is scoring computed?</summary>
-        <p>A composite of three signals: <span class="mono">speed</span> (latency &amp; throughput), <span class="mono">stability</span> (failure modes under load), and <span class="mono">correctness</span> (price-time priority + fill accuracy). Weights are published with the submission portal.</p>
+        <summary>What metrics does the telemetry ingester track?</summary>
+        <p>Our telemetry system ingests high-frequency metrics including throughput (Transactions Per Second), p50/p90/p99 tail latencies, error/packet loss ratios, system resource utilization (CPU/Memory), and correctness failure events. Data is persisted to a TimescaleDB hypertable for real-time querying.</p>
       </details>
       <details>
-        <summary>Do we need real cloud infrastructure?</summary>
-        <p>You need IaC that proves your platform <em>can</em> spin up and scale on a real cloud. A local K8s cluster + Terraform plan against a real provider is fine; a docker-compose with no scaling story is not.</p>
+        <summary>How does the bot fleet simulate market traffic?</summary>
+        <p>The bot fleet is distributed across multiple load-generation instances communicating over a NATS JetStream event bus. They generate realistic market activity profiles—ranging from simple random walks to structured liquidity generation, cancellations, and heavy order bursts—to stress-test matching engine throughput bounds.</p>
       </details>
       <details>
-        <summary>What happens if my code is malicious?</summary>
-        <p>It shouldn't be. The platform you're building specifically prevents that for incoming contestant code — sandboxing is a graded component. Submissions found attempting sandbox escape are disqualified.</p>
-      </details>
-      <details>
-        <summary>When do submissions open?</summary>
-        <p>The final week — June 3 to June 10, 2026. The earlier phases are for building and hardening your own platform; the final week is the live stress-test gauntlet.</p>
+        <summary>What does the AI Code Review analyzer check?</summary>
+        <p>Our multi-agent LLM analysis system runs three specialized agents in parallel: a Security Agent auditing for container escape and network exploits, a Performance Agent identifying memory allocations and lock contention, and an Architecture Agent mapping design decisions. They synthesize a combined risk rating and actionable feedback.</p>
       </details>
     </div>
   </div>
