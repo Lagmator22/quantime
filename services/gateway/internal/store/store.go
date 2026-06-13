@@ -136,6 +136,23 @@ func (d *DB) FinishRun(ctx context.Context, id, status string, score float64, me
 	return err
 }
 
+// GetRun fetches a single run by ID. Returns nil if not found.
+func (d *DB) GetRun(ctx context.Context, id string) (*Run, error) {
+	r := &Run{}
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, submission_id, team_id, profile, seed, status, started_at,
+		       finished_at, score
+		FROM runs WHERE id = $1
+	`, id).Scan(
+		&r.ID, &r.SubmissionID, &r.TeamID, &r.Profile, &r.Seed,
+		&r.Status, &r.StartedAt, &r.FinishedAt, &r.Score,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	return r, err
+}
+
 // LeaderboardRows returns the current ranking, which is precomputed by
 // a Redis ZSET in production. The Postgres fallback below is correct
 // but slow at scale (~50ms vs <1ms for the Redis path); kept as a

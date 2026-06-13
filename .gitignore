@@ -3,6 +3,7 @@
 **/build/
 **/bin/
 **/*.exe
+examples/sample-engine-go/sample-engine
 
 # Go
 **/*.test
