@@ -206,6 +206,19 @@ services:
           cpus: "1.0"
           memory: 256M
 
+  sample-engine-real-world:
+    build:
+      context: ./examples/real-world-orderbook
+    ports:
+      - "9004:9004"
+    restart: unless-stopped
+    networks: [iicpc-sandbox-net]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
 volumes:
   tsdb-data:
   redis-data:
