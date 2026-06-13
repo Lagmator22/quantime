@@ -26,6 +26,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="assets/tokens.css" />
 <link rel="stylesheet" href="assets/platform.css" />
+<link rel="stylesheet" href="https://unpkg.com/uplot/dist/uPlot.min.css" />
 <style>
 .live-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0; border: 1px solid var(--line); }
 .live-cell { padding: var(--s-4); border-right: 1px solid var(--line-soft); }
@@ -75,14 +76,24 @@
         <label>// target submission</label>
         <select class="select mono" id="cfg-sub"></select>
       </div>
-      <div class="field" style="margin-bottom: 0;">
-        <label>// stress profile</label>
-        <select class="select mono" id="cfg-profile">
-          <option value="sustained" selected>sustained: constant load</option>
-          <option value="burst">burst: 5× spikes every 1s</option>
-          <option value="adversarial">adversarial: cancels + flicker</option>
-        </select>
-      </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3);">
+          <div class="field">
+            <label>// target engine</label>
+            <select class="select mono" id="cfg-engine">
+              <option value="http://sample-engine:9001">Go (Reference)</option>
+              <option value="http://sample-engine-cpp:9002">C++ (High Perf)</option>
+              <option value="http://sample-engine-python:9003">Python (Baseline)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>// stress profile</label>
+            <select class="select mono" id="cfg-profile">
+              <option value="sustained">Normal Market Conditions</option>
+              <option value="burst">News Event Volatility (Burst)</option>
+              <option value="adversarial">Flash Crash / Chaos Simulation</option>
+            </select>
+          </div>
+        </div>
       <div class="field" style="margin-bottom: 0;">
         <label>// bot workers</label>
         <select class="select mono" id="cfg-workers">
@@ -171,13 +182,13 @@
   <div class="panel">
     <div class="panel-head"><h3>Latency timeline (µs)</h3><div class="actions"><span class="dim mono" id="chart-lat-info">-</span></div></div>
     <div class="panel-body">
-      <div class="chart-wrap"><svg id="chart-lat" viewBox="0 0 800 200" preserveAspectRatio="none"></svg></div>
+      <div class="chart-wrap" id="chart-lat"></div>
     </div>
   </div>
   <div class="panel">
     <div class="panel-head"><h3>Throughput timeline (ops/s)</h3><div class="actions"><span class="dim mono" id="chart-tps-info">-</span></div></div>
     <div class="panel-body">
-      <div class="chart-wrap"><svg id="chart-tps" viewBox="0 0 800 200" preserveAspectRatio="none"></svg></div>
+      <div class="chart-wrap" id="chart-tps"></div>
     </div>
   </div>
 </div>
@@ -219,6 +230,7 @@
 <script src="assets/rng.js"></script>
 <script src="assets/runtime.js"></script>
 <script src="assets/market-feed.js"></script>
+<script src="https://unpkg.com/uplot/dist/uPlot.iife.min.js"></script>
 <script>
 Layout.render({
   active: 'run',
@@ -234,7 +246,13 @@ function refreshSubsDropdown() {
   el('cfg-sub').innerHTML = '<option value="">platform reference engine (default: fastest, no IPC)</option>' +
     subs.map(s => `<option value="${s.id}">${s.name} · ${s.lang} · ${s.hash.slice(0,8)}</option>`).join('');
   const q = new URLSearchParams(location.search).get('sub');
-  if (q) el('cfg-sub').value = q;
+  if (q) {
+    el('cfg-sub').value = q;
+    localStorage.setItem('active_sub', q);
+  } else {
+    const active = localStorage.getItem('active_sub');
+    if (active !== null) el('cfg-sub').value = active;
+  }
 }
 refreshSubsDropdown();
 
@@ -513,38 +531,53 @@ function formatTPS(n) {
   return (n | 0) + '<small style="font-size:13px;color:var(--text-mute);"> ops/s</small>';
 }
 
-// -- SVG charts ----------------------------------------
-function buildPath(values, max) {
-  if (values.length === 0) return '';
-  const w = 800, h = 200;
-  return values.map((v, i) => {
-    const x = (i / Math.max(values.length - 1, 1)) * w;
-    const y = h - (v / Math.max(max, 1)) * h * 0.9 - 10;
-    return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
-  }).join(' ');
+// -- uPlot charts ----------------------------------------
+let uLat, uTps;
+function initCharts() {
+  if (uLat) { uLat.destroy(); uTps.destroy(); }
+  const latOpts = {
+    width: el('chart-lat').clientWidth, height: 200,
+    cursor: { show: false }, legend: { show: false },
+    axes: [{ show: false }, { show: false }],
+    scales: { x: { time: false }, y: { min: 0 } },
+    series: [
+      {},
+      { stroke: "oklch(68% 0.20 25)", width: 2 }, // p99
+      { stroke: "oklch(78% 0.17 145)", width: 2 } // p50
+    ]
+  };
+  const tpsOpts = {
+    width: el('chart-tps').clientWidth, height: 200,
+    cursor: { show: false }, legend: { show: false },
+    axes: [{ show: false }, { show: false }],
+    scales: { x: { time: false }, y: { min: 0 } },
+    series: [
+      {},
+      { stroke: "oklch(72% 0.16 240)", fill: "oklch(72% 0.16 240 / 0.15)", width: 2 } // tps
+    ]
+  };
+  uLat = new uPlot(latOpts, [[],[],[]], el('chart-lat'));
+  uTps = new uPlot(tpsOpts, [[],[]], el('chart-tps'));
 }
+
 function drawLatChart() {
+  if (!uLat) initCharts();
+  const xs = latHistory.map((_, i) => i);
   const p50s = latHistory.map(p => p.p50);
   const p99s = latHistory.map(p => p.p99);
   const maxV = Math.max(...p99s, 100);
-  el('chart-lat').innerHTML = `
-    ${[0.25, 0.5, 0.75].map(y => `<line x1="0" x2="800" y1="${200*y}" y2="${200*y}" stroke="oklch(28% 0.008 240)" stroke-dasharray="2,4" stroke-width="1"/>`).join('')}
-    <path d="${buildPath(p99s, maxV)}" stroke="oklch(68% 0.20 25)" stroke-width="1.5" fill="none"/>
-    <path d="${buildPath(p50s, maxV)}" stroke="oklch(78% 0.17 145)" stroke-width="1.5" fill="none"/>
-  `;
+  
+  uLat.setData([xs, p99s, p50s]);
   el('chart-lat-info').textContent = `p99 ${p99s[p99s.length-1]|0}µs · p50 ${p50s[p50s.length-1]|0}µs · max ${maxV|0}µs`;
 }
+
 function drawTpsChart() {
+  if (!uTps) initCharts();
+  const xs = tpsHistory.map((_, i) => i);
   const t = tpsHistory.map(p => p.tps);
   const maxT = Math.max(...t, 100);
-  const path = buildPath(t, maxT);
-  let area = path;
-  if (t.length > 0) area = path + ` L800,200 L0,200 Z`;
-  el('chart-tps').innerHTML = `
-    ${[0.25, 0.5, 0.75].map(y => `<line x1="0" x2="800" y1="${200*y}" y2="${200*y}" stroke="oklch(28% 0.008 240)" stroke-dasharray="2,4" stroke-width="1"/>`).join('')}
-    <path d="${area}" fill="oklch(72% 0.16 240 / 0.15)"/>
-    <path d="${path}" stroke="oklch(72% 0.16 240)" stroke-width="1.5" fill="none"/>
-  `;
+  
+  uTps.setData([xs, t]);
   el('chart-tps-info').textContent = `cur ${((t[t.length-1]||0)/1000).toFixed(1)}K · peak ${(maxT/1000).toFixed(1)}K`;
 }
 
@@ -669,6 +702,9 @@ btnStop.onclick = async () => {
     metrics, duration: elapsed * 1000, finishedAt: Date.now(),
   };
   Store.push('runs', run);
+  localStorage.setItem('run_results_' + (submissionId || 'ref'), JSON.stringify({
+    run, latHistory, tpsHistory, workerStats, logHtml: el('run-log').innerHTML
+  }));
 
   // Update leaderboard
   const lb = Store.get('leaderboard', []);
@@ -702,6 +738,78 @@ function startTimer() {
 }
 
 Store.subscribe('submissions', refreshSubsDropdown);
+
+// --- State Retention ---
+function saveRunState() {
+  localStorage.setItem('run_state', JSON.stringify({
+    workers: el('cfg-workers').value,
+    ops: el('cfg-ops').value,
+    seed: parseInt(el('cfg-seed').value),
+    profile: el('cfg-profile').value,
+    bots: parseInt(el('cfg-bots').value),
+    endpoint: el('cfg-engine').value,
+    feed: el('cfg-feed').value,
+  }));
+  localStorage.setItem('active_sub', el('cfg-sub').value);
+}
+function restoreRunState() {
+  try {
+    const s = JSON.parse(localStorage.getItem('run_state') || '{}');
+    if (s.workers) el('cfg-workers').value = s.workers;
+    if (s.ops) el('cfg-ops').value = s.ops;
+    if (s.hz) el('cfg-hz').value = s.hz;
+    if (s.profile) el('cfg-profile').value = s.profile;
+    if (s.seed) el('cfg-seed').value = s.seed;
+    if (s.dur) el('cfg-dur').value = s.dur;
+    if (s.feed !== undefined) el('cfg-feed').value = s.feed;
+  } catch(e){}
+}
+document.querySelectorAll('.panel-body select, .panel-body input').forEach(e => e.addEventListener('change', saveRunState));
+document.querySelectorAll('.panel-body select, .panel-body input').forEach(e => e.addEventListener('input', saveRunState));
+restoreRunState();
+saveRunState(); // Ensure initial or restored state is saved
+
+function loadRunResults() {
+  if (running) return;
+  const sId = el('cfg-sub').value || 'ref';
+  const saved = localStorage.getItem('run_results_' + sId);
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      latHistory = data.latHistory;
+      tpsHistory = data.tpsHistory;
+      workerStats = data.workerStats;
+      el('run-log').innerHTML = data.logHtml || '';
+      el('kpi-p50').innerHTML = data.run.metrics.p50 + '<small style="font-size:13px;color:var(--text-mute);"> µs</small>';
+      el('kpi-p99').innerHTML = data.run.metrics.p99 + '<small style="font-size:13px;color:var(--text-mute);"> µs</small>';
+      el('kpi-tps').innerHTML = formatTPS(data.run.metrics.tps);
+      el('kpi-err').innerHTML = (data.run.metrics.err * 100).toFixed(2) + '<small style="font-size:13px;color:var(--text-mute);"> %</small>';
+      el('run-status').textContent = 'finished';
+      el('run-status').className = 'status passed';
+      drawLatChart();
+      drawTpsChart();
+      renderFleet();
+      return;
+    } catch(e){}
+  }
+  latHistory = []; tpsHistory = []; workerStats = [];
+  el('run-log').innerHTML = '';
+  el('kpi-p50').innerHTML = '- <small style="font-size:13px;color:var(--text-mute);"> µs</small>';
+  el('kpi-p99').innerHTML = '- <small style="font-size:13px;color:var(--text-mute);"> µs</small>';
+  el('kpi-tps').innerHTML = '- <small style="font-size:13px;color:var(--text-mute);"> ops/s</small>';
+  el('kpi-err').innerHTML = '- <small style="font-size:13px;color:var(--text-mute);"> %</small>';
+  el('run-status').textContent = 'idle';
+  el('run-status').className = 'status idle';
+  if (uLat) uLat.setData([[], [], []]);
+  if (uTps) uTps.setData([[], []]);
+  el('fleet-body').innerHTML = '';
+  el('fleet-info').textContent = '0 active · 0 total';
+}
+el('cfg-sub').addEventListener('change', () => {
+  saveRunState();
+  loadRunResults();
+});
+loadRunResults();
 </script>
 </body>
 </html>

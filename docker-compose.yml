@@ -58,7 +58,9 @@ services:
       timescale:  { condition: service_healthy }
       redis:      { condition: service_started }
       nats:       { condition: service_started }
-    networks: [iicpc-net]
+    networks:
+      - iicpc-net
+      - iicpc-sandbox-net
     expose: ["7070"]
 
   botfleet:
@@ -74,7 +76,9 @@ services:
     depends_on:
       nats: { condition: service_started }
       redis: { condition: service_started }
-    networks: [iicpc-net]
+    networks:
+      - iicpc-net
+      - iicpc-sandbox-net
     # Scale horizontally: docker compose up --scale botfleet=4
 
   telemetry:
@@ -98,10 +102,28 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
+      - AI_PROVIDER=${AI_PROVIDER:-local}
+      - AI_MODEL=${AI_MODEL:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - LOCAL_LLM_URL=http://local-llm:8000/v1/chat/completions
       - PORT=7080
     expose: ["7080"]
+    depends_on:
+      - local-llm
+    networks: [iicpc-net]
+
+  local-llm:
+    build:
+      context: ./services/ai-analyzer/local_llm
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - MODEL_PATH=/models/Llama-3.2-3B-Instruct-INT4
+    volumes:
+      - /Users/lagmator22/OpenvinoDemo/OvaSearch/models:/models:ro
+    expose: ["8000"]
     networks: [iicpc-net]
 
   timescale:
@@ -148,10 +170,36 @@ services:
   sample-engine:
     build:
       context: ./examples/sample-engine-go
-      dockerfile: Dockerfile
+    ports:
+      - "9001:9001"
     restart: unless-stopped
-    expose: ["9001"]
-    networks: [iicpc-net]
+    networks: [iicpc-sandbox-net]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+  sample-engine-cpp:
+    build:
+      context: ./examples/sample-engine-cpp
+    ports:
+      - "9002:9002"
+    restart: unless-stopped
+    networks: [iicpc-sandbox-net]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+  sample-engine-python:
+    build:
+      context: ./examples/sample-engine-python
+    ports:
+      - "9003:9003"
+    restart: unless-stopped
+    networks: [iicpc-sandbox-net]
     deploy:
       resources:
         limits:
@@ -165,8 +213,9 @@ volumes:
 
 networks:
   iicpc-net:
-    # Pin an explicit name (otherwise Compose prefixes it as
-    # "<project>_iicpc-net"). The gateway spawns developer sandboxes with
-    # `docker run --network iicpc-net`, so the real network name must match.
     name: iicpc-net
+    driver: bridge
+
+  iicpc-sandbox-net:
+    name: iicpc-sandbox-net
     driver: bridge

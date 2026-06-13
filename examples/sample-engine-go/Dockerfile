@@ -1,7 +1,7 @@
 # Submission Dockerfile — minimal, scratch-based, no shell, no package
 # manager. Total image weighs ~8MB. Judges who submit their own code
 # should aim for the same — image size is a tiebreaker signal.
-FROM golang:1.22-alpine AS build
+FROM golang:1.24-alpine AS build
 WORKDIR /src
 COPY go.mod ./
 COPY main.go ./

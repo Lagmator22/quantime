@@ -179,6 +179,7 @@ function nsToMs(ns){ return (ns/1e6); }
     $('be-state').textContent = 'backend online ●';
     $('be-state').className = 'mono up';
     refreshLeaderboard(); setInterval(refreshLeaderboard, 4000);
+    restoreState();
   } else {
     $('be-state').textContent = 'backend offline ○';
     $('be-state').className = 'mono down';
@@ -186,6 +187,35 @@ function nsToMs(ns){ return (ns/1e6); }
     $('use-sample').disabled = $('do-upload').disabled = $('do-run').disabled = true;
   }
 })();
+
+function saveState(m) {
+  localStorage.setItem('qt_last_run', JSON.stringify(m));
+  if (currentSub) localStorage.setItem('qt_last_sub', currentSub);
+}
+
+function restoreState() {
+  const sub = localStorage.getItem('qt_last_sub');
+  if (sub) {
+    currentSub = sub;
+    $('sub-status').innerHTML = `restored <span class="mono">${escapeHTML(sub)}</span>`;
+    setStep(1,'done'); setStep(2,'done'); setStep(3,'on');
+    $('do-run').disabled = false;
+  }
+  const runStr = localStorage.getItem('qt_last_run');
+  if (runStr) {
+    try {
+      const m = JSON.parse(runStr);
+      $('result-panel').style.display = 'block';
+      $('r-score').textContent = (m.score||0).toFixed(1);
+      $('r-p50').innerHTML = nsToMs(m.p50).toFixed(2)+'<small>ms</small>';
+      $('r-p90').innerHTML = nsToMs(m.p90).toFixed(2)+'<small>ms</small>';
+      $('r-p99').innerHTML = nsToMs(m.p99).toFixed(2)+'<small>ms</small>';
+      $('r-tps').textContent = fmtTPS(m.tps||0);
+      $('r-err').innerHTML = (m.errPct||0).toFixed(2)+'<small>%</small>';
+      setStep(4,'done');
+    } catch(e){}
+  }
+}
 
 // ── Step 1: choose engine ───────────────────────────────────────────
 $('use-sample').onclick = async () => {
@@ -288,6 +318,7 @@ function onMsg(m){
     $('r-tps').textContent = fmtTPS(m.tps||0);
     $('r-err').innerHTML = (m.errPct||0).toFixed(2)+'<small>%</small>';
     refreshLeaderboard();
+    saveState(m);
     toast('Run complete · score '+(m.score||0).toFixed(1),'info');
   }
 }

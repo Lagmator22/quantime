@@ -65,6 +65,7 @@ function processBatch() {
   const t0 = performance.now();
   const batchSize = cfg.opsPerTick;
   const latencies = [];
+  const promises = [];
   let fills = 0, errs = 0;
 
   for (let i = 0; i < batchSize; i++) {
@@ -75,16 +76,34 @@ function processBatch() {
       : r < cfg.mix.maker + cfg.mix.taker ? 'taker'
       : 'sniper';
     const order = strategies[strat](cfg.state);
-    const res = engine.submit(order);
-    latencies.push(res.latencyNs);
-    fills += res.fills.length;
-    if (res.acks[0]?.status === 'error') errs++;
+    
+    // If we have an endpoint (a real container API), hit it
+    if (cfg.endpoint && cfg.endpoint !== 'local') {
+      const p = fetch(cfg.endpoint + '/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order)
+      }).then(r => r.json()).then(res => {
+        latencies.push((performance.now() - t0) * 1e6); // approximate ns
+        fills += 1; // approximate
+      }).catch(err => {
+        errs++;
+      });
+      promises.push(p);
+    } else {
+      // Local reference engine execution
+      const res = engine.submit(order);
+      latencies.push(res.latencyNs);
+      fills += res.fills.length;
+      if (res.acks[0]?.status === 'error') errs++;
+    }
 
     // Drift mid randomly so the book moves
     cfg.state.mid += (Math.random() - 0.5) * 0.05;
   }
 
-  const wallMs = performance.now() - t0;
+  Promise.all(promises).then(() => {
+    const wallMs = performance.now() - t0;
   postMessage({
     type: 'tele',
     batch: {
@@ -99,10 +118,11 @@ function processBatch() {
     },
   });
 
-  // Rate-limit: aim for cfg.tickHz ticks per second
-  const targetMs = 1000 / cfg.tickHz;
-  const sleep = Math.max(0, targetMs - wallMs);
-  tickHandle = setTimeout(processBatch, sleep);
+    // Rate-limit: aim for cfg.tickHz ticks per second
+    const targetMs = 1000 / cfg.tickHz;
+    const sleep = Math.max(0, targetMs - wallMs);
+    tickHandle = setTimeout(processBatch, sleep);
+  });
 }
 
 self.addEventListener('message', (e) => {
@@ -114,8 +134,11 @@ self.addEventListener('message', (e) => {
       tickHz: m.config.tickHz || 20,
       mix: m.config.mix || { maker: 0.5, taker: 0.35, sniper: 0.15 },
       state: { idSeq: 0, mid: m.config.startMid || 3142.50 },
+      endpoint: m.config.endpoint,
     };
-    engine = new MatchingEngine();
+    if (!cfg.endpoint || cfg.endpoint === 'local') {
+      engine = new MatchingEngine();
+    }
     running = true;
     postMessage({ type: 'log', level: 'ok', msg: `worker[${m.workerId}] online · ${cfg.botCount} bots · ${cfg.tickHz}Hz` });
     processBatch();

@@ -159,9 +159,14 @@ function refreshSubs() {
   const sel = el('cfg-sub');
   sel.innerHTML = '<option value="">(reference engine - built-in)</option>' +
     subs.map(s => `<option value="${s.id}">${s.name} · ${s.lang} · ${s.hash.slice(0,8)}</option>`).join('');
-  // pre-select from URL
   const q = new URLSearchParams(location.search).get('sub');
-  if (q) sel.value = q;
+  if (q) {
+    sel.value = q;
+    localStorage.setItem('active_sub', q);
+  } else {
+    const active = localStorage.getItem('active_sub');
+    if (active !== null) sel.value = active;
+  }
   updateRtInfo();
 }
 function updateRtInfo() {
@@ -236,6 +241,8 @@ el('run-suite').onclick = async () => {
     el('suite-status').className = 'status ' + (report.critical_failures + report.major_failures === 0 ? 'passed' : 'failed');
     el('export-report').disabled = false;
     toast(`suite complete · ${report.passed}/${report.total} · score ${report.score}`, report.score > 85 ? 'info' : 'warn', 'OK');
+
+    localStorage.setItem('correctness_report_' + (el('cfg-sub').value || 'ref'), JSON.stringify(report));
 
     // Persist on the run record
     persistCorrectness(report);
@@ -363,6 +370,44 @@ module.exports = { submit };
 
 refreshSubs();
 Store.subscribe('submissions', refreshSubs);
+
+// --- State Retention ---
+function saveCorrectState() {
+  localStorage.setItem('active_sub', el('cfg-sub').value);
+}
+el('cfg-sub').addEventListener('change', () => {
+  saveCorrectState();
+  loadCorrectnessReport();
+});
+
+function loadCorrectnessReport() {
+  const subId = el('cfg-sub').value || 'ref';
+  try {
+    const d = JSON.parse(localStorage.getItem('correctness_report_' + subId) || 'null');
+    if (d && d.results) {
+      lastReport = d;
+      renderTestList(d.results);
+      renderSummary(d);
+      el('suite-status').textContent = d.critical_failures + d.major_failures === 0 ? 'passed' : 'failed';
+      el('suite-status').className = 'status ' + (d.critical_failures + d.major_failures === 0 ? 'passed' : 'failed');
+      el('export-report').disabled = false;
+      return;
+    }
+  } catch(e){}
+  
+  lastReport = null;
+  renderTestList();
+  el('score').textContent = '-';
+  el('t-passed').textContent = '-';
+  el('t-crit').textContent = '-';
+  el('t-maj').textContent = '-';
+  el('t-min').textContent = '-';
+  el('cat-breakdown').innerHTML = '';
+  el('suite-status').textContent = 'idle';
+  el('suite-status').className = 'status idle';
+  el('export-report').disabled = true;
+}
+loadCorrectnessReport();
 </script>
 </body>
 </html>

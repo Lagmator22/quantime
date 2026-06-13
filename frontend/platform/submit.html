@@ -382,6 +382,8 @@ el('submit-btn').onclick = async () => {
   plog('ok', 'submission registered · ready for stress runs');
   toast('deployment complete', 'info', 'OK');
   renderRecent();
+  
+  localStorage.setItem('active_sub', id);
 
   // Reset form
   el('sub-name').value = '';
