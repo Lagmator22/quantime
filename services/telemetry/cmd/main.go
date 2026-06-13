@@ -30,6 +30,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
+	"github.com/redis/go-redis/v9"
 )
 
 type sample struct {
@@ -61,9 +62,28 @@ func main() {
 
 	natsURL := mustEnv("NATS_URL")
 	dbURL := mustEnv("DATABASE_URL")
+	redisURL := os.Getenv("REDIS_URL") // Optional: leaderboard cache
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Connect Redis for leaderboard ZADD (non-fatal if unavailable)
+	var rdb *redis.Client
+	if redisURL != "" {
+		opts, err := redis.ParseURL(redisURL)
+		if err != nil {
+			log.Printf("[telemetry] redis parse: %v (leaderboard cache disabled)", err)
+		} else {
+			rdb = redis.NewClient(opts)
+			if pingErr := rdb.Ping(ctx).Err(); pingErr != nil {
+				log.Printf("[telemetry] redis ping: %v (leaderboard cache disabled)", pingErr)
+				rdb = nil
+			} else {
+				log.Println("[telemetry] redis connected")
+			}
+		}
+	}
+
 
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
@@ -110,7 +130,7 @@ func main() {
 		if err := json.Unmarshal(m.Data, &s); err != nil {
 			return
 		}
-		finalizeRun(context.Background(), pool, s)
+		finalizeRun(context.Background(), pool, rdb, s)
 	})
 	if err != nil {
 		log.Fatalf("[telemetry] subscribe summary: %v", err)
@@ -121,7 +141,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		flusher(ctx, pool, buf)
+		flusher(ctx, pool, rdb, buf)
 	}()
 
 	log.Println("[telemetry] ready")
@@ -140,10 +160,26 @@ func mustEnv(k string) string {
 	return v
 }
 
-func flusher(ctx context.Context, pool *pgxpool.Pool, in <-chan sample) {
+// runAgg holds the live rolling counters for one in-flight run. It is owned
+// exclusively by the flusher goroutine, so it needs no synchronization.
+type runAgg struct {
+	orders     int64 // cumulative orders seen this run
+	errors     int64 // cumulative transport errors
+	sumLatency int64 // cumulative latency (ns) for a running average
+	lastOrders int64 // orders count at the previous live tick (for instantaneous TPS)
+	idleTicks  int   // consecutive live ticks with no new orders (for GC)
+}
+
+func flusher(ctx context.Context, pool *pgxpool.Pool, rdb *redis.Client, in <-chan sample) {
 	const batchMax = 5000
 	tick := time.NewTicker(250 * time.Millisecond)
 	defer tick.Stop()
+
+	// Live snapshot ticker: every 1s we push a rolling per-run aggregate to
+	// the Redis pubsub channel the gateway WebSocket fans out to the browser.
+	live := time.NewTicker(1 * time.Second)
+	defer live.Stop()
+	aggs := map[string]*runAgg{}
 
 	batch := make([]sample, 0, batchMax)
 	flush := func() {
@@ -163,11 +199,64 @@ func flusher(ctx context.Context, pool *pgxpool.Pool, in <-chan sample) {
 			return
 		case s := <-in:
 			batch = append(batch, s)
+			a := aggs[s.RunID]
+			if a == nil {
+				a = &runAgg{}
+				aggs[s.RunID] = a
+			}
+			a.orders++
+			a.sumLatency += s.LatencyNs
+			if s.Err != nil {
+				a.errors++
+			}
 			if len(batch) >= batchMax {
 				flush()
 			}
 		case <-tick.C:
 			flush()
+		case <-live.C:
+			publishLive(ctx, rdb, aggs)
+		}
+	}
+}
+
+// publishLive emits a rolling metrics snapshot per active run to the Redis
+// channel run:<id>:updates. The gateway's /ws/runs/{id} handler subscribes to
+// this channel, so this is what makes the live leaderboard actually stream.
+// Runs that go idle for 15 consecutive ticks are dropped to bound memory.
+func publishLive(ctx context.Context, rdb *redis.Client, aggs map[string]*runAgg) {
+	if rdb == nil {
+		return
+	}
+	for runID, a := range aggs {
+		tps := a.orders - a.lastOrders // orders observed in the last ~1s
+		a.lastOrders = a.orders
+		if tps == 0 {
+			a.idleTicks++
+			if a.idleTicks >= 15 {
+				delete(aggs, runID)
+			}
+			continue // nothing new to report this tick
+		}
+		a.idleTicks = 0
+
+		var avgLatMs, errPct float64
+		if a.orders > 0 {
+			avgLatMs = float64(a.sumLatency) / float64(a.orders) / 1e6
+			errPct = 100 * float64(a.errors) / float64(a.orders)
+		}
+		payload, _ := json.Marshal(map[string]any{
+			"type":     "metrics",
+			"runId":    runID,
+			"status":   "running",
+			"orders":   a.orders,
+			"tps":      tps,
+			"avgLatMs": avgLatMs,
+			"errPct":   errPct,
+			"ts":       time.Now().UnixMilli(),
+		})
+		if err := rdb.Publish(ctx, "run:"+runID+":updates", payload).Err(); err != nil {
+			log.Printf("[telemetry] live publish run=%s: %v", runID, err)
 		}
 	}
 }
@@ -248,19 +337,17 @@ func encodeType(t string) int16 {
 // finalizeRun computes the composite score from the hypertable rollup
 // and updates the runs row. We pull the 1-second continuous aggregate
 // view so this query stays cheap regardless of run length.
-func finalizeRun(ctx context.Context, pool *pgxpool.Pool, s summary) {
+func finalizeRun(ctx context.Context, pool *pgxpool.Pool, rdb *redis.Client, s summary) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	// Materialize the latest aggregate (refresh_continuous_aggregate
-	// would be the strict path, but we tolerate ~5s staleness for cheap
-	// reads).
+	// Aggregate latency percentiles and throughput from telemetry rows
 	row := pool.QueryRow(ctx, `
 		WITH agg AS (
 			SELECT
-			    approx_percentile(0.50, percentile_agg(latency_ns)) AS p50,
-			    approx_percentile(0.90, percentile_agg(latency_ns)) AS p90,
-			    approx_percentile(0.99, percentile_agg(latency_ns)) AS p99,
+			    percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_ns) AS p50,
+			    percentile_cont(0.90) WITHIN GROUP (ORDER BY latency_ns) AS p90,
+			    percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ns) AS p99,
 			    count(*)::float / NULLIF(EXTRACT(EPOCH FROM (max(ts) - min(ts))),0) AS tps,
 			    sum(CASE WHEN err IS NOT NULL THEN 1 ELSE 0 END)::float / NULLIF(count(*),0) AS err_rate
 			FROM telemetry
@@ -276,7 +363,7 @@ func finalizeRun(ctx context.Context, pool *pgxpool.Pool, s summary) {
 
 	// Composite score: weights mirror the judge console defaults.
 	// Lower latency / higher tps = higher score. Errors cost points.
-	speedScore := 100.0 * mathExpDecay(p99, 200_000_000) // p99 in ns; 200ms → ~37
+	speedScore := 100.0 * mathExpDecay(p99, 200_000_000) // p99 in ns, 200ms yields ~37
 	tputScore := 100.0 * mathSat(tps, 200_000)           // 200k ops/s caps at 100
 	correctnessScore := 100.0 * (1 - errRate)
 	composite := 0.4*speedScore + 0.4*tputScore + 0.2*correctnessScore
@@ -296,10 +383,49 @@ func finalizeRun(ctx context.Context, pool *pgxpool.Pool, s summary) {
 		log.Printf("[telemetry] update run %s: %v", s.RunID, err)
 	}
 
-	// Update the leaderboard ZSET (Redis). Done via Postgres listen/notify
-	// in the deployed version; here we just log the score.
-	log.Printf("[telemetry] run=%s p50=%.0fns p99=%.0fns tps=%.0f err=%.2f%% score=%.1f",
-		s.RunID, p50, p99, tps, errRate*100, composite)
+	// Resolve team_id for this run so we can key the leaderboard
+	var teamID string
+	teamErr := pool.QueryRow(ctx, `SELECT team_id FROM runs WHERE id=$1`, s.RunID).Scan(&teamID)
+	if teamErr != nil {
+		log.Printf("[telemetry] resolve team for run %s: %v", s.RunID, teamErr)
+		teamID = s.RunID // Fallback to runID if team lookup fails
+	}
+
+	// Write score to Redis sorted set for sub-millisecond leaderboard reads.
+	// ZADD only updates if the new score is higher (GT flag).
+	if rdb != nil {
+		zaddErr := rdb.ZAddGT(ctx, "leaderboard:scores", redis.Z{
+			Score:  composite,
+			Member: teamID,
+		}).Err()
+		if zaddErr != nil {
+			log.Printf("[telemetry] redis ZADD run=%s: %v", s.RunID, zaddErr)
+		}
+
+		// Store metrics JSON per team for leaderboard detail display
+		rdb.HSet(ctx, "leaderboard:metrics", teamID, string(metrics))
+
+		// Push a final snapshot to the live WS stream so the run page shows
+		// completion with the authoritative percentiles + composite score.
+		final, _ := json.Marshal(map[string]any{
+			"type":   "final",
+			"runId":  s.RunID,
+			"status": "finished",
+			"p50":    p50,
+			"p90":    p90,
+			"p99":    p99,
+			"tps":    tps,
+			"errPct": errRate * 100,
+			"score":  composite,
+			"ts":     time.Now().UnixMilli(),
+		})
+		if pubErr := rdb.Publish(ctx, "run:"+s.RunID+":updates", final).Err(); pubErr != nil {
+			log.Printf("[telemetry] final publish run=%s: %v", s.RunID, pubErr)
+		}
+	}
+
+	log.Printf("[telemetry] run=%s team=%s p50=%.0fns p99=%.0fns tps=%.0f err=%.2f%% score=%.1f",
+		s.RunID, teamID, p50, p99, tps, errRate*100, composite)
 }
 
 func mathExpDecay(x, k float64) float64 {
