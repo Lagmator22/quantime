@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>QuanTime - Distributed Benchmarking Platform for Trading Engines</title>
-<meta name="description" content="Architect and build a distributed benchmarking & hosting platform for trading infrastructure. May 9 – June 10, 2026. Teams of up to 3." />
+<meta name="description" content="QuanTime is an open-source distributed benchmarking platform that stress-tests trading matching engines. Upload an engine, isolate it, bombard it with a bot fleet, and score it live on latency, throughput, and correctness." />
 
 <!-- =====================================================================
      FONT IMPORTS
@@ -228,7 +228,7 @@ img, svg { display: block; max-width: 100%; }
    6. HERO
    ---------------------------------------------------------------------
    Big-type display, two-column meta strip below, decorative scan-line
-   grid in the background. Countdown is wired up by JS in §13.
+   grid in the background.
 ===================================================================== */
 .hero {
   position: relative;
@@ -296,7 +296,7 @@ img, svg { display: block; max-width: 100%; }
 
 .hero-actions { display: flex; gap: var(--s-3); flex-wrap: wrap; }
 
-/* -- Hero meta strip (dates / location / countdown / teams) -- */
+/* -- Hero meta strip (product stats) -- */
 .hero-meta {
   margin-top: var(--s-9);
   border-top: 1px solid var(--line);
@@ -717,22 +717,22 @@ footer { padding: var(--s-7) 0; }
   <div class="ticker-track">
     <!-- Copy 1 -->
     <span class="ticker-item"><span class="sym">QUANTIME</span> <span class="up">▲ LIVE</span> <span>open-source</span></span>
-    <span class="ticker-item"><span class="sym">THROUGHPUT</span> <span class="up">▲ 24K ops/s</span> <span>verified</span></span>
-    <span class="ticker-item"><span class="sym">LATENCY</span> <span class="up">▼ p50 0.25ms</span></span>
-    <span class="ticker-item"><span class="sym">ORDERS</span> <span>480K / run</span></span>
-    <span class="ticker-item"><span class="sym">ISOLATION</span> <span>docker · cgroups · cap-drop</span></span>
-    <span class="ticker-item"><span class="sym">TELEMETRY</span> <span>TimescaleDB · p50/p90/p99</span></span>
-    <span class="ticker-item"><span class="sym">STACK</span> <span>GO · NATS · REDIS</span></span>
-    <span class="ticker-item"><span class="sym">SCORE</span> <span class="up">SPEED × STABILITY × CORRECTNESS</span></span>
+    <span class="ticker-item"><span class="sym">THROUGHPUT</span> <span class="up">▲ ~24K orders/s</span> <span>verified</span></span>
+    <span class="ticker-item"><span class="sym">LATENCY</span> <span class="up">▼ p50 0.25ms</span> <span>p99 ~35ms</span></span>
+    <span class="ticker-item"><span class="sym">TELEMETRY</span> <span>480,480 rows / run</span></span>
+    <span class="ticker-item"><span class="sym">ISOLATION</span> <span>docker · cgroups · cap-drop ALL</span></span>
+    <span class="ticker-item"><span class="sym">CORRECTNESS</span> <span>independent oracle</span></span>
+    <span class="ticker-item"><span class="sym">STACK</span> <span>GO · NATS · TIMESCALE · REDIS</span></span>
+    <span class="ticker-item"><span class="sym">SCORE</span> <span class="up">0.4 SPEED · 0.4 THROUGHPUT · 0.2 CORRECTNESS</span></span>
     <!-- Copy 2 (must match copy 1 for seamless loop) -->
     <span class="ticker-item"><span class="sym">QUANTIME</span> <span class="up">▲ LIVE</span> <span>open-source</span></span>
-    <span class="ticker-item"><span class="sym">THROUGHPUT</span> <span class="up">▲ 24K ops/s</span> <span>verified</span></span>
-    <span class="ticker-item"><span class="sym">LATENCY</span> <span class="up">▼ p50 0.25ms</span></span>
-    <span class="ticker-item"><span class="sym">ORDERS</span> <span>480K / run</span></span>
-    <span class="ticker-item"><span class="sym">ISOLATION</span> <span>docker · cgroups · cap-drop</span></span>
-    <span class="ticker-item"><span class="sym">TELEMETRY</span> <span>TimescaleDB · p50/p90/p99</span></span>
-    <span class="ticker-item"><span class="sym">STACK</span> <span>GO · NATS · REDIS</span></span>
-    <span class="ticker-item"><span class="sym">SCORE</span> <span class="up">SPEED × STABILITY × CORRECTNESS</span></span>
+    <span class="ticker-item"><span class="sym">THROUGHPUT</span> <span class="up">▲ ~24K orders/s</span> <span>verified</span></span>
+    <span class="ticker-item"><span class="sym">LATENCY</span> <span class="up">▼ p50 0.25ms</span> <span>p99 ~35ms</span></span>
+    <span class="ticker-item"><span class="sym">TELEMETRY</span> <span>480,480 rows / run</span></span>
+    <span class="ticker-item"><span class="sym">ISOLATION</span> <span>docker · cgroups · cap-drop ALL</span></span>
+    <span class="ticker-item"><span class="sym">CORRECTNESS</span> <span>independent oracle</span></span>
+    <span class="ticker-item"><span class="sym">STACK</span> <span>GO · NATS · TIMESCALE · REDIS</span></span>
+    <span class="ticker-item"><span class="sym">SCORE</span> <span class="up">0.4 SPEED · 0.4 THROUGHPUT · 0.2 CORRECTNESS</span></span>
   </div>
 </div>
 
@@ -747,12 +747,12 @@ footer { padding: var(--s-7) 0; }
       <span class="ver">v2026.05</span>
     </a>
     <nav class="nav-links">
-      <a class="nav-link" href="#mission">Mission</a>
+      <a class="nav-link" href="#how">How it works</a>
       <a class="nav-link" href="#components">Components</a>
+      <a class="nav-link" href="#use">Get started</a>
       <a class="nav-link" href="#leaderboard">Leaderboard</a>
-      <a class="nav-link" href="#timeline">Timeline</a>
       <a class="nav-link" href="#faq">FAQ</a>
-      <a class="nav-link" href="#register">Test</a>
+      <a class="nav-link" href="https://github.com/Lagmator22/quantime" target="_blank" rel="noopener">GitHub ↗</a>
       <a class="btn btn-primary nav-link cta" href="platform/console.html">
         Enter platform <span class="arrow">→</span>
       </a>
@@ -763,15 +763,14 @@ footer { padding: var(--s-7) 0; }
 <!-- =====================================================================
      C. HERO
      ---------------------------------------------------------------------
-     Two-line display headline + lede + CTAs + 4-cell meta strip.
-     The countdown in the meta strip is wired up by JS in §13.
+     Two-line display headline + product lede + CTAs + 4-cell stat strip.
 ===================================================================== -->
 <section class="hero" style="border-bottom: 1px solid var(--line);">
   <div class="hero-grid"></div>
   <div class="wrap" style="position: relative;">
     <div class="hero-eyebrow">
-      <span class="pill"><span class="dot"></span>Live · Test Engine</span>
-      <span class="pill mono">Edition 2026.S1</span>
+      <span class="pill"><span class="dot"></span>Open Source · Live</span>
+      <span class="pill mono">Benchmark Arena for Matching Engines</span>
     </div>
 
     <h1>
@@ -781,102 +780,95 @@ footer { padding: var(--s-7) 0; }
     </h1>
 
     <p class="hero-lede">
-      <strong>QuanTime</strong> is a distributed benchmarking and hosting
-      platform for trading engines. It ingests a user's matching engine,
-      isolates it in a hardened container, bombards it with a distributed
-      fleet of bots, and scores it live on latency, throughput, and
-      correctness with microsecond-level precision.
+      <strong>QuanTime</strong> is an open-source distributed benchmarking
+      platform that stress-tests trading matching engines. Upload an
+      order-matching engine; QuanTime containerizes it under strict
+      isolation, bombards it with a distributed bot fleet, and scores it
+      live on latency, throughput, and correctness. It is a crash-test lab
+      for exchange software, <strong>not</strong> a trading bot.
     </p>
 
     <div class="hero-actions">
       <a href="platform/console.html" class="btn btn-primary">
         Enter platform <span class="arrow">→</span>
       </a>
-      <a href="platform/submit.html" class="btn">Submit code</a>
-      <a href="platform/architecture.html" class="btn">Architecture</a>
-      <a href="#mission" class="btn btn-ghost" style="background:transparent;">View Specifications</a>
+      <a href="https://github.com/Lagmator22/quantime" target="_blank" rel="noopener" class="btn">View on GitHub</a>
+      <a href="#how" class="btn btn-ghost" style="background:transparent;">How it works</a>
     </div>
 
-    <!-- -- Meta strip -- -->
+    <!-- -- Product stat strip (verified numbers) -- -->
     <div class="hero-meta">
       <div class="cell">
         <div class="label">// Throughput</div>
-        <div class="value">>24K ops/s</div>
-        <div class="sub">sustained throughput under peak load</div>
+        <div class="value">~24K ord/s</div>
+        <div class="sub">single bot-fleet replica, docker compose</div>
       </div>
       <div class="cell">
-        <div class="label">// Telemetry</div>
-        <div class="value">Sub-ms</div>
-        <div class="sub">p50, p90, and p99 latency resolution</div>
+        <div class="label">// Latency</div>
+        <div class="value">p50 0.25ms</div>
+        <div class="sub">p99 ~35ms · 0% transport errors</div>
       </div>
       <div class="cell">
-        <div class="label">// Sandboxing</div>
-        <div class="value">Isolated</div>
-        <div class="sub">cgroups CPU pinning and memory caps</div>
+        <div class="label">// Components</div>
+        <div class="value">4 core</div>
+        <div class="sub">sandbox · bot fleet · telemetry · board</div>
       </div>
       <div class="cell">
-        <div class="label">// Analysis</div>
-        <div class="value" style="color: var(--accent);">[ ACTIVE ]</div>
-        <div class="sub">multi-agent LLM code audits</div>
+        <div class="label">// License</div>
+        <div class="value" style="color: var(--accent);">Open Source</div>
+        <div class="sub">public repo on GitHub</div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- =====================================================================
-     D. MISSION (terminal-styled brief)
+     D. HOW IT WORKS - the 5-stage pipeline
 ===================================================================== -->
-<section id="mission">
+<section id="how">
   <div class="wrap">
     <div class="section-head">
       <div>
-        <span class="eyebrow">01 / Objective</span>
-        <h2 style="margin-top: var(--s-3);">The objective, exactly.</h2>
+        <span class="eyebrow">01 / Pipeline</span>
+        <h2 style="margin-top: var(--s-3);">How it works.</h2>
       </div>
       <p class="section-lede">
-        QuanTime is built for engineers who treat latency as a moral
-        obligation. Read the specification below: this is the benchmark QuanTime was
-        built to execute, and the platform you're looking at is the answer.
+        QuanTime runs every engine through the same five-stage pipeline:
+        Upload, Isolate, Load, Measure, Rank. The same harness, the same
+        bot fleet, the same scenario for every submission, so results are
+        comparable and reproducible.
       </p>
     </div>
 
-    <!-- Terminal-style brief block.
-         The .ln rows fake a code editor. To edit the brief, change
-         the text inside .ln blocks; line numbers are decorative only. -->
+    <!-- Terminal-style pipeline block. -->
     <div class="terminal">
       <div class="terminal-bar">
         <div class="dots"><span></span><span></span><span></span></div>
-        <div class="title">~ / quantime / objective.md</div>
+        <div class="title">~ / quantime / pipeline.md</div>
         <div style="margin-left:auto; font-size:11px; color: var(--text-dim);">read-only</div>
       </div>
       <div class="terminal-body">
-        <div class="ln"><span class="num">01</span><span><span class="com"># OBJECTIVE</span></span></div>
-        <div class="ln"><span class="num">02</span><span><span class="prompt">$</span> Architect and build a <span class="hl">Distributed Benchmarking &amp; Hosting Platform</span> designed to evaluate user-submitted trading infrastructure.</span></div>
+        <div class="ln"><span class="num">01</span><span><span class="com"># QUANTIME PIPELINE</span></span></div>
+        <div class="ln"><span class="num">02</span><span><span class="prompt">$</span> Upload a matching engine, get a <span class="hl">live score</span> on speed, throughput, and correctness.</span></div>
         <div class="ln"><span class="num">03</span><span>&nbsp;</span></div>
-        <div class="ln"><span class="num">04</span><span><span class="com"># PIPELINE</span></span></div>
-        <div class="ln"><span class="num">05</span><span><span class="key">upload</span>  → users push a simulated <span class="str">"orderbook"</span> or <span class="str">"matching engine"</span> (C++, Rust, Go).</span></div>
-        <div class="ln"><span class="num">06</span><span><span class="key">isolate</span> → the platform containerises the binary, pins CPU, caps memory, denies syscalls.</span></div>
-        <div class="ln"><span class="num">07</span><span><span class="key">expose</span>  → predefined REST / WebSocket / FIX endpoints surface to a private mesh.</span></div>
-        <div class="ln"><span class="num">08</span><span><span class="key">attack</span>  → spawn a fleet of <span class="hl">distributed bots</span> simulating peak market volatility.</span></div>
-        <div class="ln"><span class="num">09</span><span><span class="key">measure</span> → capture granular telemetry: p50 / p90 / p99, TPS, correctness.</span></div>
-        <div class="ln"><span class="num">10</span><span><span class="key">rank</span>    → stream a composite score to a live leaderboard.</span></div>
-        <div class="ln"><span class="num">11</span><span>&nbsp;</span></div>
-        <div class="ln"><span class="num">12</span><span><span class="com"># NON-NEGOTIABLE</span></span></div>
-        <div class="ln"><span class="num">13</span><span>You may pick any stack. You may use AI.</span></div>
-        <div class="ln"><span class="num">14</span><span>You <span class="hl">must</span> defend every architectural decision: throughput, isolation, scale.</span></div>
-        <div class="ln"><span class="num">15</span><span>&nbsp;</span></div>
-        <div class="ln"><span class="num">16</span><span><span class="prompt">$</span> <span style="color:var(--accent);">echo</span> <span class="str">"performance data is the only source of truth."</span></span></div>
-        <div class="ln"><span class="num">17</span><span><span style="color:var(--text-dim);">▌</span></span></div>
+        <div class="ln"><span class="num">04</span><span><span class="key">upload</span>   → push a <span class="str">.tar.gz</span> with a Dockerfile (or use the bundled sample engine).</span></div>
+        <div class="ln"><span class="num">05</span><span><span class="key">isolate</span>  → QuanTime builds it into a hardened sibling container: <span class="hl">256m, 1 CPU, cap-drop ALL, read-only</span>.</span></div>
+        <div class="ln"><span class="num">06</span><span><span class="key">load</span>     → a distributed bot fleet bombards it with limit / market / cancel orders at peak volume.</span></div>
+        <div class="ln"><span class="num">07</span><span><span class="key">measure</span>  → every interaction is captured: exact <span class="hl">p50 / p90 / p99</span>, TPS, and correctness diffs.</span></div>
+        <div class="ln"><span class="num">08</span><span><span class="key">rank</span>     → a composite score streams to a live leaderboard over WebSocket.</span></div>
+        <div class="ln"><span class="num">09</span><span>&nbsp;</span></div>
+        <div class="ln"><span class="num">10</span><span><span class="com"># SCORE</span></span></div>
+        <div class="ln"><span class="num">11</span><span>score = <span class="hl">0.40</span>·speed + <span class="hl">0.40</span>·throughput + <span class="hl">0.20</span>·correctness</span></div>
+        <div class="ln"><span class="num">12</span><span>&nbsp;</span></div>
+        <div class="ln"><span class="num">13</span><span><span class="prompt">$</span> <span style="color:var(--accent);">echo</span> <span class="str">"performance data is the only source of truth."</span></span></div>
+        <div class="ln"><span class="num">14</span><span><span style="color:var(--text-dim);">▌</span></span></div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- =====================================================================
-     E. ARCHITECTURE COMPONENTS - 4 required subsystems
-     ---------------------------------------------------------------------
-     Pulled directly from the brief. Each card is its own micro-spec
-     so the user can see the surface area at a glance.
+     E. ARCHITECTURE COMPONENTS - 4 real subsystems
 ===================================================================== -->
 <section id="components">
   <div class="wrap">
@@ -886,9 +878,9 @@ footer { padding: var(--s-7) 0; }
         <h2 style="margin-top: var(--s-3);">Four subsystems.<br/>One contract.</h2>
       </div>
       <p class="section-lede">
-        Your solution must encompass these components. Decoupled,
-        concurrent, resilient. Communication protocols, data stores, and
-        isolation strategies are yours to choose and yours to defend.
+        QuanTime is a set of decoupled Go microservices that talk over
+        NATS and persist to TimescaleDB and Redis. Each subsystem does one
+        job and does it under load.
       </p>
     </div>
 
@@ -897,41 +889,41 @@ footer { padding: var(--s-7) 0; }
       <div class="component">
         <div class="index">
           <span>// 01 · ingestion</span>
-          <span class="tags"><span>docker</span><span>cgroups</span><span>seccomp</span></span>
+          <span class="tags"><span>docker</span><span>cgroups</span><span>cap-drop</span></span>
         </div>
-        <h3>Submission &amp; Sandboxing Engine</h3>
+        <h3>Submission &amp; Sandboxing</h3>
         <p>
-          A secure pipeline where users upload binaries or source
-          (C++, Rust, Go). Containerize and deploy submissions in
-          strictly isolated environments. Malicious code stays caged;
-          all users receive identical, fair hardware budgets.
+          QuanTime accepts a tar/zip upload of your engine with a
+          path-traversal guard and Dockerfile validation, then builds and
+          runs it as a hardened sibling container. Every submission gets
+          an identical, fair hardware budget.
         </p>
         <ul>
-          <li>CPU pinning &amp; strict memory caps per submission</li>
-          <li>Filesystem + network namespace isolation</li>
-          <li>Reproducible build pipeline, signed artefacts</li>
-          <li>Hot-swap deploy with zero-downtime rollover</li>
+          <li>--memory 256m, --cpus 1, --pids-limit</li>
+          <li>--cap-drop ALL, --read-only, no-new-privileges</li>
+          <li>isolated bridge network, no host access</li>
+          <li>upload validation + path-traversal guard</li>
         </ul>
       </div>
 
-      <!-- ── Component 02 - Load Generator ─────────────────────────── -->
+      <!-- ── Component 02 - Bot Fleet ──────────────────────────────── -->
       <div class="component">
         <div class="index">
           <span>// 02 · load</span>
-          <span class="tags"><span>fix</span><span>ws</span><span>rest</span></span>
+          <span class="tags"><span>nats</span><span>goroutines</span><span>k8s-hpa</span></span>
         </div>
-        <h3>Distributed Load Generator</h3>
+        <h3>Distributed Bot Fleet</h3>
         <p>
-          The engine. A scalable traffic-generation service capable of
-          spawning thousands of distributed bots simulating diverse
-          market participants (high-velocity Limit Orders, Market
-          Orders, Cancels) directed at the user's endpoints.
+          A NATS-driven goroutine pool generates realistic market traffic
+          against your engine: sustained, burst, and adversarial profiles
+          of limit, market, and cancel orders, all reproducible from a
+          deterministic seed.
         </p>
         <ul>
-          <li>Horizontally scalable bot orchestration</li>
-          <li>Pluggable strategies: makers, takers, sniffers, cancels</li>
-          <li>Deterministic seeds for reproducible runs</li>
-          <li>Wire-level fidelity for FIX / gRPC / WebSocket</li>
+          <li>deterministic xoshiro256** RNG for repeatable runs</li>
+          <li>sustained / burst / adversarial traffic profiles</li>
+          <li>limit, market, and cancel order flow</li>
+          <li>scale via compose --scale botfleet=N or a k8s HPA</li>
         </ul>
       </div>
 
@@ -939,19 +931,20 @@ footer { padding: var(--s-7) 0; }
       <div class="component">
         <div class="index">
           <span>// 03 · telemetry</span>
-          <span class="tags"><span>kafka</span><span>timescale</span><span>otel</span></span>
+          <span class="tags"><span>timescale</span><span>pgx</span><span>1hz</span></span>
         </div>
-        <h3>Telemetry &amp; Validation Ingester</h3>
+        <h3>Telemetry &amp; Validation</h3>
         <p>
-          A low-latency tracking system monitoring every interaction
-          between bot fleet and user exchange, measuring raw performance
-          metrics instead of approximations.
+          Every interaction between the bot fleet and your engine is
+          ingested into a TimescaleDB hypertable using pgx CopyFrom
+          batching, then aggregated into exact percentiles, no sampling,
+          no approximation.
         </p>
         <ul>
-          <li>Latency: p50 / p90 / p99 acknowledgment time</li>
-          <li>Throughput: peak TPS sustained before failure</li>
-          <li>Correctness: price-time priority &amp; fill validation</li>
-          <li>Streamed to the metrics bus, durable on disk</li>
+          <li>EXACT percentile_cont p50 / p90 / p99 + TPS</li>
+          <li>pgx CopyFrom batched ingest, durable on disk</li>
+          <li>live 1Hz snapshots while the run is in flight</li>
+          <li>480,480 telemetry rows per ~20s run</li>
         </ul>
       </div>
 
@@ -959,20 +952,19 @@ footer { padding: var(--s-7) 0; }
       <div class="component">
         <div class="index">
           <span>// 04 · ranking</span>
-          <span class="tags"><span>websocket</span><span>redis</span><span>react</span></span>
+          <span class="tags"><span>postgres</span><span>redis</span><span>websocket</span></span>
         </div>
-        <h3>Real-Time Leaderboard &amp; Analytics</h3>
+        <h3>Real-Time Leaderboard</h3>
         <p>
-          A frontend interface streaming live metrics from ongoing
-          stress tests. Dynamic ranking on a composite score of speed,
-          stability, and algorithmic accuracy. The mock below is what
-          your panel could look like.
+          Scores land in Postgres as the source of truth, are cached hot
+          in a Redis sorted set, and stream to the browser over a live
+          WebSocket so rankings update the instant a run finishes.
         </p>
         <ul>
-          <li>Sub-second update latency on score deltas</li>
-          <li>Drill-down per-run telemetry &amp; replay</li>
-          <li>Public read-only board + private admin view</li>
-          <li>Composite score: speed × stability × correctness</li>
+          <li>Postgres source-of-truth for run history</li>
+          <li>Redis ZSET hot cache for instant ranking</li>
+          <li>live WebSocket stream to the console</li>
+          <li>composite score: 0.4 speed + 0.4 tps + 0.2 correctness</li>
         </ul>
       </div>
     </div>
@@ -980,23 +972,255 @@ footer { padding: var(--s-7) 0; }
 </section>
 
 <!-- =====================================================================
-     F. LIVE LEADERBOARD MOCKUP
+     F. DIFFERENTIATORS
+===================================================================== -->
+<section id="differentiators">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">03 / Why QuanTime</span>
+        <h2 style="margin-top: var(--s-3);">What sets it apart.</h2>
+      </div>
+      <p class="section-lede">
+        Plenty of tools fire orders at an endpoint. QuanTime checks
+        whether your engine is actually correct, reviews your code
+        privately, and accepts any language behind a Dockerfile.
+      </p>
+    </div>
+
+    <div class="deliverables">
+      <article class="del">
+        <div class="num">// 01 · correctness</div>
+        <h4>Independent correctness oracle</h4>
+        <p>
+          A separate reference order book replays a deterministic 10-order
+          scenario (crossing, partial fills, market order, cancel, sweep)
+          through both your engine and the oracle, then diffs fills
+          order-by-order. A broken engine scores 50, not 100, and the unit
+          tests prove it.
+        </p>
+        <div class="stack">
+          <span>price-time priority</span><span>fill accuracy</span><span>order-by-order diff</span>
+        </div>
+      </article>
+
+      <article class="del">
+        <div class="num">// 02 · ai analyzer</div>
+        <h4>Private local-LLM analyzer</h4>
+        <p>
+          A multi-agent static reviewer (security, performance,
+          correctness) runs a local Llama-3.2-3B by default, so your
+          submitted code never leaves your own infrastructure. A cloud
+          backend (Gemini) is optional and fully pluggable.
+        </p>
+        <div class="stack">
+          <span>llama-3.2-3b</span><span>on-prem / private</span><span>pluggable backend</span>
+        </div>
+      </article>
+
+      <article class="del">
+        <div class="num">// 03 · any language</div>
+        <h4>Multi-language engines</h4>
+        <p>
+          Because submissions are containerized, the engine language is up
+          to you. QuanTime ships example engines in Go, C++, and Python,
+          plus a real-world order book, proving it accepts any language
+          behind a Dockerfile + POST /submit.
+        </p>
+        <div class="stack">
+          <span>go</span><span>c++</span><span>python</span><span>dockerfile + POST /submit</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     G. GET STARTED - quickstart
+===================================================================== -->
+<section id="use">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">04 / Quickstart</span>
+        <h2 style="margin-top: var(--s-3);">Get started.</h2>
+      </div>
+      <p class="section-lede">
+        QuanTime runs end-to-end on your laptop with Docker. Bring it up,
+        open the console, and benchmark the bundled sample engine or your
+        own.
+      </p>
+    </div>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="title">~ / quantime / quickstart.sh</div>
+        <div style="margin-left:auto; font-size:11px; color: var(--text-dim);">bash</div>
+      </div>
+      <div class="terminal-body">
+        <div class="ln"><span class="num">01</span><span><span class="com"># 1. clone &amp; bring the whole platform up</span></span></div>
+        <div class="ln"><span class="num">02</span><span><span class="prompt">$</span> git clone <span class="str">https://github.com/Lagmator22/quantime</span></span></div>
+        <div class="ln"><span class="num">03</span><span><span class="prompt">$</span> cd quantime &amp;&amp; <span class="hl">docker compose up --build</span></span></div>
+        <div class="ln"><span class="num">04</span><span>&nbsp;</span></div>
+        <div class="ln"><span class="num">05</span><span><span class="com"># 2. open the console</span></span></div>
+        <div class="ln"><span class="num">06</span><span><span class="prompt">$</span> open <span class="str">http://localhost:8080/platform/console.html</span></span></div>
+        <div class="ln"><span class="num">07</span><span>&nbsp;</span></div>
+        <div class="ln"><span class="num">08</span><span><span class="com"># 3. click "Use the sample engine" (or upload your own .tar.gz</span></span></div>
+        <div class="ln"><span class="num">09</span><span><span class="com">#    with a Dockerfile), then "Launch benchmark"</span></span></div>
+        <div class="ln"><span class="num">10</span><span><span class="prompt">$</span> <span style="color:var(--accent);"># watch live metrics, score, and leaderboard</span></span></div>
+        <div class="ln"><span class="num">11</span><span>&nbsp;</span></div>
+        <div class="ln"><span class="num">12</span><span><span class="com"># scale the bot fleet horizontally when you need more load</span></span></div>
+        <div class="ln"><span class="num">13</span><span><span class="prompt">$</span> docker compose up <span class="hl">--scale botfleet=4</span></span></div>
+      </div>
+    </div>
+
+    <div class="hero-actions" style="margin-top: var(--s-6);">
+      <a href="platform/console.html" class="btn btn-primary">Enter platform <span class="arrow">→</span></a>
+      <a href="https://github.com/Lagmator22/quantime" target="_blank" rel="noopener" class="btn">View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     H. VERIFIED RESULTS - KPI grid
+===================================================================== -->
+<section id="results">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">05 / Verified results</span>
+        <h2 style="margin-top: var(--s-3);">Measured, not promised.</h2>
+      </div>
+      <p class="section-lede">
+        Every number below comes from a real run on a laptop with a single
+        bot-fleet replica via docker compose. No marketing math, just what
+        the telemetry recorded.
+      </p>
+    </div>
+
+    <div class="rules">
+      <div class="rule">
+        <div class="k">// throughput</div>
+        <div class="v">~24,000</div>
+        <p>orders per second, single bot-fleet replica.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// latency p50</div>
+        <div class="v">0.25ms</div>
+        <p>median acknowledgment time under load.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// latency p99</div>
+        <div class="v">~35ms</div>
+        <p>tail latency across the run.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// transport errors</div>
+        <div class="v">0%</div>
+        <p>zero transport errors over the run.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// telemetry rows</div>
+        <div class="v">480,480</div>
+        <p>captured per ~20-second run.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// percentiles</div>
+        <div class="v">EXACT</div>
+        <p>percentile_cont p50 / p90 / p99, no sampling.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// score weights</div>
+        <div class="v">.4·.4·.2</div>
+        <p>speed, throughput, correctness composite.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// correctness</div>
+        <div class="v">ORACLE</div>
+        <p>independent reference book, fill-by-fill diff.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     I. TECH STACK STRIP
+===================================================================== -->
+<section id="stack">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">06 / Tech stack</span>
+        <h2 style="margin-top: var(--s-3);">Built on solid metal.</h2>
+      </div>
+      <p class="section-lede">
+        Go microservices over NATS JetStream, exact analytics in
+        TimescaleDB, hot rankings in Redis, fronted by Caddy. Reproducible
+        infra and CI that takes correctness seriously.
+      </p>
+    </div>
+
+    <div class="deliverables">
+      <article class="del">
+        <div class="num">// runtime</div>
+        <h4>Services &amp; data</h4>
+        <p>
+          Decoupled Go microservices communicate over NATS JetStream and
+          persist to TimescaleDB and Redis, all behind a Caddy reverse
+          proxy.
+        </p>
+        <div class="stack">
+          <span>go</span><span>nats-jetstream</span><span>timescaledb</span><span>redis</span><span>caddy</span><span>docker</span>
+        </div>
+      </article>
+
+      <article class="del">
+        <div class="num">// infrastructure</div>
+        <h4>Infra as code</h4>
+        <p>
+          A verified docker-compose stack runs the whole platform, with
+          Kubernetes manifests and Terraform for scaling beyond a single
+          machine.
+        </p>
+        <div class="stack">
+          <span>docker-compose</span><span>kubernetes</span><span>terraform</span><span>k8s-hpa</span>
+        </div>
+      </article>
+
+      <article class="del">
+        <div class="num">// quality</div>
+        <h4>CI &amp; testing</h4>
+        <p>
+          CI runs build, vet, and tests with the Go race detector on every
+          change, and the correctness oracle is unit-tested to catch a
+          broken engine.
+        </p>
+        <div class="stack">
+          <span>go build</span><span>go vet</span><span>go test -race</span><span>oracle tests</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     J. LIVE LEADERBOARD - sample / preview
      ---------------------------------------------------------------------
-     Animated mock. Numbers are generated/ticked in JS (§13).
-     The whole block is presentational - replace with a real WS feed
-     when the platform exists.
+     Animated preview. Numbers are generated/ticked in JS (§13) from
+     seeded sample data. Clearly labelled as a sample.
 ===================================================================== -->
 <section id="leaderboard">
   <div class="wrap">
     <div class="section-head">
       <div>
-        <span class="eyebrow">03 / Live Mock</span>
-        <h2 style="margin-top: var(--s-3);">What "real-time scoring"<br/><span style="color:var(--text-dim);font-style:italic;">actually feels like.</span></h2>
+        <span class="eyebrow">07 / Sample preview</span>
+        <h2 style="margin-top: var(--s-3);">Real-time scoring,<br/><span style="color:var(--text-dim);font-style:italic;">sample data.</span></h2>
       </div>
       <p class="section-lede">
-        A simulated stress run. Every cell ticks. Every position
-        re-shuffles: the leaderboard updates dynamically and truthfully,
-        resembling a live market feed.
+        A preview of the live leaderboard using seeded sample entries.
+        Run the platform locally to see your own engine scored and ranked
+        here in real time over WebSocket.
       </p>
     </div>
 
@@ -1004,14 +1228,14 @@ footer { padding: var(--s-7) 0; }
       <!-- Main: leaderboard table -->
       <div class="lb-main">
         <div class="lb-head">
-          <h4>// stress.run.0042 · top 8</h4>
+          <h4>// sample.run · top 8 · preview</h4>
           <span class="live">streaming</span>
         </div>
         <table class="lb-table">
           <thead>
             <tr>
               <th>#</th>
-              <th>Team</th>
+              <th>Engine</th>
               <th class="r">p50</th>
               <th class="r">p99</th>
               <th class="r">TPS</th>
@@ -1042,7 +1266,7 @@ footer { padding: var(--s-7) 0; }
 
         <div class="metric">
           <div class="l">// active bot fleet</div>
-          <div class="v" id="m-bots">0<small>nodes</small></div>
+          <div class="v" id="m-bots">0<small>workers</small></div>
           <div class="bar" id="m-bots-bar">
             <span style="height: 20%"></span><span style="height: 40%"></span>
             <span style="height: 55%"></span><span style="height: 70%"></span>
@@ -1063,247 +1287,92 @@ footer { padding: var(--s-7) 0; }
 </section>
 
 <!-- =====================================================================
-     G. TIMELINE - Workflow Lifecycle
-===================================================================== -->
-<section id="timeline">
-  <div class="wrap">
-    <div class="section-head">
-      <div>
-        <span class="eyebrow">04 / Workflow</span>
-        <h2 style="margin-top: var(--s-3);">The Benchmark Lifecycle</h2>
-      </div>
-      <p class="section-lede">
-        From upload to AI-reviewed telemetry. QuanTime orchestrates the entire validation pipeline automatically to produce microsecond-accurate optimization profiles.
-      </p>
-    </div>
-
-    <div class="timeline">
-      <div class="tl-step active">
-        <div class="date"><span>STEP 01</span><span class="stamp">START</span></div>
-        <h4>Source submission</h4>
-        <p>Upload a compiled binary or source code via Web UI or CLI.</p>
-      </div>
-      <div class="tl-step">
-        <div class="date"><span>STEP 02</span><span>SANDBOX</span></div>
-        <h4>Hardened deploy</h4>
-        <p>The platform boots your container with strict CPU cores pinning and memory limits.</p>
-      </div>
-      <div class="tl-step">
-        <div class="date"><span>STEP 03</span><span>SIMULATION</span></div>
-        <h4>Load generation</h4>
-        <p>The distributed bot fleet simulates orders over WebSockets, NATS JetStream, or FIX.</p>
-      </div>
-      <div class="tl-step">
-        <div class="date"><span>STEP 04</span><span>TELEMETRY</span></div>
-        <h4>Metrics stream</h4>
-        <p>Latency percentiles and correctness logs stream in real-time to TimescaleDB.</p>
-      </div>
-      <div class="tl-step">
-        <div class="date"><span>STEP 05</span><span class="stamp">REPORT</span></div>
-        <h4>AI Performance Audit</h4>
-        <p>Gemini agents analyze code and telemetry to generate optimization insights.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- =====================================================================
-     H. CORE SUBSYSTEMS
-===================================================================== -->
-<section id="deliverables">
-  <div class="wrap">
-    <div class="section-head">
-      <div>
-        <span class="eyebrow">05 / Subsystems</span>
-        <h2 style="margin-top: var(--s-3);">Three core pillars.</h2>
-      </div>
-      <p class="section-lede">
-        Three coupled pillars. Fully automated. The platform orchestrates code validation, load execution, and telemetry collection automatically.
-      </p>
-    </div>
-
-    <div class="deliverables">
-      <article class="del">
-        <div class="num">// PILLAR 01</div>
-        <h4>Execution Sandbox</h4>
-        <p>
-          Safe execution environment: code upload, isolated containerization, simulated trade execution, and real-time validation. Live and reproducible.
-        </p>
-        <div class="stack">
-          <span>upload</span><span>sandbox</span><span>mesh</span>
-          <span>load-gen</span><span>telemetry</span><span>scoring</span>
-        </div>
-      </article>
-
-      <article class="del">
-        <div class="num">// PILLAR 02</div>
-        <h4>Distributed Load Fleet</h4>
-        <p>
-          A scalable generator simulating high-density order book activity (limit, market, cancel orders) using multiple load-generator instances.
-        </p>
-        <div class="stack">
-          <span>nats-jetstream</span><span>fix-protocol</span><span>websockets</span>
-          <span>order-bursts</span>
-        </div>
-      </article>
-
-      <article class="del">
-        <div class="num">// PILLAR 03</div>
-        <h4>Telemetry &amp; Analysis</h4>
-        <p>
-          Low-latency tracking storing metrics in TimescaleDB, accompanied by parallel code reviews from Gemini-powered safety and performance agents.
-        </p>
-        <div class="stack">
-          <span>timescaledb</span><span>redis</span><span>opentelemetry</span>
-          <span>gemini-agents</span>
-        </div>
-      </article>
-    </div>
-  </div>
-</section>
-
-<!-- =====================================================================
-     I. RULES (4-up grid of constraints)
-===================================================================== -->
-<section id="rules">
-  <div class="wrap">
-    <div class="section-head">
-      <div>
-        <span class="eyebrow">06 / Rules</span>
-        <h2 style="margin-top: var(--s-3);">Constraints.</h2>
-      </div>
-      <p class="section-lede">
-        Short list. Tight bounds. Treat them as part of the system spec:
-        the platform is built to enforce them under high load.
-      </p>
-    </div>
-
-    <div class="rules">
-      <div class="rule">
-        <div class="k">// execution</div>
-        <div class="v">STRICT</div>
-        <p>Every matching engine must pass the Price-Time Priority validation oracle.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// languages</div>
-        <div class="v">PLUGGABLE</div>
-        <p>Benchmark Go, Rust, C++, Python, or any language compiled inside Docker.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// isolation</div>
-        <div class="v">HARDENED</div>
-        <p>Strict CPU pinning, memory limits, and containerized namespaces prevent host leaks.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// metrics</div>
-        <div class="v">REAL-TIME</div>
-        <p>Throughput, latency, and correctness metrics stream to a live dashboard.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// security</div>
-        <div class="v">AUDITED</div>
-        <p>Multi-agent LLM reviewer detects memory leaks, unsafe calls, and shell escapes.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// scale</div>
-        <div class="v">DISTRIBUTED</div>
-        <p>Bot fleet simulates realistic market depth and spikes using NATS JetStream.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// database</div>
-        <div class="v">PERSISTENT</div>
-        <p>Full runs, logs, and score histories are stored in TimescaleDB for analysis.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// optimization</div>
-        <div class="v">CONTINUOUS</div>
-        <p>Compare iterations of your engine to find lock contention and hot spots.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- =====================================================================
-     J. FAQ
+     K. FAQ
 ===================================================================== -->
 <section id="faq">
   <div class="wrap">
     <div class="section-head">
       <div>
-        <span class="eyebrow">07 / FAQ</span>
+        <span class="eyebrow">08 / FAQ</span>
         <h2 style="margin-top: var(--s-3);">Common questions.</h2>
       </div>
       <p class="section-lede">
-        Everything you need to know about QuanTime's architecture, distributed bot fleet, 
-        sandboxing limits, telemetry collection, and the correctness verification engine.
+        Everything you need to know about what QuanTime is, who it is for,
+        how scoring and correctness work, how submitted code is isolated,
+        and how it scales.
       </p>
     </div>
 
     <div class="faq">
       <details open>
         <summary>What is QuanTime?</summary>
-        <p>QuanTime is a high-performance distributed benchmarking and hosting platform for financial order books and matching engines. It automates compilation, sandbox deployment, real-time load testing, and telemetry collection to rank engine implementations on performance and correctness.</p>
+        <p>QuanTime is an open-source distributed benchmarking and hosting platform that stress-tests trading matching engines. You upload an order-matching engine; QuanTime containerizes it under strict isolation, bombards it with a distributed bot fleet, and scores it live on latency, throughput, and correctness.</p>
       </details>
       <details>
-        <summary>How is correctness verified?</summary>
-        <p>Correctness is verified by an inline execution oracle that matches order submissions to a strict Price-Time Priority FIFO state representation. It audits fill accuracy, trade executions, order cancellations, and order state transition validity (no double-fills, accurate remaining quantity, correct pricing, valid sequence numbers).</p>
+        <summary>Is it a trading bot? Does it make money?</summary>
+        <p>No. QuanTime does not trade and does not make money. It is a test and benchmark arena, a crash-test lab for exchange software. It generates synthetic order flow purely to measure how a matching engine behaves under load, never to take positions in a real market.</p>
       </details>
       <details>
-        <summary>What languages and runtimes are supported?</summary>
-        <p>Any matching engine packaged with a Dockerfile can be benchmarked. We natively support and provide templates for Go, C++, and Rust matching engines, but any runtime that compiles inside a standard Linux container and exposes a REST/WebSocket API is compatible.</p>
+        <summary>Who is it for?</summary>
+        <p>QuanTime is built for the people who build matching engines: quant and HFT developers, exchange and trading-infrastructure engineers, and anyone writing an order book who wants objective, reproducible numbers on how their engine performs under realistic stress.</p>
       </details>
       <details>
-        <summary>How does the sandboxing model work?</summary>
-        <p>To ensure isolated and repeatable latency benchmarks, matching engines are run inside containerized sandboxes with restricted resource allocations: strict CPU pinning (via cgroups), limits on memory consumption, and no external internet access. Network communication is isolated on a dedicated bridge network.</p>
+        <summary>How do I benchmark my engine?</summary>
+        <p>Package your matching engine with a Dockerfile and send it to the platform with POST /submit, or upload the .tar.gz directly in the console. QuanTime builds it, isolates it, runs the bot fleet against it, and shows you the live score. You can also start from the bundled sample engine.</p>
       </details>
       <details>
-        <summary>What metrics does the telemetry ingester track?</summary>
-        <p>Our telemetry system ingests high-frequency metrics including throughput (Transactions Per Second), p50/p90/p99 tail latencies, error/packet loss ratios, system resource utilization (CPU/Memory), and correctness failure events. Data is persisted to a TimescaleDB hypertable for real-time querying.</p>
+        <summary>How is the score computed?</summary>
+        <p>The composite score is a weighted sum: 0.40 × speed + 0.40 × throughput + 0.20 × correctness. Speed and throughput come from the exact percentile and TPS telemetry, and correctness comes from the independent oracle, so an engine has to be fast, sustained, and correct to rank well.</p>
       </details>
       <details>
-        <summary>How does the bot fleet simulate market traffic?</summary>
-        <p>The bot fleet is distributed across multiple load-generation instances communicating over a NATS JetStream event bus. They generate realistic market activity profiles-ranging from simple random walks to structured liquidity generation, cancellations, and heavy order bursts-to stress-test matching engine throughput bounds.</p>
+        <summary>How does it validate correctness?</summary>
+        <p>An independent reference order book replays a deterministic 10-order scenario (crossing, partial fills, a market order, a cancel, and a sweep) through both your engine and the oracle, then diffs the fills order-by-order. The result feeds the correctness term of the composite score. The oracle is unit-tested to catch a broken engine, which scores 50 instead of 100.</p>
       </details>
       <details>
-        <summary>What does the AI Code Review analyzer check?</summary>
-        <p>Our multi-agent LLM analysis system runs three specialized agents in parallel: a Security Agent auditing for container escape and network exploits, a Performance Agent identifying memory allocations and lock contention, and an Architecture Agent mapping design decisions. They synthesize a combined risk rating and actionable feedback.</p>
+        <summary>How is submitted code isolated?</summary>
+        <p>Each submission runs as a hardened sibling container with --memory 256m, --cpus 1, a pid limit, --cap-drop ALL, --read-only, and no-new-privileges, on an isolated bridge network with no host access. Uploads are validated with a path-traversal guard and Dockerfile checks before anything is built.</p>
+      </details>
+      <details>
+        <summary>Can it scale, and is it open source?</summary>
+        <p>Yes to both. The bot fleet scales horizontally with docker compose up --scale botfleet=N or a Kubernetes HPA, and the project ships docker-compose, Kubernetes manifests, and Terraform. QuanTime is open source, with the full public repository on GitHub.</p>
       </details>
     </div>
   </div>
 </section>
 
 <!-- =====================================================================
-     K. CTA + REGISTER
+     L. CLOSING CTA
 ===================================================================== -->
-<section id="register" style="border-bottom: 0;">
+<section id="cta" style="border-bottom: 0;">
   <div class="wrap">
     <div class="cta">
       <span class="eyebrow" style="margin-bottom: var(--s-5);">// get started</span>
-      <h2>Deploy your matching engine<br /><em>and benchmark it instantly.</em></h2>
+      <h2>Benchmark your engine<br /><em>and let the data rank it.</em></h2>
       <p>
-        Ready to analyze your trading infrastructure? Upload your code, run automated stress tests, 
-        observe live metrics, and view optimization insights immediately.
+        Bring QuanTime up with one command, upload your matching engine,
+        and watch live latency, throughput, correctness, and score, all on
+        your own machine.
       </p>
       <div class="actions">
         <a href="platform/console.html" class="btn btn-primary">Enter platform <span class="arrow">→</span></a>
-        <a href="platform/submit.html" class="btn">Submit your engine</a>
-        <a href="platform/leaderboard.html" class="btn">View leaderboard</a>
+        <a href="https://github.com/Lagmator22/quantime" target="_blank" rel="noopener" class="btn">View on GitHub</a>
+        <a href="#how" class="btn">How it works</a>
       </div>
     </div>
   </div>
 </section>
 
 <!-- =====================================================================
-     L. FOOTER
+     M. FOOTER
 ===================================================================== -->
 <footer>
   <div class="wrap footer-inner">
-    <div>© 2026 QuanTime · Open Source Matching Engine Benchmarking Platform</div>
+    <div>© 2026 QuanTime · Open-source benchmarking platform for trading engines · Built for the IICPC Summer Hackathon 2026</div>
     <div style="display:flex; gap: var(--s-5);">
-      <a href="#">code of conduct</a>
-      <a href="#">privacy</a>
-      <a href="#">discord</a>
-      <a href="#">github</a>
+      <a href="#how">how it works</a>
+      <a href="#faq">faq</a>
+      <a href="platform/console.html">platform</a>
+      <a href="https://github.com/Lagmator22/quantime" target="_blank" rel="noopener">github ↗</a>
     </div>
   </div>
 </footer>
@@ -1311,60 +1380,37 @@ footer { padding: var(--s-7) 0; }
 <!-- =====================================================================
      13. JAVASCRIPT
      ---------------------------------------------------------------------
-     Three small things, no framework:
-       1. Countdown to submissions opening (Jun 3, 2026 UTC)
-       2. Live-feeling leaderboard (renders rows + ticks numbers)
-       3. Mini orderbook depth bars
-     All numbers are mocked; replace with a real WS feed later.
+     Two small things, no framework:
+       1. Live-feeling sample leaderboard (renders rows + ticks numbers)
+       2. Mini orderbook depth bars
+     All numbers here are seeded sample data for the preview; the real
+     platform streams live values over WebSocket.
 ===================================================================== -->
 <script>
-/* ── 13.1 · Countdown ─────────────────────────────────────────────── */
-(function countdown() {
-  // Submissions open: 2026-06-03 00:00 UTC
-  // To change the target, edit the Date.UTC arguments below.
-  const target = Date.UTC(2026, 5, 3, 0, 0, 0); // months are 0-indexed, so 5 = June
-  const el = document.getElementById('countdown');
-  if (!el) return;
-
-  function pad(n) { return String(n).padStart(2, '0'); }
-
-  function tick() {
-    const now = Date.now();
-    const diff = Math.max(0, target - now);
-    const days = Math.floor(diff / 86400000);
-    const hrs  = Math.floor((diff % 86400000) / 3600000);
-    const min  = Math.floor((diff % 3600000) / 60000);
-    const sec  = Math.floor((diff % 60000) / 1000);
-    el.textContent = `${pad(days)}d ${pad(hrs)}h ${pad(min)}m ${pad(sec)}s`;
-  }
-  tick();
-  setInterval(tick, 1000);
-})();
-
-/* ── 13.2 · Live-feeling leaderboard ───────────────────────────────
-     - leaderboardData is the source of truth.
+/* ── 13.1 · Live-feeling sample leaderboard ────────────────────────
+     - leaderboardData is the source of truth for the preview.
      - render() lays the rows in current rank order.
      - tick() perturbs metrics, recalculates score, resorts, and flashes
        any rows that moved ranks.
-     - Every team has slightly different latency volatility so the
+     - Each engine has slightly different latency volatility so the
        motion looks organic, not random.
 ─────────────────────────────────────────────────────────────────── */
 const leaderboardData = [
-  // Edit here to change displayed team list. score is computed.
-  // Illustrative sample teams (replaced by live /api/leaderboard data when the
-  // backend is reachable). Numbers are in the range QuanTime actually measures.
-  { team: 'parity-bit',     handle: 'tokyo · 3p',  p50: 0.22, p99: 28, tps: 27_800, err: 0.002, vol: 6 },
-  { team: 'cache-warmers',  handle: 'berlin · 2p', p50: 0.25, p99: 33, tps: 24_600, err: 0.005, vol: 8 },
-  { team: 'fix-or-die',     handle: 'london · 3p', p50: 0.29, p99: 41, tps: 22_100, err: 0.004, vol: 7 },
-  { team: 'lockfree.lol',   handle: 'nyc · 1p',    p50: 0.34, p99: 49, tps: 19_800, err: 0.011, vol: 12 },
-  { team: 'hot-path',       handle: 'sf · 3p',     p50: 0.41, p99: 58, tps: 17_500, err: 0.008, vol: 9 },
-  { team: 'epoch.gg',       handle: 'singapore · 2p', p50: 0.52, p99: 71, tps: 15_900, err: 0.014, vol: 11 },
-  { team: 'rdtsc-rd',       handle: 'mumbai · 3p', p50: 0.68, p99: 92, tps: 14_200, err: 0.019, vol: 13 },
-  { team: 'numa-aware',     handle: 'amsterdam · 2p', p50: 0.81, p99: 118, tps: 12_600, err: 0.022, vol: 15 },
+  // Seeded sample engines for the preview only. The real platform
+  // replaces this with live /api/leaderboard data over WebSocket.
+  // Numbers are in the range QuanTime actually measures.
+  { team: 'parity-bit',     handle: 'go · sample',     p50: 0.22, p99: 28, tps: 27_800, err: 0.002, vol: 6 },
+  { team: 'cache-warmers',  handle: 'c++ · sample',    p50: 0.25, p99: 33, tps: 24_600, err: 0.005, vol: 8 },
+  { team: 'fix-or-die',     handle: 'go · sample',     p50: 0.29, p99: 41, tps: 22_100, err: 0.004, vol: 7 },
+  { team: 'lockfree.lol',   handle: 'rust · sample',   p50: 0.34, p99: 49, tps: 19_800, err: 0.011, vol: 12 },
+  { team: 'hot-path',       handle: 'c++ · sample',    p50: 0.41, p99: 58, tps: 17_500, err: 0.008, vol: 9 },
+  { team: 'epoch.gg',       handle: 'go · sample',     p50: 0.52, p99: 71, tps: 15_900, err: 0.014, vol: 11 },
+  { team: 'rdtsc-rd',       handle: 'python · sample', p50: 0.68, p99: 92, tps: 14_200, err: 0.019, vol: 13 },
+  { team: 'numa-aware',     handle: 'c++ · sample',    p50: 0.81, p99: 118, tps: 12_600, err: 0.022, vol: 15 },
 ];
 
-// Composite score: lower latency + higher TPS + lower error = better.
-// Formula is illustrative - edit weights to match your real scoring.
+// Preview composite score: lower latency + higher TPS + lower error = better.
+// Illustrative weighting for the animated sample only.
 function score(t) {
   const speed       = 100000 / (t.p50 + t.p99);     // weighted toward tail latency
   const throughput  = t.tps / 30000;                // ~80 max
@@ -1401,8 +1447,8 @@ function render() {
 }
 
 function tick() {
-  // Perturb each team's metrics by a small random delta.
-  // .vol controls how jumpy each team's metrics are.
+  // Perturb each engine's metrics by a small random delta.
+  // .vol controls how jumpy each engine's metrics are.
   for (const t of leaderboardData) {
     t.p50 = Math.max(10, t.p50 + (Math.random() - 0.5) * t.vol * 0.4);
     t.p99 = Math.max(t.p50 + 30, t.p99 + (Math.random() - 0.5) * t.vol * 1.2);
@@ -1418,12 +1464,12 @@ function tick() {
 render();
 setInterval(tick, 1800);
 
-/* ── 13.3 · Side metrics (orders processed + bot fleet count) ─────── */
+/* ── 13.2 · Side metrics (orders processed + bot fleet workers) ───── */
 const mOrders = document.getElementById('m-orders');
 const mBots   = document.getElementById('m-bots');
 const ordersBar = document.getElementById('m-orders-bar');
 const botsBar   = document.getElementById('m-bots-bar');
-let ordersTotal = 18_400_000; // running counter
+let ordersTotal = 18_400_000; // running counter (preview)
 let botsActive  = 9842;
 
 function fmt(n) {
@@ -1440,7 +1486,7 @@ function tickSide() {
   botsActive  = Math.max(8000, Math.min(10500, botsActive));
 
   mOrders.innerHTML = fmt(ordersTotal) + '<small>orders</small>';
-  mBots.innerHTML   = botsActive.toLocaleString() + '<small>nodes</small>';
+  mBots.innerHTML   = botsActive.toLocaleString() + '<small>workers</small>';
 
   // Animate the bar heights
   for (const bar of [ordersBar, botsBar]) {
@@ -1453,7 +1499,7 @@ function tickSide() {
 tickSide();
 setInterval(tickSide, 1200);
 
-/* ── 13.4 · Mini orderbook ─────────────────────────────────────────
+/* ── 13.3 · Mini orderbook ─────────────────────────────────────────
      Builds 5 ask + 5 bid levels around a midpoint. Sizes randomise
      each tick. The depth bars are inline-styled widths.
 ─────────────────────────────────────────────────────────────────── */
