@@ -1,0 +1,57 @@
+# IICPC Platform CI: build and test all Go services.
+# Runs on every push and pull request against main.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  go-build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [gateway, telemetry, botfleet, ai-analyzer]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build ${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
+        run: |
+          go mod tidy
+          go build -o /dev/null ./...
+
+      - name: Vet ${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
+        run: go vet ./...
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run unit tests
+        working-directory: tests
+        run: |
+          go mod tidy
+          go test -v -count=1 -race ./...
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [go-build-and-test, unit-tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build all Docker images
+        run: docker compose build --parallel
