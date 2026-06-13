@@ -57,7 +57,7 @@ class TDigest {
     if (this.unmerged.length >= this.BUFFER) this._mergeBuffer();
   }
 
-  // —— Merge staged points into the main centroid array ——————
+  // -- Merge staged points into the main centroid array ------
   _mergeBuffer() {
     if (this.unmerged.length === 0) return;
     const all = this.centroids.concat(this.unmerged);
@@ -103,7 +103,7 @@ class TDigest {
     this.centroids = compressed;
   }
 
-  // —— Quantile query —————————————————————————————————————
+  // -- Quantile query -------------------------------------
   quantile(p) {
     if (this.unmerged.length > 0) this._mergeBuffer();
     if (this.centroids.length === 0) return NaN;
@@ -129,7 +129,7 @@ class TDigest {
     return this.centroids[this.centroids.length - 1].mean;
   }
 
-  // —— Merge another digest in (for cross-worker aggregation) ——
+  // -- Merge another digest in (for cross-worker aggregation) --
   merge(other) {
     if (!other || other.centroids.length === 0) return;
     for (const c of other.centroids) this.add(c.mean, c.weight);

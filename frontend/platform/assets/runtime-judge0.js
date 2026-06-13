@@ -2,7 +2,7 @@
    IICPC PLATFORM · JUDGE0 REMOTE RUNTIME WORKER
    ---------------------------------------------------------------------
    Adapter for the Judge0 CE multi-language execution API. Lets a
-   contestant submit code in 60+ languages and have it run on a real
+   developer submit code in 60+ languages and have it run on a real
    server-side sandbox. We POST each order as stdin, parse stdout.
 
    Default endpoint: https://ce.judge0.com  (public free tier, rate-
@@ -10,10 +10,10 @@
    instance via submission.endpoint.
 
    This is slow (~500ms per request to the public API) and is meant
-   to demonstrate the architecture works with remote sandboxes — NOT
+   to demonstrate the architecture works with remote sandboxes - NOT
    to clock peak TPS. Bot fleet will throttle accordingly.
 
-   Contestant must write code that reads one JSON order from stdin
+   Developer must write code that reads one JSON order from stdin
    and writes one JSON response to stdout, then exits. We compile
    once on first request and then call /submissions repeatedly.
 
@@ -27,7 +27,7 @@ let cachedSource = '';
 
 function log(level, msg) { self.postMessage({ type: 'log', level, msg }); }
 
-// Judge0 language IDs — see https://ce.judge0.com/languages
+// Judge0 language IDs - see https://ce.judge0.com/languages
 const LANG_IDS = {
   cpp: 54,     // GCC 9.2
   rust: 73,
@@ -44,7 +44,7 @@ self.addEventListener('message', async (e) => {
     languageId = LANG_IDS[m.config?.lang] || LANG_IDS.py;
     cachedSource = m.source || '';
     log('info', `judge0 runtime ready · endpoint=${endpoint} · language_id=${languageId}`);
-    log('warn', 'remote runtime is rate-limited — TPS will be capped');
+    log('warn', 'remote runtime is rate-limited - TPS will be capped');
     self.postMessage({ type: 'ready' });
     return;
   }

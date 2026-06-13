@@ -7,7 +7,7 @@
 ===================================================================== */
 (function () {
   const NAV = [
-    { group: 'Contestant', items: [
+    { group: 'Developer', items: [
       { id: 'console',      label: 'Console',       icon: '▶', href: 'console.html' },
       { id: 'dashboard',    label: 'Dashboard',     icon: '◆', href: 'dashboard.html' },
       { id: 'submit',       label: 'Submit Code',   icon: '↑', href: 'submit.html' },
@@ -59,7 +59,7 @@
         </div>
         ${groupHTML}
         <div class="sidebar-foot">
-          <div>team · ${escape(team.name || '—')}</div>
+          <div>team · ${escape(team.name || '-')}</div>
           <div style="margin-top:4px;">${(team.members || []).length} member(s)</div>
           <a href="../index.html" style="display:block;margin-top:8px;color:var(--text-mute);">← public site</a>
         </div>
@@ -78,7 +78,7 @@
         </div>
         <div class="actions">
           <span class="pill"><span class="dot"></span>platform · live</span>
-          <span class="clock" id="iicpc-clock">—</span>
+          <span class="clock" id="iicpc-clock">-</span>
         </div>
       </div>
     `;
@@ -124,7 +124,7 @@
     },
   };
 
-  // —— Toast helper used across pages ——————————————————————
+  // Toast helper used across pages
   function ensureToastStack() {
     let s = document.getElementById('iicpc-toasts');
     if (!s) {

@@ -2,7 +2,7 @@
 <!-- =====================================================================
      IICPC PLATFORM · API & INTEGRATION DOCS
      ---------------------------------------------------------------------
-     Reference for contestants: how to write a submission that works
+     Reference for developers: how to write a matching engine that works
      with the platform. Includes:
        • The submit() contract (JS reference)
        • Order schema
@@ -53,7 +53,7 @@ h3.docs { font-size: 16px; font-weight: 500; margin: var(--s-6) 0 var(--s-3); fo
 <div class="page-head">
   <span class="eyebrow">Reference · API &amp; Docs</span>
   <h1 style="margin-top: var(--s-3);">Integration docs.</h1>
-  <p class="lede">Everything you need to write a winning submission. The browser-runtime contract here matches the production HTTP/WS contract one-to-one — write once, run on either.</p>
+  <p class="lede">Everything you need to integrate your matching engine. The browser-runtime contract here matches the production HTTP/WS contract one-to-one: write once, run on either.</p>
 </div>
 
 <div class="split bias-2-1">
@@ -66,7 +66,7 @@ h3.docs { font-size: 16px; font-weight: 500; margin: var(--s-6) 0 var(--s-3); fo
 <p class="docs-p">Same shape across every language. In browser-runtime mode your submission is a module exporting <code>submit(order) → {acks, fills}</code>. In production this becomes a network handler at <code>POST /v1/orders</code> with the same body shape.</p>
 
 <h3 class="docs">JavaScript template</h3>
-<div class="code"><span class="c">// orderbook.js — minimal valid JS submission</span>
+<div class="code"><span class="c">// orderbook.js: minimal valid JS submission</span>
 <span class="k">const</span> bids = <span class="k">new</span> Map();  <span class="c">// price → [{id, qty}]</span>
 <span class="k">const</span> asks = <span class="k">new</span> Map();
 <span class="k">let</span> nextFillId = <span class="n">1</span>;
@@ -120,7 +120,7 @@ module.exports.submit = (order) =&gt; {
 
 <h3 class="docs">Python template</h3>
 <p class="docs-p">Python runs as real CPython compiled to WASM (Pyodide). Cold-start is ~5s; once loaded each <code>submit()</code> typically runs in 100–500µs.</p>
-<div class="code"><span class="c"># orderbook.py — minimal valid Python submission</span>
+<div class="code"><span class="c"># orderbook.py: minimal valid Python submission</span>
 bids = {}   <span class="c"># price -> [(id, qty), ...]</span>
 asks = {}
 _fill_id = [<span class="n">0</span>]
@@ -259,7 +259,7 @@ composite = <span class="n">0.40</span> × speedScore
 <div class="code"><span class="c">/</span>
 <span class="c">├─</span> index.html                <span class="c">// public landing page</span>
 <span class="c">└─</span> platform/
-   <span class="c">├─</span> dashboard.html          <span class="c">// contestant home · subs + runs + team</span>
+   <span class="c">├─</span> dashboard.html          <span class="c">// developer home: subs + runs + team</span>
    <span class="c">├─</span> submit.html             <span class="c">// upload + hash + sandbox-build · multi-language</span>
    <span class="c">├─</span> run.html                <span class="c">// stress test · runtime workers · profiles · feed</span>
    <span class="c">├─</span> correctness.html        <span class="c">// validation suite (17 tests · 6 categories)</span>
@@ -268,7 +268,7 @@ composite = <span class="n">0.40</span> × speedScore
    <span class="c">├─</span> judge.html              <span class="c">// admin · re-score · DQ · platform state</span>
    <span class="c">├─</span> docs.html               <span class="c">// you're reading it</span>
    <span class="c">└─</span> assets/
-      <span class="c">├─</span> tokens.css           <span class="c">// design tokens — colors, type, spacing</span>
+      <span class="c">├─</span> tokens.css           <span class="c">// design tokens - colors, type, spacing</span>
       <span class="c">├─</span> platform.css         <span class="c">// shared layout + components</span>
       <span class="c">├─</span> store.js             <span class="c">// localStorage + IDB + BroadcastChannel</span>
       <span class="c">├─</span> layout.js            <span class="c">// sidebar/topbar injector + toast helper</span>
@@ -285,7 +285,7 @@ composite = <span class="n">0.40</span> × speedScore
       <span class="c">└─</span> market-feed.js       <span class="c">// optional Binance WS for realistic flow</span></div>
 
 <h2 class="docs" id="adversarial"><span class="num">10</span>Adversarial test inputs</h2>
-<p class="docs-p">The correctness suite probes these — your engine must handle them without crashing or producing impossible output. Run <a href="correctness.html" class="up">correctness.html</a> to see the full list.</p>
+<p class="docs-p">The correctness suite probes these: your engine must handle them without crashing or producing impossible output. Run <a href="correctness.html" class="up">correctness.html</a> to see the full list.</p>
 <div class="code"><span class="c">// Inputs your engine WILL receive in adversarial mode</span>
 { qty: <span class="n">-5</span>     }                <span class="c">// negative quantity</span>
 { qty: <span class="n">0</span>      }                <span class="c">// zero quantity</span>

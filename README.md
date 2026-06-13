@@ -1,19 +1,19 @@
 # QuanTime
 
-A distributed benchmarking & hosting platform for trading infrastructure — built for the **IICPC Summer Hackathon 2026** challenge.
+A distributed benchmarking & hosting platform for trading infrastructure - built for the **IICPC Summer Hackathon 2026** challenge.
 
-> Contestants upload a matching engine. QuanTime containerizes it under strict isolation, hammers it with a distributed bot fleet, captures real telemetry, and ranks teams on a live composite of latency, throughput, and correctness.
+> Developers upload a matching engine. QuanTime containerizes it under strict isolation, hammers it with a distributed bot fleet, captures real telemetry, and ranks teams on a live composite of latency, throughput, and correctness.
 
 **Read these alongside this file:**
-- [DESIGN.md](DESIGN.md) — full system design document (architecture, data flow, scoring, ADRs, verified results)
-- [BLUEPRINT.md](BLUEPRINT.md) — architecture, data model, scoring formula
-- [LIMITATIONS.md](LIMITATIONS.md) — what's built vs. roadmap, honestly
+- [DESIGN.md](DESIGN.md) - full system design document (architecture, data flow, scoring, ADRs, verified results)
+- [BLUEPRINT.md](BLUEPRINT.md) - architecture, data model, scoring formula
+- [LIMITATIONS.md](LIMITATIONS.md) - what's built vs. roadmap, honestly
 
-> **Status:** The full pipeline — upload → containerized deploy → distributed load → real-time scoring — is implemented and verified end-to-end via `docker compose up`. See [§ Verified results](#verified-results).
+> **Status:** The full pipeline - upload → containerized deploy → distributed load → real-time scoring - is implemented and verified end-to-end via `docker compose up`. See [§ Verified results](#verified-results).
 
 ---
 
-## Quickstart — one command
+## Quickstart - one command
 
 ```bash
 git clone https://github.com/Lagmator22/quantime.git && cd quantime
@@ -46,7 +46,7 @@ docker compose up -d --build
 until curl -sf http://localhost:8080/api/health; do sleep 2; done
 
 # 2. Package + submit the sample engine.
-#    NOTE: curl uploads a TAR ARCHIVE, not a directory — pack it first.
+#    NOTE: curl uploads a TAR ARCHIVE, not a directory - pack it first.
 tar -czf /tmp/sample.tar.gz -C examples/sample-engine-go .
 SUB=$(curl -s -F "teamId=t_demo" -F "name=sample" -F "lang=go" \
       -F "source=@/tmp/sample.tar.gz" http://localhost:8080/api/submissions | jq -r .id)
@@ -71,7 +71,7 @@ wscat -c ws://localhost:8080/ws/runs/$RUN
 curl -s http://localhost:8080/api/runs/$RUN | jq .          # status:finished, score, finishedAt
 curl -s http://localhost:8080/api/leaderboard | jq .        # ranked teams w/ p50/p99/tps
 
-# 7. AI code analysis (optional — requires GEMINI_API_KEY in .env, see AI setup below)
+# 7. AI code analysis (optional - requires GEMINI_API_KEY in .env, see AI setup below)
 curl -s -H "Content-Type: application/json" -X POST \
      -d '{"sourceCode":"package main\nfunc submit(o Order) {}"}' \
      http://localhost:8080/api/analyze | jq .
@@ -82,7 +82,7 @@ docker compose up -d --scale botfleet=4
 ```
 
 **Fastest path (skip the upload):** the stack seeds a pre-deployed submission `sub_sample`, so you
-can launch a run immediately — `POST /api/runs` with `{"submissionId":"sub_sample", …}` — to see
+can launch a run immediately - `POST /api/runs` with `{"submissionId":"sub_sample", …}` - to see
 load → telemetry → score → leaderboard without building anything.
 
 ---
@@ -98,12 +98,12 @@ load → telemetry → score → leaderboard without building anything.
 |---|---|---|---|
 | **Docker Compose** (verified) | Full stack, one command, any machine with Docker | Free | While running |
 | **GitHub Codespaces** | Full stack via `docker compose up` | 180 hrs/mo free w/ Student Pack | On-demand |
-| **GitHub Pages** | Frontend **prototype only** — a self-contained browser simulation, **not** the real backend | Free | Yes |
+| **GitHub Pages** | Frontend **prototype only** - a self-contained browser simulation, **not** the real backend | Free | Yes |
 | **DigitalOcean / AWS Terraform** | Full stack on a single VM | student credit / ~$30–60/mo | Yes |
 
 > ⚠️ **About GitHub Pages:** Pages can only serve static files, so it hosts the in-browser
 > *prototype* (`frontend/`), which simulates the pipeline in JavaScript. The real distributed
-> system needs Docker/Postgres/Redis/NATS and runs via Compose on a real machine — it cannot run
+> system needs Docker/Postgres/Redis/NATS and runs via Compose on a real machine - it cannot run
 > on Pages. To get a live public URL for the real backend, run Compose on a VM (or your own
 > machine) and expose it with a free tunnel (e.g. Cloudflare Tunnel).
 
@@ -152,36 +152,36 @@ service images + the init SQL synced as a ConfigMap before they will fully run (
 
 ```
 quantime/
-├── README.md                — this file
-├── DESIGN.md                — full system design document
-├── BLUEPRINT.md             — architecture
-├── LIMITATIONS.md           — what's built vs roadmap, honestly
-├── docker-compose.yml       — one-command local stack (verified)
-├── Caddyfile                — edge / reverse proxy
-├── .env.example             — env config (copy to .env)
-├── sql/init.sql             — TimescaleDB schema + hypertable + cagg
-├── frontend/                — static UI (HTML/CSS/JS prototype)
-│   ├── index.html           — public landing
-│   └── platform/            — contestant portal pages
+├── README.md                - this file
+├── DESIGN.md                - full system design document
+├── BLUEPRINT.md             - architecture
+├── LIMITATIONS.md           - what's built vs roadmap, honestly
+├── docker-compose.yml       - one-command local stack (verified)
+├── Caddyfile                - edge / reverse proxy
+├── .env.example             - env config (copy to .env)
+├── sql/init.sql             - TimescaleDB schema + hypertable + cagg
+├── frontend/                - static UI (HTML/CSS/JS prototype)
+│   ├── index.html           - public landing
+│   └── platform/            - developer portal pages
 │       ├── dashboard.html  submit.html  run.html  correctness.html
-│       ├── analyze.html     — AI code analysis page (NEW)
+│       ├── analyze.html     - AI code analysis page (NEW)
 │       ├── leaderboard.html  judge.html  architecture.html  docs.html
-│       └── assets/          — shared CSS/JS, engine, runtimes
+│       └── assets/          - shared CSS/JS, engine, runtimes
 ├── services/
-│   ├── gateway/             — Go: HTTP/WS API, Docker sandbox spawner
-│   │   └── internal/        — api · store(pgx) · cache(redis) · bus(nats) · sandbox(docker)
-│   ├── ai-analyzer/         — Go: multi-agent code review via LLM (NEW)
-│   │   └── internal/        — agents(security/perf/correctness + synthesizer) · gemini · report
-│   ├── botfleet/            — Go: goroutine-per-bot, fasthttp, xoshiro256** RNG
-│   └── telemetry/           — Go: NATS → batched CopyFrom → TimescaleDB + Redis ZADD + live WS
-├── tests/                   — standalone unit tests (27 tests)
-│   ├── sandbox_test.go      — archive extraction, path traversal, Dockerfile validation
-│   ├── scoring_test.go      — composite score math, edge cases
-│   └── agent_test.go        — risk scoring, recommendation dedup, strengths
-├── examples/sample-engine-go/ — reference matching engine (the "submission")
-├── .github/workflows/ci.yml — CI: build + vet + test(-race) + docker build
-├── terraform/  k8s/  deploy/digitalocean/   — reference IaC
-└── scripts/demo.sh          — end-to-end demo script
+│   ├── gateway/             - Go: HTTP/WS API, Docker sandbox spawner
+│   │   └── internal/        - api · store(pgx) · cache(redis) · bus(nats) · sandbox(docker)
+│   ├── ai-analyzer/         - Go: multi-agent code review via LLM (NEW)
+│   │   └── internal/        - agents(security/perf/correctness + synthesizer) · gemini · report
+│   ├── botfleet/            - Go: goroutine-per-bot, fasthttp, xoshiro256** RNG
+│   └── telemetry/           - Go: NATS → batched CopyFrom → TimescaleDB + Redis ZADD + live WS
+├── tests/                   - standalone unit tests (27 tests)
+│   ├── sandbox_test.go      - archive extraction, path traversal, Dockerfile validation
+│   ├── scoring_test.go      - composite score math, edge cases
+│   └── agent_test.go        - risk scoring, recommendation dedup, strengths
+├── examples/sample-engine-go/ - reference matching engine (the "submission")
+├── .github/workflows/ci.yml - CI: build + vet + test(-race) + docker build
+├── terraform/  k8s/  deploy/digitalocean/   - reference IaC
+└── scripts/demo.sh          - end-to-end demo script
 ```
 
 ---
@@ -192,7 +192,7 @@ quantime/
 2. **Real container isolation, not Web-Worker theatre.** Submissions run in `docker run` containers with `--memory --cpus --pids-limit --read-only --cap-drop=ALL --security-opt no-new-privileges` on a network-isolated bridge.
 3. **Integer ticks for prices, BIGINT for quantities.** Floats in a matching engine are a quant red flag.
 4. **Deterministic replay.** Same `(submission, seed)` → same bot order stream. Forensic replay is `SELECT * FROM telemetry WHERE run_id=$1 ORDER BY ts`.
-5. **One database, one bus, one cache.** Postgres+Timescale (relational + time-series), NATS (messaging), Redis (hot state + live pub/sub). No premature CQRS, no exotic stores, no service mesh — until justified.
+5. **One database, one bus, one cache.** Postgres+Timescale (relational + time-series), NATS (messaging), Redis (hot state + live pub/sub). No premature CQRS, no exotic stores, no service mesh - until justified.
 6. **Comments explain *why*, not *what*.** Every file header explains what the thing is and why it exists.
 
 ---
@@ -230,9 +230,9 @@ echo "GEMINI_API_KEY=your-key-here" >> .env
 docker compose up --build ai-analyzer
 ```
 
-> **Roadmap — local/offline AI:** a pluggable backend for a local LLM (e.g. Ollama + Qwen2.5-Coder)
+> **Roadmap - local/offline AI:** a pluggable backend for a local LLM (e.g. Ollama + Qwen2.5-Coder)
 > so proprietary trading code never leaves your infrastructure. Tracked in LIMITATIONS.md. Until
-> then, the AI features are optional — the core benchmarking pipeline runs without any API key.
+> then, the AI features are optional - the core benchmarking pipeline runs without any API key.
 
 ---
 

@@ -1,5 +1,5 @@
 // xoshiro256** is the Go-side counterpart of the JS rng.js. Both share
-// the same algorithm so that — given the same seed — the *intent*
+// the same algorithm so that - given the same seed - the *intent*
 // stream of orders is identical regardless of which language the bot
 // is written in. (Wire-level reproducibility additionally requires the
 // system clock and network conditions to match, which is documented in

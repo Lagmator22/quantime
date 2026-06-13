@@ -75,7 +75,7 @@ func main() {
 
 	// Subscribe to control messages for any run. The wildcard means we
 	// don't need to coordinate which botfleet container picks up which
-	// run — every replica receives every command and joins the fleet.
+	// run - every replica receives every command and joins the fleet.
 	_, err = nc.Subscribe("runs.*.control", func(m *nats.Msg) {
 		// Inspect the type field first; this is a hot path during a
 		// busy hackathon (~10s of runs/minute starting), so we avoid

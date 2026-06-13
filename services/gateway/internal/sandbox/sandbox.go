@@ -1,4 +1,4 @@
-// Package sandbox builds + runs each contestant submission as a real
+// Package sandbox builds + runs each developer submission as a real
 // sibling Docker container. This is the security boundary judges will
 // poke hardest, so we encode the constraints explicitly:
 //
@@ -59,12 +59,12 @@ func New(dockerHost, submissionsDir string) (*Sandbox, error) {
 }
 
 // Build runs `docker build` against the unpacked submission directory.
-// Tag layout: iicpc-sub-<submissionID>:<short-hash>. Idempotent — if
+// Tag layout: iicpc-sub-<submissionID>:<short-hash>. Idempotent - if
 // the tag already exists, we reuse it.
 func (s *Sandbox) Build(ctx context.Context, submissionID, hash, srcDir string) (string, error) {
 	tag := fmt.Sprintf("iicpc-sub-%s:%s", submissionID, shortHash(hash))
 	if exists, _ := s.imageExists(ctx, tag); exists {
-		log.Printf("[sandbox] image %s already built — reusing", tag)
+		log.Printf("[sandbox] image %s already built - reusing", tag)
 		return tag, nil
 	}
 	cmd := exec.CommandContext(ctx, "docker", "build",
@@ -129,8 +129,8 @@ func (s *Sandbox) Stop(ctx context.Context, name string) error {
 	return exec.CommandContext(rmCtx, "docker", "rm", "--force", name).Run()
 }
 
-// Logs returns the last N lines from the container — used when a build
-// or boot fails so the UI can show the contestant a useful error.
+// Logs returns the last N lines from the container - used when a build
+// or boot fails so the UI can show the developer a useful error.
 func (s *Sandbox) Logs(ctx context.Context, name string, tail int) (string, error) {
 	cmd := exec.CommandContext(ctx, "docker", "logs", "--tail", fmt.Sprint(tail), name)
 	out, err := cmd.CombinedOutput()

@@ -1,5 +1,5 @@
 // =====================================================================
-// SAMPLE CONTESTANT SUBMISSION · Go matching engine
+// SAMPLE DEVELOPER SUBMISSION · Go matching engine
 // ---------------------------------------------------------------------
 // This is the reference implementation shipped with the platform. It
 // satisfies the contract the judges will write tests against:

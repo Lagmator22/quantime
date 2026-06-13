@@ -3,16 +3,16 @@
 // ---------------------------------------------------------------------
 // HTTP + WebSocket API surface for the platform. Responsibilities:
 //
-//   • POST /api/submissions       — accept code upload, persist, build container
-//   • POST /api/runs              — kick off a stress run (publishes nats msg)
-//   • GET  /api/runs/:id          — run metadata + final metrics
-//   • GET  /api/leaderboard       — composite score ranking
-//   • GET  /ws/runs/:id           — live telemetry stream while a run is active
+//   • POST /api/submissions       - accept code upload, persist, build container
+//   • POST /api/runs              - kick off a stress run (publishes nats msg)
+//   • GET  /api/runs/:id          - run metadata + final metrics
+//   • GET  /api/leaderboard       - composite score ranking
+//   • GET  /ws/runs/:id           - live telemetry stream while a run is active
 //
 // The gateway is the only service that holds a Docker socket. It uses
 // it to (a) build images from uploaded source via `docker build` and
 // (b) `docker run --memory --cpus --network iicpc-net` to spawn each
-// contestant submission as a sibling container.
+// developer submission as a sibling container.
 //
 // Failure modes the gateway accounts for:
 //   • Postgres connection blip → retry with backoff on startup

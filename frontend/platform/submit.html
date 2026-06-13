@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <!-- =====================================================================
-     IICPC PLATFORM · SUBMIT CODE (v2 — multi-language)
+     IICPC PLATFORM · SUBMIT CODE (v2 - multi-language)
      ---------------------------------------------------------------------
      Accepts submissions in:
-       • JavaScript (.js)     — runs locally via runtime-js.js
-       • Python (.py)         — runs locally via Pyodide (runtime-py.js)
-       • WebAssembly (.wasm)  — instantiated in runtime-wasm.js
-       • C++/Rust/Go (source) — accepted, marked for future container
+       • JavaScript (.js)     - runs locally via runtime-js.js
+       • Python (.py)         - runs locally via Pyodide (runtime-py.js)
+       • WebAssembly (.wasm)  - instantiated in runtime-wasm.js
+       • C++/Rust/Go (source) - accepted, marked for future container
                                 build; will fall back to reference engine
                                 in browser mode (or Judge0 if configured)
 
@@ -44,7 +44,7 @@
 <div id="app-content">
 
 <div class="page-head">
-  <span class="eyebrow">Contestant · Submit</span>
+  <span class="eyebrow">Developer · Submit</span>
   <h1 style="margin-top: var(--s-3);">Upload your matching engine.</h1>
   <p class="lede">
     Multi-language pipeline. Push <strong>JS</strong>, <strong>Python</strong>, or precompiled <strong>WebAssembly</strong> (.wasm from C++/Rust/Go/Zig); we hash it, boot an isolated runtime worker, and smoke-test the contract. Limits per submission:
@@ -74,7 +74,7 @@
           <option value="go">Go (containerized · falls back to reference)</option>
         </select>
         <div class="hint" id="lang-hint">
-          JS / Python / WASM run in real isolated workers right in your browser. C++/Rust/Go would be containerized in production — in the browser preview they fall back to the reference engine so you can still verify the rest of the pipeline.
+          JS / Python / WASM run in real isolated workers right in your browser. C++/Rust/Go would be containerized in production: in the browser preview they fall back to the reference engine so you can still verify the rest of the pipeline.
         </div>
       </div>
 
@@ -114,7 +114,7 @@
         <!-- 6 stages now (added "smoke test") -->
         <div id="pipeline" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0;"></div>
         <div id="pipe-log" class="log" style="margin-top: var(--s-4);">
-          <div class="line"><span class="ts">—</span><span class="lvl dim">idle</span><span>waiting for submission…</span></div>
+          <div class="line"><span class="ts">-</span><span class="lvl dim">idle</span><span>waiting for submission…</span></div>
         </div>
       </div>
     </div>
@@ -152,7 +152,7 @@ Layout.render({
 
 const el = id => document.getElementById(id);
 
-// —— Pipeline display ————————————————————————————————————
+// -- Pipeline display ------------------------------------
 const PIPELINE_STEPS = [
   { id: 'hash',     label: 'Hash file' },
   { id: 'persist',  label: 'Persist blob' },
@@ -188,7 +188,7 @@ function plog(level, msg) {
 }
 function clearLog() { el('pipe-log').innerHTML = ''; }
 
-// —— File handling ————————————————————————————————————
+// -- File handling ------------------------------------
 let currentFile = null;
 let currentBytes = null;       // ArrayBuffer for binary (.wasm)
 let currentHash = null;
@@ -234,12 +234,12 @@ el('sub-lang').onchange = updateLangHint;
 function updateLangHint() {
   const lang = el('sub-lang').value;
   const hints = {
-    js: 'JavaScript — exports.submit = (order) => ({acks, fills}). Real eval in isolated Web Worker.',
-    py: 'Python — def submit(order): return {"acks":[...], "fills":[...]}. Real CPython (Pyodide). ~5s cold-start, then warm.',
-    wasm: '.wasm — must export memory, alloc(n), free(p), submit_bytes(ptr,len), submit_bytes_len(). JSON over linear memory.',
-    cpp: 'C++ — production: emcc → .wasm. In browser: upload the compiled .wasm OR your source is recorded and the run falls back to the reference engine.',
-    rust: 'Rust — production: wasm-pack → .wasm. Same fallback as C++ for browser preview.',
-    go: 'Go — production: TinyGo → .wasm. Same fallback for browser preview.',
+    js: 'JavaScript: exports.submit = (order) => ({acks, fills}). Real eval in isolated Web Worker.',
+    py: 'Python: def submit(order): return {"acks":[...], "fills":[...]}. Real CPython (Pyodide). ~5s cold-start, then warm.',
+    wasm: '.wasm: must export memory, alloc(n), free(p), submit_bytes(ptr,len), submit_bytes_len(). JSON over linear memory.',
+    cpp: 'C++: production: emcc → .wasm. In browser: upload the compiled .wasm OR your source is recorded and the run falls back to the reference engine.',
+    rust: 'Rust: production: wasm-pack → .wasm. Same fallback as C++ for browser preview.',
+    go: 'Go: production: TinyGo → .wasm. Same fallback for browser preview.',
   };
   el('lang-hint').textContent = hints[lang] || '';
   // Hide paste box for wasm
@@ -247,7 +247,7 @@ function updateLangHint() {
 }
 updateLangHint();
 
-// —— Validators per language ——————————————————————————
+// -- Validators per language --------------------------
 function validate(lang, src, bytes) {
   if (lang === 'wasm') {
     if (!bytes || bytes.byteLength < 8) return 'wasm bytes missing or too small';
@@ -269,7 +269,7 @@ function validate(lang, src, bytes) {
   return null;
 }
 
-// —— Submit ————————————————————————————————————————————
+// -- Submit --------------------------------------------
 el('submit-btn').onclick = async () => {
   const name = el('sub-name').value.trim();
   const lang = el('sub-lang').value;
@@ -303,7 +303,7 @@ el('submit-btn').onclick = async () => {
 
   // Duplicate detection
   if (Store.get('submissions', []).some(s => s.hash === hash)) {
-    plog('warn', 'duplicate hash — you have already submitted this binary');
+    plog('warn', 'duplicate hash - you have already submitted this binary');
   }
 
   // Step 2: persist
@@ -343,7 +343,7 @@ el('submit-btn').onclick = async () => {
   await simulatedBuildLogs(lang);
   plog('ok', 'sandbox ready · seccomp default-deny applied');
 
-  // Step 5: smoke test — actually load the runtime and send 1 order
+  // Step 5: smoke test - actually load the runtime and send 1 order
   renderPipeline(4);
   plog('info', 'booting runtime worker for smoke test…');
   let rt = null;
@@ -405,7 +405,7 @@ async function simulatedBuildLogs(lang) {
     plog('info', 'using cpython 3.12 via pyodide'); await sleep(200);
     plog('info', 'pip install numpy scipy (cached)'); await sleep(300);
   } else if (lang === 'wasm') {
-    plog('info', 'wasm module pre-compiled — no build step'); await sleep(100);
+    plog('info', 'wasm module pre-compiled - no build step'); await sleep(100);
     plog('info', 'instantiating against minimal WASI shim'); await sleep(200);
   } else if (lang === 'cpp') {
     plog('info', 'pulling base image · gcc:13-slim'); await sleep(400);
@@ -429,7 +429,7 @@ function renderRecent() {
       <tr>
         <td class="team">${escapeHTML(s.name)}</td>
         <td>${escapeHTML(s.lang)}</td>
-        <td class="dim">${s.hash ? s.hash.slice(0,8) + '…' : '—'}</td>
+        <td class="dim">${s.hash ? s.hash.slice(0,8) + '…' : '-'}</td>
         <td><span class="status ${s.status}">${s.status}</span></td>
         <td class="r"><a class="btn btn-sm" href="run.html?sub=${s.id}">Run →</a></td>
       </tr>

@@ -5,25 +5,25 @@
 #
 #     docker compose up --build
 #
-# Service map (default ports — override via .env):
-#   caddy        :8080        — fronts UI + reverses /api/* + /ws to gateway
-#   gateway      :7070        — HTTP+WebSocket API, runs Docker-out-of-Docker
-#                               to spawn contestant containers
-#   botfleet     internal     — goroutine bot pool, scale with --scale botfleet=N
-#   telemetry    internal     — NATS subscriber, writes hypertable
-#   timescale    :5432        — TimescaleDB (Postgres extension)
-#   redis        :6379        — leaderboard + run state hot cache
-#   nats         :4222        — order/event bus
-#   sample-eng   :9001        — example submission (judges can swap their own)
+# Service map (default ports - override via .env):
+#   caddy        :8080        - fronts UI + reverses /api/* + /ws to gateway
+#   gateway      :7070        - HTTP+WebSocket API, runs Docker-out-of-Docker
+#                               to spawn developer containers
+#   botfleet     internal     - goroutine bot pool, scale with --scale botfleet=N
+#   telemetry    internal     - NATS subscriber, writes hypertable
+#   timescale    :5432        - TimescaleDB (Postgres extension)
+#   redis        :6379        - leaderboard + run state hot cache
+#   nats         :4222        - order/event bus
+#   sample-eng   :9001        - example submission (judges can swap their own)
 #
 # Network: every service joins `iicpc-net`. The gateway also mounts the
-# host's Docker socket so it can `docker run` contestant submissions in
-# sibling containers (NOT nested — much faster, real isolation).
+# host's Docker socket so it can `docker run` developer submissions in
+# sibling containers (NOT nested - much faster, real isolation).
 #
 # Volumes:
-#   tsdb-data    — TimescaleDB persistence
-#   redis-data   — Redis snapshots
-#   submissions  — uploaded code + binaries (gateway writes, sandbox reads)
+#   tsdb-data    - TimescaleDB persistence
+#   redis-data   - Redis snapshots
+#   submissions  - uploaded code + binaries (gateway writes, sandbox reads)
 # =====================================================================
 
 services:
@@ -140,8 +140,8 @@ services:
       - "${NATS_MON_PORT:-8222}:8222"
     networks: [iicpc-net]
 
-  # Example contestant submission. Judges swap this out by submitting
-  # their own image — the sandbox service builds + runs uploads as
+  # Example developer submission. Judges swap this out by submitting
+  # their own image - the sandbox service builds + runs uploads as
   # sibling containers under the same network policy.
   sample-engine:
     build:
@@ -164,7 +164,7 @@ volumes:
 networks:
   iicpc-net:
     # Pin an explicit name (otherwise Compose prefixes it as
-    # "<project>_iicpc-net"). The gateway spawns contestant sandboxes with
+    # "<project>_iicpc-net"). The gateway spawns developer sandboxes with
     # `docker run --network iicpc-net`, so the real network name must match.
     name: iicpc-net
     driver: bridge

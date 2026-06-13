@@ -6,13 +6,13 @@
    correctness suite tests against.
 
    Order types supported:
-     limit     — rests on the book if not fully filled
-     market    — never rests; unfilled remainder is reported, not posted
-     ioc       — immediate-or-cancel (fills what it can, cancels rest)
-     fok       — fill-or-kill (fills entire qty or none)
-     postonly  — limit that is REJECTED if it would cross
-     cancel    — remove a resting order by targetId
-     modify    — cancel + replace at new price/qty (loses time priority)
+     limit     - rests on the book if not fully filled
+     market    - never rests; unfilled remainder is reported, not posted
+     ioc       - immediate-or-cancel (fills what it can, cancels rest)
+     fok       - fill-or-kill (fills entire qty or none)
+     postonly  - limit that is REJECTED if it would cross
+     cancel    - remove a resting order by targetId
+     modify    - cancel + replace at new price/qty (loses time priority)
 
    Hardening (judges will probe each one):
      • NaN / Infinity / negative price → reject, never post
@@ -68,7 +68,7 @@ class MatchingEngine {
     book.get(price).push(order);
   }
 
-  // ── Best price helpers (O(n) over distinct levels — fine for the
+  // ── Best price helpers (O(n) over distinct levels - fine for the
   // prototype; a production engine uses a sorted ladder / heap) ────
   _best(book, isBids) {
     if (book.size === 0) return null;
@@ -295,7 +295,7 @@ class MatchingEngine {
   }
 
   // ── FOK feasibility: does the opposite book have enough crossing
-  // qty? Read-only — does not mutate. ──────────────────────────────
+  // qty? Read-only - does not mutate. ──────────────────────────────
   _fokFillable(side, price, qty) {
     const opp = side === 'buy' ? this.asks : this.bids;
     if (opp.size === 0) return false;

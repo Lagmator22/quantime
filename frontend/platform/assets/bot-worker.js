@@ -21,7 +21,7 @@ let running = false;
 let cfg = null;
 let tickHandle = null;
 
-// —— Strategy templates: maker, taker, sniper, canceller ————————
+// -- Strategy templates: maker, taker, sniper, canceller --------
 // Each strategy returns the next order this bot will send.
 const strategies = {
   // Random LIMIT around mid; provides liquidity (maker)
@@ -37,7 +37,7 @@ const strategies = {
       qty: +(Math.random() * 5 + 1).toFixed(2),
     };
   },
-  // MARKET orders — takes liquidity, drives matches
+  // MARKET orders - takes liquidity, drives matches
   taker(state) {
     return {
       id: ++state.idSeq,
@@ -47,7 +47,7 @@ const strategies = {
       qty: +(Math.random() * 8 + 0.5).toFixed(2),
     };
   },
-  // Aggressive crossing limits — heavy fills
+  // Aggressive crossing limits - heavy fills
   sniper(state) {
     const side = Math.random() < 0.5 ? 'buy' : 'sell';
     const price = side === 'buy' ? state.mid + 1.0 : state.mid - 1.0;

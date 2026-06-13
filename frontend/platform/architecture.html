@@ -5,7 +5,7 @@
      A pure-SVG interactive diagram of the platform. Click any node to
      see its responsibility, the protocols it speaks, its scaling profile,
      and which file in this codebase implements it. This page IS the
-     architecture documentation — when you ship for real, hand a judge
+     architecture documentation - when you ship for real, hand a judge
      this page.
 ===================================================================== -->
 <html lang="en">
@@ -61,7 +61,7 @@
         <!-- NODES -->
         <g data-node="cli">
           <rect class="node-box" x="50"  y="90"  width="150" height="60" rx="2" />
-          <text class="node-label" x="125" y="115" text-anchor="middle">contestant</text>
+          <text class="node-label" x="125" y="115" text-anchor="middle">developer</text>
           <text class="node-sub"   x="125" y="135" text-anchor="middle">cli / web</text>
         </g>
         <g data-node="bot">
@@ -136,7 +136,7 @@
         </g>
 
         <!-- EDGES -->
-        <!-- contestant -> ingest -->
+        <!-- developer -> ingest -->
         <path class="edge" d="M200,120 L280,120" marker-end="url(#arr)" />
         <text class="edge-label" x="220" y="115">https</text>
 
@@ -202,10 +202,10 @@
     </div>
 
     <div class="panel">
-      <div class="panel-head"><h3>Data flow · contestant submission lifecycle</h3></div>
+      <div class="panel-head"><h3>Data flow · developer submission lifecycle</h3></div>
       <div class="panel-body">
         <ol style="margin-left: var(--s-5); display: grid; gap: var(--s-3); color: var(--text-mute);">
-          <li><strong style="color:var(--text);">Upload.</strong> Contestant pushes a binary (or source) to <span class="mono up">submission svc</span> over HTTPS. The service hashes (SHA-256), validates the language contract, and writes to object storage.</li>
+          <li><strong style="color:var(--text);">Upload.</strong> Developer pushes a binary (or source) to <span class="mono up">submission svc</span> over HTTPS. The service hashes (SHA-256), validates the language contract, and writes to object storage.</li>
           <li><strong style="color:var(--text);">Orchestrate.</strong> <span class="mono up">orchestrator</span> reads the build manifest, builds an OCI image, and asks the runner to schedule a sandbox with the team's CPU/memory budget.</li>
           <li><strong style="color:var(--text);">Isolate.</strong> <span class="mono up">sandbox runner</span> spawns the container under cgroups + seccomp + a dedicated network namespace; only the gateway can reach it.</li>
           <li><strong style="color:var(--text);">Load.</strong> <span class="mono up">load gateway</span> opens FIX / WS / REST sessions on behalf of the bot fleet and forwards orders to the sandbox at line rate.</li>
@@ -233,7 +233,7 @@
   <div class="panel"><div class="panel-body">
     <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// transport · bot → sandbox</div>
     <h4 style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:var(--s-2);">FIX 4.4 · binary framing</h4>
-    <p class="mute" style="font-size:13px;">FIX is the institutional standard. Binary framing keeps headers under 20 bytes. We expose REST + WS for contestants who want a simpler surface.</p>
+    <p class="mute" style="font-size:13px;">FIX is the institutional standard. Binary framing keeps headers under 20 bytes. We expose REST + WS for developers who want a simpler surface.</p>
   </div></div>
   <div class="panel"><div class="panel-body">
     <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// metrics bus</div>
@@ -243,7 +243,7 @@
   <div class="panel"><div class="panel-body">
     <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// storage</div>
     <h4 style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:var(--s-2);">TimescaleDB + Redis</h4>
-    <p class="mute" style="font-size:13px;">Timescale for chunked time-series telemetry (queryable forever). Redis sorted sets for the live leaderboard — O(log N) inserts, O(N) reads.</p>
+    <p class="mute" style="font-size:13px;">Timescale for chunked time-series telemetry (queryable forever). Redis sorted sets for the live leaderboard - O(log N) inserts, O(N) reads.</p>
   </div></div>
   <div class="panel"><div class="panel-body">
     <div class="mono dim" style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-2);">// isolation</div>
@@ -270,11 +270,11 @@
 Layout.render({ active: 'architecture', crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Architecture' }] });
 
 const NODE_INFO = {
-  cli: { title: 'Contestant · CLI/Web', body: `<p>Single entry point for contestants. Pushes builds, kicks off stress runs, watches the leaderboard.</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <a href="submit.html" class="up">platform/submit.html</a></p>` },
+  cli: { title: 'Developer · CLI/Web', body: `<p>Single entry point for developers. Pushes builds, kicks off stress runs, watches the leaderboard.</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <a href="submit.html" class="up">platform/submit.html</a></p>` },
   bot: { title: 'Bot Fleet · Distributed', body: `<p>Thousands of stateless workers. Each runs N bots locally with a configurable strategy mix (maker/taker/sniper/canceller). Auto-scales on Kafka lag.</p><p class="mute" style="margin-top:var(--s-2);font-size:12px;">protocols: FIX · WS · REST</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <a href="run.html" class="up">platform/run.html</a> + <span class="up">assets/bot-worker.js</span></p>` },
   ingest: { title: 'Submission Service', body: `<p>HTTPS API: upload, hash (SHA-256), validate, persist. Triggers the orchestrator on success.</p><p class="mute" style="margin-top:var(--s-2);font-size:12px;">storage: S3-compatible blob store + metadata in Postgres.</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <a href="submit.html" class="up">platform/submit.html</a></p>` },
   orch: { title: 'Orchestrator', body: `<p>Consumes "new submission" events. Asks the K8s Job API to build the OCI image and schedule the sandbox.</p><p class="mute" style="margin-top:var(--s-2);font-size:12px;">retry: exponential backoff; jobs idempotent on hash.</p>` },
-  gateway: { title: 'Load Gateway', body: `<p>The wire between bots and sandboxes. Talks contestant protocols (FIX 4.4, WebSocket, REST). Stamps every round-trip with wall-clock + monotonic ts.</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <span class="up">assets/engine.js</span> (reference impl) + bots via <span class="up">run.html</span></p>` },
+  gateway: { title: 'Load Gateway', body: `<p>The wire between bots and sandboxes. Talks developer protocols (FIX 4.4, WebSocket, REST). Stamps every round-trip with wall-clock + monotonic ts.</p><p class="dim mono" style="margin-top:var(--s-3);">implements: <span class="up">assets/engine.js</span> (reference impl) + bots via <span class="up">run.html</span></p>` },
   scoring: { title: 'Scoring Engine', body: `<p>Subscribes to telemetry. Streams percentiles via tdigest. Computes composite = w·speed + w·throughput + w·correctness. Publishes deltas to Redis.</p><p class="mute" style="margin-top:var(--s-2);font-size:12px;">weights are tunable per round; defaults: 40/40/20.</p>` },
   sandbox: { title: 'Sandbox Runner', body: `<p>The trust boundary. Each submission runs in a Firecracker microVM (or rootless Docker) with cgroups cpu=2 mem=512M, seccomp default-deny, RO root, dedicated netns. Crash → score zero for that run; sandbox-escape attempts → DQ.</p>` },
   kafka: { title: 'Kafka / Redpanda', body: `<p>The metrics backbone. Topics: <span class="mono">tele.orders</span>, <span class="mono">tele.fills</span>, <span class="mono">tele.errors</span>. Partition key = team_id.</p>` },

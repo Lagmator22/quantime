@@ -1,17 +1,17 @@
 // Package validator is QuanTime's correctness oracle.
 //
 // The rubric asks the platform to validate *price-time priority* and *fill
-// accuracy* — not just count transport errors. This package does exactly
+// accuracy* - not just count transport errors. This package does exactly
 // that: it replays one fixed, deterministic order sequence through BOTH
 //
 //   (a) an INDEPENDENT reference order book implemented here, and
-//   (b) the contestant's deployed engine (over its HTTP /submit endpoint),
+//   (b) the developer's deployed engine (over its HTTP /submit endpoint),
 //
 // then diffs the filled quantity order-by-order. The score is the fraction
 // of orders where the submission's fills match the oracle. Because the
 // reference book is a separate implementation, a submission that gets
 // price-time priority, partial fills, market orders, or cancels wrong will
-// disagree with the oracle and lose points — a real correctness signal.
+// disagree with the oracle and lose points - a real correctness signal.
 //
 // Prices are integer ticks (price*100), matching the bot fleet, the sample
 // engine, and the telemetry schema, so there is no float drift in matching.

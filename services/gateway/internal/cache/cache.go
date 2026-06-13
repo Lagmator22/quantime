@@ -62,7 +62,7 @@ func (c *Cache) SubscribeRun(ctx context.Context, runID string) (<-chan []byte, 
 			select {
 			case ch <- []byte(msg.Payload):
 			default:
-				// Slow consumer — drop the message rather than blocking
+				// Slow consumer - drop the message rather than blocking
 				// the broker. Consumer will catch up via /api/runs/:id.
 			}
 		}

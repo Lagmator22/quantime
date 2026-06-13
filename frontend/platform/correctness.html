@@ -81,7 +81,7 @@
 <div class="page-head">
   <span class="eyebrow">Reference · Correctness</span>
   <h1 style="margin-top: var(--s-3);">Correctness validation suite.</h1>
-  <p class="lede">17 tests across 6 categories (protocol, priority, cross, cancel, robust, idempotence). Severity-weighted into a 0–100 score. Judges run this — you should too.</p>
+  <p class="lede">17 tests across 6 categories (protocol, priority, cross, cancel, robust, idempotence). Severity-weighted into a 0–100 score. Judges run this - you should too.</p>
 </div>
 
 <!-- Run controls -->
@@ -100,13 +100,13 @@
       </div>
       <div class="field" style="margin-bottom:0;">
         <label>// runtime · auto-detected from submission language</label>
-        <div class="mono dim" id="rt-info" style="padding: 10px 12px; background: var(--bg-3); border: 1px solid var(--line); font-size: 12px;">—</div>
+        <div class="mono dim" id="rt-info" style="padding: 10px 12px; background: var(--bg-3); border: 1px solid var(--line); font-size: 12px;">-</div>
       </div>
     </div>
     <div style="display: flex; gap: var(--s-3);">
       <button class="btn btn-primary" id="run-suite">▶ Run suite</button>
       <button class="btn" id="export-report" disabled>Export report</button>
-      <span class="mono dim" style="align-self: center; font-size: 11px;" id="progress">—</span>
+      <span class="mono dim" style="align-self: center; font-size: 11px;" id="progress">-</span>
     </div>
   </div>
 </div>
@@ -116,12 +116,12 @@
   <div class="panel">
     <div class="panel-head"><h3>Correctness score</h3></div>
     <div class="panel-body" style="display: flex; align-items: center; gap: var(--s-5);">
-      <div class="score-display" id="score">—</div>
+      <div class="score-display" id="score">-</div>
       <div class="score-stats">
-        <div><span class="label">tests passed</span><span class="value up" id="t-passed">—</span></div>
-        <div><span class="label">critical failures</span><span class="value down" id="t-crit">—</span></div>
-        <div><span class="label">major failures</span><span class="value warn" id="t-maj">—</span></div>
-        <div><span class="label">minor failures</span><span class="value dim" id="t-min">—</span></div>
+        <div><span class="label">tests passed</span><span class="value up" id="t-passed">-</span></div>
+        <div><span class="label">critical failures</span><span class="value down" id="t-crit">-</span></div>
+        <div><span class="label">major failures</span><span class="value warn" id="t-maj">-</span></div>
+        <div><span class="label">minor failures</span><span class="value dim" id="t-min">-</span></div>
       </div>
     </div>
   </div>
@@ -157,7 +157,7 @@ const el = id => document.getElementById(id);
 function refreshSubs() {
   const subs = Store.get('submissions', []).filter(s => s.status === 'idle' || s.status === 'passed');
   const sel = el('cfg-sub');
-  sel.innerHTML = '<option value="">(reference engine — built-in)</option>' +
+  sel.innerHTML = '<option value="">(reference engine - built-in)</option>' +
     subs.map(s => `<option value="${s.id}">${s.name} · ${s.lang} · ${s.hash.slice(0,8)}</option>`).join('');
   // pre-select from URL
   const q = new URLSearchParams(location.search).get('sub');
@@ -193,7 +193,7 @@ function renderTestList(results = []) {
 }
 renderTestList();
 
-// —— Runtime factory ————————————————————————————————
+// -- Runtime factory --------------------------------
 async function buildRuntime() {
   const id = el('cfg-sub').value;
   let sub;
@@ -219,7 +219,7 @@ el('run-suite').onclick = async () => {
   el('suite-status').textContent = 'running';
   el('suite-status').className = 'status running';
   renderTestList();
-  el('score').textContent = '—';
+  el('score').textContent = '-';
 
   const partial = new Array(Correctness.TESTS.length).fill(null);
   try {
@@ -295,7 +295,7 @@ el('export-report').onclick = () => {
   toast('report exported', 'info');
 };
 
-// —— Default reference engine (used when no submission selected) ——
+// -- Default reference engine (used when no submission selected) --
 const REFERENCE_ENGINE_SOURCE = `
 const bids = new Map();
 const asks = new Map();

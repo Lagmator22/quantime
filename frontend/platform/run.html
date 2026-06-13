@@ -51,7 +51,7 @@
 <div id="app-content">
 
 <div class="page-head">
-  <span class="eyebrow">Contestant · Stress Run</span>
+  <span class="eyebrow">Developer · Stress Run</span>
   <h1 style="margin-top: var(--s-3);">Launch a stress test.</h1>
   <p class="lede">
     Spawn a distributed bot fleet against your deployed runtime
@@ -78,9 +78,9 @@
       <div class="field" style="margin-bottom: 0;">
         <label>// stress profile</label>
         <select class="select mono" id="cfg-profile">
-          <option value="sustained" selected>sustained — constant load</option>
-          <option value="burst">burst — 5× spikes every 1s</option>
-          <option value="adversarial">adversarial — cancels + flicker</option>
+          <option value="sustained" selected>sustained: constant load</option>
+          <option value="burst">burst: 5× spikes every 1s</option>
+          <option value="adversarial">adversarial: cancels + flicker</option>
         </select>
       </div>
       <div class="field" style="margin-bottom: 0;">
@@ -150,32 +150,32 @@
 <div class="live-grid" style="margin-bottom: var(--s-5);">
   <div class="live-cell">
     <div class="l">// p50 latency</div>
-    <div class="v" id="kpi-p50">—<small style="font-size:13px;color:var(--text-mute);"> µs</small></div>
+    <div class="v" id="kpi-p50">-<small style="font-size:13px;color:var(--text-mute);"> µs</small></div>
   </div>
   <div class="live-cell">
     <div class="l">// p99 latency</div>
-    <div class="v" id="kpi-p99">—<small style="font-size:13px;color:var(--text-mute);"> µs</small></div>
+    <div class="v" id="kpi-p99">-<small style="font-size:13px;color:var(--text-mute);"> µs</small></div>
   </div>
   <div class="live-cell">
     <div class="l">// throughput</div>
-    <div class="v" id="kpi-tps">—<small style="font-size:13px;color:var(--text-mute);"> ops/s</small></div>
+    <div class="v" id="kpi-tps">-<small style="font-size:13px;color:var(--text-mute);"> ops/s</small></div>
   </div>
   <div class="live-cell">
     <div class="l">// error rate</div>
-    <div class="v" id="kpi-err">—<small style="font-size:13px;color:var(--text-mute);"> %</small></div>
+    <div class="v" id="kpi-err">-<small style="font-size:13px;color:var(--text-mute);"> %</small></div>
   </div>
 </div>
 
 <!-- ── Charts ───────────────────────────────────────────── -->
 <div class="split cols-2" style="margin-bottom: var(--s-5);">
   <div class="panel">
-    <div class="panel-head"><h3>Latency timeline (µs)</h3><div class="actions"><span class="dim mono" id="chart-lat-info">—</span></div></div>
+    <div class="panel-head"><h3>Latency timeline (µs)</h3><div class="actions"><span class="dim mono" id="chart-lat-info">-</span></div></div>
     <div class="panel-body">
       <div class="chart-wrap"><svg id="chart-lat" viewBox="0 0 800 200" preserveAspectRatio="none"></svg></div>
     </div>
   </div>
   <div class="panel">
-    <div class="panel-head"><h3>Throughput timeline (ops/s)</h3><div class="actions"><span class="dim mono" id="chart-tps-info">—</span></div></div>
+    <div class="panel-head"><h3>Throughput timeline (ops/s)</h3><div class="actions"><span class="dim mono" id="chart-tps-info">-</span></div></div>
     <div class="panel-body">
       <div class="chart-wrap"><svg id="chart-tps" viewBox="0 0 800 200" preserveAspectRatio="none"></svg></div>
     </div>
@@ -228,19 +228,19 @@ Layout.render({
 const el = id => document.getElementById(id);
 const btnStart = el('btn-start'), btnStop = el('btn-stop');
 
-// —— Populate submissions ————————————————————————————
+// -- Populate submissions ----------------------------
 function refreshSubsDropdown() {
   const subs = Store.get('submissions', []).filter(s => s.status === 'idle' || s.status === 'passed');
-  el('cfg-sub').innerHTML = '<option value="">platform reference engine (default — fastest, no IPC)</option>' +
+  el('cfg-sub').innerHTML = '<option value="">platform reference engine (default: fastest, no IPC)</option>' +
     subs.map(s => `<option value="${s.id}">${s.name} · ${s.lang} · ${s.hash.slice(0,8)}</option>`).join('');
   const q = new URLSearchParams(location.search).get('sub');
   if (q) el('cfg-sub').value = q;
 }
 refreshSubsDropdown();
 
-// —— Run state ————————————————————————————————————————
+// -- Run state ----------------------------------------
 let workers = [];           // bot workers
-let runtime = null;         // runtime worker (for contestant code)
+let runtime = null;         // runtime worker (for user code)
 let running = false;
 let startTime = 0;
 let runId = null;
@@ -258,7 +258,7 @@ let totalFills = 0;
 let totalTimeouts = 0;
 let workerStats = [];
 
-// —— Log —————————————————————————————————————————————
+// -- Log ---------------------------------------------
 function log(level, msg) {
   const logEl = el('run-log');
   const ts = new Date().toISOString().slice(11, 23);
@@ -270,7 +270,7 @@ function log(level, msg) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-// —— Launch ————————————————————————————————————————————
+// -- Launch --------------------------------------------
 btnStart.onclick = async () => {
   if (running) return;
   running = true;
@@ -303,7 +303,7 @@ btnStart.onclick = async () => {
   };
   log('ok', `config · ${cfg.workers}w × ${cfg.opsPerTick}ops × ${cfg.tickHz}Hz`);
 
-  // —— Optional market feed —————————————————————
+  // -- Optional market feed ---------------------
   const feedSym = el('cfg-feed').value;
   if (feedSym) {
     log('info', `connecting binance ws · ${feedSym}`);
@@ -322,7 +322,7 @@ btnStart.onclick = async () => {
     el('book-symbol').textContent = feedSym.toUpperCase();
   }
 
-  // —— Two paths: with-runtime vs fallback ————————
+  // -- Two paths: with-runtime vs fallback --------
   if (submissionId) {
     const sub = Store.get('submissions', []).find(s => s.id === submissionId);
     if (!sub) {
@@ -350,19 +350,19 @@ btnStart.onclick = async () => {
   }
 
   if (runtime) {
-    // —— Drive runtime worker from main thread ————————————
+    // -- Drive runtime worker from main thread ------------
     // The bot generation runs here; every order goes through postMessage
     // to the runtime worker. Throughput is dominated by IPC, ~50-100K
     // ops/s typically. This is the FAITHFUL measurement.
     driveRuntimeMode(cfg);
   } else {
-    // —— Fallback: bot workers run reference engine in-process ——
+    // -- Fallback: bot workers run reference engine in-process --
     // Each worker has its own engine. Pure latency measurement;
     // peak TPS in the millions.
     for (let i = 0; i < cfg.workers; i++) spawnBotWorker(i, cfg);
   }
 
-  // —— Auto-stop if duration is set ————————————
+  // -- Auto-stop if duration is set ------------
   if (cfg.duration > 0) {
     durationTimeout = setTimeout(() => {
       log('info', `auto-stop after ${cfg.duration}s`);
@@ -374,7 +374,7 @@ btnStart.onclick = async () => {
 };
 
 // ────────────────────────────────────────────────────────
-// Mode A: contestant runtime in dedicated worker
+// Mode A: user runtime in dedicated worker
 // ────────────────────────────────────────────────────────
 function driveRuntimeMode(cfg) {
   workerStats.push({ idx: 0, ops: 0, errors: 0, p99: 0, status: 'running' });
@@ -400,7 +400,7 @@ function driveRuntimeMode(cfg) {
     return { id: ++idSeq, side, type: 'limit', price: +(side==='buy'?mid+1:mid-1).toFixed(2), qty: +(rng.next()*15+1).toFixed(2) };
   }
 
-  // In-flight order budget — keeps memory bounded if runtime is slow
+  // In-flight order budget - keeps memory bounded if runtime is slow
   const INFLIGHT_CAP = 256;
   let inflight = 0;
 
@@ -477,7 +477,7 @@ function ingestBatch(batch, workerIdx) {
   pushAggregate(batch.ts);
 }
 
-// —— Aggregate computation + chart push ————————————————
+// -- Aggregate computation + chart push ----------------
 let lastUiUpdate = 0;
 function pushAggregate(ts) {
   const now = performance.now();
@@ -513,7 +513,7 @@ function formatTPS(n) {
   return (n | 0) + '<small style="font-size:13px;color:var(--text-mute);"> ops/s</small>';
 }
 
-// —— SVG charts ————————————————————————————————————————
+// -- SVG charts ----------------------------------------
 function buildPath(values, max) {
   if (values.length === 0) return '';
   const w = 800, h = 200;
@@ -561,7 +561,7 @@ function renderFleet() {
   `).join('');
 }
 
-// —— Live orderbook visualisation ——————————————————————
+// -- Live orderbook visualisation ----------------------
 let displayMid = 3142.50;
 function renderBook() {
   if (!running) return;
@@ -590,7 +590,7 @@ function renderBook() {
       const p = (r.tot/maxTot)*100;
       return `<div class="book-row ask" style="background: linear-gradient(to left, oklch(68% 0.20 25 / 0.18) ${p}%, transparent ${p}%);"><span class="px">${r.px}</span><span class="sz">${r.sz}</span><span class="tot">${r.tot}</span></div>`;
     }).join('') +
-    `<div class="book-mid">— mid · ${displayMid.toFixed(2)} —</div>` +
+    `<div class="book-mid">- mid · ${displayMid.toFixed(2)} -</div>` +
     bids.map(r => {
       const p = (r.tot/maxTot)*100;
       return `<div class="book-row bid" style="background: linear-gradient(to right, oklch(78% 0.17 145 / 0.18) ${p}%, transparent ${p}%);"><span class="px">${r.px}</span><span class="sz">${r.sz}</span><span class="tot">${r.tot}</span></div>`;
@@ -605,7 +605,7 @@ function wireFeedToBook(feed) {
 }
 // Hook will be set when feed exists; see launch
 
-// —— Stop + finalize ————————————————————————————————
+// -- Stop + finalize --------------------------------
 btnStop.onclick = async () => {
   if (!running) return;
   running = false;

@@ -1,12 +1,12 @@
 # =====================================================================
-# GitHub Pages — publishes frontend/ on every push to master.
+# GitHub Pages - publishes frontend/ on every push to master.
 # ---------------------------------------------------------------------
 # After this runs once, enable Pages in repo settings:
 #   Settings → Pages → Source: GitHub Actions
 # Site will be live at:  https://<user>.github.io/iicpc-platform/
 #
 # What the published site is: the localStorage prototype. No backend,
-# no real Docker sandbox — but the UI is fully functional, the
+# no real Docker sandbox - but the UI is fully functional, the
 # in-browser correctness suite runs, and the leaderboard / runs pages
 # work against the in-browser matching engine. Good enough for judges
 # to click through without spinning anything up.

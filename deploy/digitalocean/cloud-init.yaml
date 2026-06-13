@@ -9,7 +9,7 @@
 #
 # Recommended droplet:
 #   - Image:    Ubuntu 22.04 LTS
-#   - Size:     4 GB / 2 vCPU ($24/mo — fits in the $200 student credit)
+#   - Size:     4 GB / 2 vCPU ($24/mo - fits in the $200 student credit)
 #   - Region:   BLR1 / SGP1 (closest to IICPC participants)
 #   - Firewall: allow 22 (SSH), 80 (HTTP), 443 (HTTPS)
 #

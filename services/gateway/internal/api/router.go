@@ -1,6 +1,6 @@
 // Package api wires HTTP+WebSocket handlers to the gateway's deps.
 //
-// Routing is plain net/http — no router library, because we have <20
+// Routing is plain net/http - no router library, because we have <20
 // endpoints and the indirection costs more than it saves. Each handler
 // is small and easy to grep for.
 package api
@@ -124,7 +124,7 @@ func (s *statusWriter) Flush() {
 }
 
 // writeJSON marshals + flushes a response body with the right content
-// type. Errors are logged but not propagated — there's nothing useful
+// type. Errors are logged but not propagated - there's nothing useful
 // the caller can do once the headers have flushed.
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")

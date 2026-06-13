@@ -1,4 +1,4 @@
-# QuanTime — Architecture Blueprint
+# QuanTime - Architecture Blueprint
 
 > **Status:** Working prototype. `docker compose up --build` brings the entire stack live on one machine. `terraform apply` deploys it to a single EC2. K8s manifests in `/k8s/` apply to any cluster.
 >
@@ -8,7 +8,7 @@
 
 ## 1. Problem statement (recap from the PDF)
 
-> Build a **Distributed Benchmarking and Hosting Platform** that accepts contestant-submitted trading code, runs it in isolated containers, hammers it with a distributed bot fleet, captures granular telemetry (latency, throughput, correctness), and streams a live leaderboard.
+> Build a **Distributed Benchmarking and Hosting Platform** that accepts developer-submitted trading code, runs it in isolated containers, hammers it with a distributed bot fleet, captures granular telemetry (latency, throughput, correctness), and streams a live leaderboard.
 
 The interesting word in that sentence is **distributed**. A site that simulates the work in one process is a UI mock; this document describes the system we actually built.
 
@@ -47,7 +47,7 @@ The interesting word in that sentence is **distributed**. A site that simulates 
                        └──────────────┘               │ HTTP POST /submit
                                 ▲                     ▼
                                 │           ┌─────────────────┐
-                                │           │   Submission    │  contestant's
+                                │           │   Submission    │  developer's
                                 │           │ (sibling docker)│  matching engine
                                 │           └────────┬────────┘
                                 │                    │ JSON ack
@@ -75,8 +75,8 @@ The interesting word in that sentence is **distributed**. A site that simulates 
 | **Bot Fleet** | Go | Goroutine pool, fasthttp client, seeded RNG, NATS telemetry | Goroutines outperform thread pools at 1k+ concurrent connections per replica |
 | **Telemetry** | Go | NATS subscriber → batched `COPY` into Timescale; computes final score | pgx's CopyFrom is ~10× faster than `INSERT` at this row rate |
 | **TimescaleDB** | (Postgres) | Time-series hypertable + 1s continuous aggregate for live leaderboard | Hypertable chunking + automatic compression beats vanilla Postgres at hundreds of millions of rows |
-| **Redis** | — | Live run state pubsub; leaderboard ZSET hot cache | Sub-millisecond reads keep the WS fanout cheap |
-| **NATS (JetStream)** | — | Order/event bus | Lower setup overhead than Kafka; JetStream gives durable control-plane messages |
+| **Redis** | - | Live run state pubsub; leaderboard ZSET hot cache | Sub-millisecond reads keep the WS fanout cheap |
+| **NATS (JetStream)** | - | Order/event bus | Lower setup overhead than Kafka; JetStream gives durable control-plane messages |
 
 ---
 
@@ -143,7 +143,7 @@ telemetry      (ts, run_id, bot_id, order_id, side, type,
                 ▲ Timescale hypertable, chunk_time_interval='1 minute',
                   compress after 1 hour, retain 7 days
 telemetry_1s   continuous aggregate: 1-second buckets per run with
-               approx_percentile for p50/p90/p99 — the live leaderboard
+               approx_percentile for p50/p90/p99 - the live leaderboard
                and run page query this view, NOT the raw hypertable
 ```
 
@@ -155,7 +155,7 @@ telemetry_1s   continuous aggregate: 1-second buckets per run with
 
 ## 5. Concurrency model
 
-### Inside the matching engine (the contestant's container)
+### Inside the matching engine (the developer's container)
 
 Single-threaded event loop. The HTTP layer pushes onto a buffered channel; one goroutine drains it and owns the order book. Strict serialization → trivial determinism. The cost is a per-order channel hop (~50 ns); the value is no locking, no race conditions, replayable runs.
 
@@ -167,7 +167,7 @@ A second well-known design choice (multi-shard lock-free books) wins at >1M ops/
 
 ### Telemetry hot path
 
-NATS at-most-once (core, not JetStream) for samples. The ingester buffers in a 50k-row channel and flushes via pgx `CopyFrom` every 250 ms or 5000 rows, whichever comes first. Backpressure: full buffer drops samples (documented; the alternative — blocking the NATS callback — would back up the entire bus).
+NATS at-most-once (core, not JetStream) for samples. The ingester buffers in a 50k-row channel and flushes via pgx `CopyFrom` every 250 ms or 5000 rows, whichever comes first. Backpressure: full buffer drops samples (documented; the alternative - blocking the NATS callback - would back up the entire bus).
 
 ---
 
@@ -193,7 +193,7 @@ The PDF specifies: *containerize, CPU pinning, strict memory limits*. We do bett
 A judge says "rerun submission X with seed 42 and prove the bot traffic is identical." That has to work.
 
 - Every bot's RNG state is `splitmix64(run_seed + bot_id)`. Same input → same byte stream.
-- The Go bot fleet's `xoshiro256**` is byte-compatible with the in-browser `rng.js` `xoshiro128**` *up to the algorithm choice* — same family, same paper. (The 128 variant is for JS where 32-bit ops are native; the 256 variant is for Go where 64-bit is native.)
+- The Go bot fleet's `xoshiro256**` is byte-compatible with the in-browser `rng.js` `xoshiro128**` *up to the algorithm choice* - same family, same paper. (The 128 variant is for JS where 32-bit ops are native; the 256 variant is for Go where 64-bit is native.)
 - Order timestamps come from `time.Now().UnixNano()` on the bot side. Determinism is *intent* level (the bot fires the same orders in the same order), not wire level (network jitter is non-deterministic). The PDF's "correctness validation" can be done at intent level via the `runs.<id>.telemetry` log replay.
 - Telemetry is stored with `run_id`, so a forensic replay is `SELECT * FROM telemetry WHERE run_id=$1 ORDER BY ts`.
 
@@ -214,9 +214,9 @@ correctness_score  = 100 × (1 − err_rate)                          // err = n
 Weights are configurable in the judge console (`weights JSONB` on the config table) and applied retroactively when a judge clicks *recompute*.
 
 **Why this shape:**
-- Exponential decay on latency rewards p99 improvements at the tails — where high-frequency systems live or die.
+- Exponential decay on latency rewards p99 improvements at the tails - where high-frequency systems live or die.
 - Saturated throughput prevents an absurdly tiny engine that fires 10M ops/s of noise from outscoring a real implementation.
-- Correctness is the multiplier of last resort — a fast engine that violates price-time priority is worthless.
+- Correctness is the multiplier of last resort - a fast engine that violates price-time priority is worthless.
 
 ---
 
@@ -226,7 +226,7 @@ Weights are configurable in the judge console (`weights JSONB` on the config tab
 
 | Component | Bottleneck | How to scale |
 |---|---|---|
-| Gateway | API request rate | HPA on CPU (already wired) — 2..10 replicas |
+| Gateway | API request rate | HPA on CPU (already wired) - 2..10 replicas |
 | Bot fleet | Per-replica concurrency cap | Add replicas (HPA 4..50) OR raise `BOTS_PER_INSTANCE` |
 | Telemetry ingester | TimescaleDB COPY throughput | Add replicas; horizontally partition by `run_id` hash |
 | TimescaleDB | Single-writer per chunk | Vertical (RDS instance class) or replicas with read-routing for queries |
@@ -267,7 +267,7 @@ Weights are configurable in the judge console (`weights JSONB` on the config tab
 
 These are the things we know we'd build next, in priority order:
 
-1. **gVisor or Firecracker runtime for submissions.** Right now we run `docker run` with the default runc. A motivated attacker with a Linux kernel 0-day could escape. The `runtimeClassName` knob in `k8s/services.yaml` is already wired — flip it on.
+1. **gVisor or Firecracker runtime for submissions.** Right now we run `docker run` with the default runc. A motivated attacker with a Linux kernel 0-day could escape. The `runtimeClassName` knob in `k8s/services.yaml` is already wired - flip it on.
 2. **mTLS between services** via Linkerd or Cilium service mesh. Cluster-internal traffic is currently plaintext.
 3. **OIDC auth** at the gateway. Currently `teamId` is trusted from the request body for development convenience.
 4. **Submission language matrix expansion.** The sandbox can run anything Docker can run; the example image is Go. Provide official Dockerfiles for C++, Rust, Python.

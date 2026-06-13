@@ -26,7 +26,7 @@ spec:
     pods: "100"
 ---
 # NetworkPolicy denies all ingress to submission pods except from the
-# bot fleet — judges' code can't reach the gateway, ingester, or DB.
+# bot fleet - judges' code can't reach the gateway, ingester, or DB.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

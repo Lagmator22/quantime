@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>QuanTime — Distributed Benchmarking Platform for Trading Engines</title>
+<title>QuanTime - Distributed Benchmarking Platform for Trading Engines</title>
 <meta name="description" content="Architect and build a distributed benchmarking & hosting platform for trading infrastructure. May 9 – June 10, 2026. Teams of up to 3." />
 
 <!-- =====================================================================
@@ -23,7 +23,7 @@
    1. DESIGN TOKENS  ( edit colors / fonts / radii here once )
    --------------------------------------------------------------------- */
 :root {
-  /* —— Color: cool-dark base, single phosphor-green accent —— */
+  /* -- Color: cool-dark base, single phosphor-green accent -- */
   --bg:        oklch(13% 0.008 240);   /* page background */
   --bg-2:      oklch(16% 0.008 240);   /* raised surfaces */
   --bg-3:      oklch(19% 0.008 240);   /* hover / inputs */
@@ -33,20 +33,20 @@
   --text-mute: oklch(70% 0.008 240);   /* secondary text */
   --text-dim:  oklch(52% 0.008 240);   /* tertiary / labels */
 
-  --accent:     oklch(78% 0.17 145);   /* phosphor green — primary accent */
+  --accent:     oklch(78% 0.17 145);   /* phosphor green - primary accent */
   --accent-dim: oklch(78% 0.17 145 / 0.15);
-  --warn:       oklch(72% 0.17 55);    /* amber — secondary signal */
-  --alert:      oklch(68% 0.20 25);    /* red  — stress / sell-side */
+  --warn:       oklch(72% 0.17 55);    /* amber - secondary signal */
+  --alert:      oklch(68% 0.20 25);    /* red  - stress / sell-side */
 
-  /* —— Type —— */
+  /* -- Type -- */
   --font-sans: "Space Grotesk", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* —— Spacing scale (8px-based, but a little tighter at small sizes) —— */
+  /* -- Spacing scale (8px-based, but a little tighter at small sizes) -- */
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px;
   --s-6: 32px; --s-7: 48px; --s-8: 64px; --s-9: 96px; --s-10: 128px;
 
-  --radius: 4px;            /* keep tight — engineering, not consumer */
+  --radius: 4px;            /* keep tight - engineering, not consumer */
   --radius-lg: 8px;
   --max-w: 1280px;          /* page max width */
 }
@@ -62,7 +62,7 @@ body {
   line-height: 1.55;
   color: var(--text);
   background: var(--bg);
-  /* Subtle dotted grid baked into the page bg — gives the whole site
+  /* Subtle dotted grid baked into the page bg - gives the whole site
      a "data-room" feel without using an image. */
   background-image:
     radial-gradient(circle at 1px 1px, oklch(28% 0.008 240 / 0.5) 1px, transparent 0);
@@ -74,10 +74,10 @@ a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 img, svg { display: block; max-width: 100%; }
 
-/* Selection — make it on-brand */
+/* Selection - make it on-brand */
 ::selection { background: var(--accent); color: var(--bg); }
 
-/* Scroll bar — subtle dark */
+/* Scroll bar - subtle dark */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 0; }
@@ -160,7 +160,7 @@ img, svg { display: block; max-width: 100%; }
   font-weight: 600; letter-spacing: -0.02em; font-size: 16px;
 }
 .logo-mark {
-  /* Geometric mark — square with phosphor-green inset square */
+  /* Geometric mark - square with phosphor-green inset square */
   width: 28px; height: 28px;
   background: var(--text);
   position: relative;
@@ -196,7 +196,7 @@ img, svg { display: block; max-width: 100%; }
   .nav-links { gap: var(--s-3); }
 }
 
-/* —— Buttons (used in nav + hero + CTA) ————————————————————— */
+/* -- Buttons (used in nav + hero + CTA) --------------------- */
 .btn {
   display: inline-flex; align-items: center; gap: var(--s-2);
   padding: 12px 18px;
@@ -209,7 +209,7 @@ img, svg { display: block; max-width: 100%; }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
 .btn-primary {
   background: var(--bg-2);
-  color: var(--accent);            /* phosphor green text — matches site theme */
+  color: var(--accent);            /* phosphor green text - matches site theme */
   border-color: var(--accent);
   font-weight: 700;
   isolation: isolate;
@@ -276,7 +276,7 @@ img, svg { display: block; max-width: 100%; }
   margin-bottom: var(--s-6);
 }
 .hero h1 .accent {
-  /* Outline treatment for the second line — keeps the headline
+  /* Outline treatment for the second line - keeps the headline
      dense without doubling type weight. */
   -webkit-text-stroke: 1px var(--text);
   color: transparent;
@@ -296,7 +296,7 @@ img, svg { display: block; max-width: 100%; }
 
 .hero-actions { display: flex; gap: var(--s-3); flex-wrap: wrap; }
 
-/* —— Hero meta strip (dates / location / countdown / teams) —— */
+/* -- Hero meta strip (dates / location / countdown / teams) -- */
 .hero-meta {
   margin-top: var(--s-9);
   border-top: 1px solid var(--line);
@@ -489,7 +489,7 @@ section { padding: var(--s-9) 0; border-bottom: 1px solid var(--line-soft); }
   animation: pulse 1.4s ease-in-out infinite;
 }
 
-/* —— Leaderboard table —— */
+/* -- Leaderboard table -- */
 .lb-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
 .lb-table th {
   text-align: left; padding: 10px 8px;
@@ -512,7 +512,7 @@ section { padding: var(--s-9) 0; border-bottom: 1px solid var(--line-soft); }
 .lb-table .lat-bad { color: var(--alert); }
 .lb-table tr.flash { background: oklch(78% 0.17 145 / 0.08); }
 
-/* —— Side metrics —— */
+/* -- Side metrics -- */
 .metric { border: 1px solid var(--line); padding: var(--s-4); }
 .metric .l { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.1em; margin-bottom: 4px; }
 .metric .v { font-family: var(--font-mono); font-size: 32px; font-weight: 500; }
@@ -527,7 +527,7 @@ section { padding: var(--s-9) 0; border-bottom: 1px solid var(--line-soft); }
   transition: height .4s ease;
 }
 
-/* —— Mini order book —— */
+/* -- Mini order book -- */
 .book { font-family: var(--font-mono); font-size: 11px; }
 .book h5 { font-size: 10px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.1em; margin-bottom: var(--s-3); font-weight: 400; }
 .book-row {
@@ -536,7 +536,7 @@ section { padding: var(--s-9) 0; border-bottom: 1px solid var(--line-soft); }
   position: relative; overflow: hidden;
 }
 .book-row::before {
-  /* Depth bar — width set via inline style by JS */
+  /* Depth bar - width set via inline style by JS */
   content: ""; position: absolute; right: 0; top: 0; bottom: 0;
   background: oklch(68% 0.20 25 / 0.15);
   z-index: 0;
@@ -625,7 +625,7 @@ section { padding: var(--s-9) 0; border-bottom: 1px solid var(--line-soft); }
   color: var(--text-mute);
 }
 
-/* —— Rules grid —— */
+/* -- Rules grid -- */
 .rules {
   display: grid; grid-template-columns: repeat(4, 1fr);
   border: 1px solid var(--line);
@@ -648,7 +648,7 @@ section { padding: var(--s-9) 0; border-bottom: 1px solid var(--line-soft); }
 .rule .v { font-family: var(--font-mono); font-size: 20px; color: var(--text); margin-bottom: var(--s-2); }
 .rule p { font-size: 13px; color: var(--text-mute); }
 
-/* —— FAQ (details/summary, no JS) —— */
+/* -- FAQ (details/summary, no JS) -- */
 .faq { border-top: 1px solid var(--line-soft); }
 .faq details {
   border-bottom: 1px solid var(--line-soft);
@@ -672,7 +672,7 @@ section { padding: var(--s-9) 0; border-bottom: 1px solid var(--line-soft); }
   max-width: 72ch; text-wrap: pretty;
 }
 
-/* —— Closing CTA —— */
+/* -- Closing CTA -- */
 .cta {
   background:
     radial-gradient(circle at 50% 100%, oklch(78% 0.17 145 / 0.12), transparent 60%),
@@ -695,7 +695,7 @@ section { padding: var(--s-9) 0; border-bottom: 1px solid var(--line-soft); }
 }
 .cta .actions { display: inline-flex; gap: var(--s-3); flex-wrap: wrap; justify-content: center; }
 
-/* —— Footer —— */
+/* -- Footer -- */
 footer { padding: var(--s-7) 0; }
 .footer-inner {
   display: flex; justify-content: space-between; align-items: center;
@@ -782,12 +782,11 @@ footer { padding: var(--s-7) 0; }
     </h1>
 
     <p class="hero-lede">
-      <strong>QuanTime</strong> is a distributed benchmarking &amp; hosting
-      platform for trading engines, built for the <strong>IICPC Summer
-      Hackathon 2026</strong>. It ingests a contestant's matching engine,
+      <strong>QuanTime</strong> is a distributed benchmarking and hosting
+      platform for trading engines. It ingests a user's matching engine,
       isolates it in a hardened container, bombards it with a distributed
       fleet of bots, and scores it live on latency, throughput, and
-      correctness — on microsecond truth.
+      correctness with microsecond-level precision.
     </p>
 
     <div class="hero-actions">
@@ -796,30 +795,30 @@ footer { padding: var(--s-7) 0; }
       </a>
       <a href="platform/submit.html" class="btn">Submit code</a>
       <a href="platform/architecture.html" class="btn">Architecture</a>
-      <a href="#mission" class="btn btn-ghost" style="background:transparent;">Read the brief</a>
+      <a href="#mission" class="btn btn-ghost" style="background:transparent;">View Specifications</a>
     </div>
 
-    <!-- —— Meta strip —— -->
+    <!-- -- Meta strip -- -->
     <div class="hero-meta">
       <div class="cell">
-        <div class="label">// Window</div>
-        <div class="value">May 09 → Jun 10</div>
-        <div class="sub">32 days · submissions open final week</div>
+        <div class="label">// Throughput</div>
+        <div class="value">>24K ops/s</div>
+        <div class="sub">sustained throughput under peak load</div>
       </div>
       <div class="cell">
-        <div class="label">// Countdown to submissions</div>
-        <div class="value" id="countdown">—</div>
-        <div class="sub">opens Jun 03, 2026 · 00:00 UTC</div>
+        <div class="label">// Telemetry</div>
+        <div class="value">Sub-ms</div>
+        <div class="sub">p50, p90, and p99 latency resolution</div>
       </div>
       <div class="cell">
-        <div class="label">// Team size</div>
-        <div class="value">≤ 3 engineers</div>
-        <div class="sub">solo entries welcome</div>
+        <div class="label">// Sandboxing</div>
+        <div class="value">Isolated</div>
+        <div class="sub">cgroups CPU pinning and memory caps</div>
       </div>
       <div class="cell">
-        <div class="label">// Difficulty</div>
-        <div class="value" style="color: var(--alert);">[ HARDCORE ]</div>
-        <div class="sub">not a demo-to-win event</div>
+        <div class="label">// Analysis</div>
+        <div class="value" style="color: var(--accent);">[ ACTIVE ]</div>
+        <div class="sub">multi-agent LLM code audits</div>
       </div>
     </div>
   </div>
@@ -832,13 +831,13 @@ footer { padding: var(--s-7) 0; }
   <div class="wrap">
     <div class="section-head">
       <div>
-        <span class="eyebrow">01 / Mission</span>
-        <h2 style="margin-top: var(--s-3);">The brief, exactly.</h2>
+        <span class="eyebrow">01 / Objective</span>
+        <h2 style="margin-top: var(--s-3);">The objective, exactly.</h2>
       </div>
       <p class="section-lede">
         QuanTime is built for engineers who treat latency as a moral
-        obligation. Read the brief below — this is the challenge QuanTime was
-        built to solve, and the platform you're looking at is the answer.
+        obligation. Read the specification below: this is the benchmark QuanTime was
+        built to execute, and the platform you're looking at is the answer.
       </p>
     </div>
 
@@ -848,26 +847,26 @@ footer { padding: var(--s-7) 0; }
     <div class="terminal">
       <div class="terminal-bar">
         <div class="dots"><span></span><span></span><span></span></div>
-        <div class="title">~ / iicpc / brief.md</div>
+        <div class="title">~ / quantime / objective.md</div>
         <div style="margin-left:auto; font-size:11px; color: var(--text-dim);">read-only</div>
       </div>
       <div class="terminal-body">
         <div class="ln"><span class="num">01</span><span><span class="com"># OBJECTIVE</span></span></div>
-        <div class="ln"><span class="num">02</span><span><span class="prompt">$</span> Architect and build a <span class="hl">Distributed Benchmarking &amp; Hosting Platform</span> designed to evaluate contestant-submitted trading infrastructure.</span></div>
+        <div class="ln"><span class="num">02</span><span><span class="prompt">$</span> Architect and build a <span class="hl">Distributed Benchmarking &amp; Hosting Platform</span> designed to evaluate user-submitted trading infrastructure.</span></div>
         <div class="ln"><span class="num">03</span><span>&nbsp;</span></div>
         <div class="ln"><span class="num">04</span><span><span class="com"># PIPELINE</span></span></div>
-        <div class="ln"><span class="num">05</span><span><span class="key">upload</span>  → contestants push a simulated <span class="str">"orderbook"</span> or <span class="str">"matching engine"</span> (C++, Rust, Go).</span></div>
-        <div class="ln"><span class="num">06</span><span><span class="key">isolate</span> → your platform containerises the binary, pins CPU, caps memory, denies syscalls.</span></div>
+        <div class="ln"><span class="num">05</span><span><span class="key">upload</span>  → users push a simulated <span class="str">"orderbook"</span> or <span class="str">"matching engine"</span> (C++, Rust, Go).</span></div>
+        <div class="ln"><span class="num">06</span><span><span class="key">isolate</span> → the platform containerises the binary, pins CPU, caps memory, denies syscalls.</span></div>
         <div class="ln"><span class="num">07</span><span><span class="key">expose</span>  → predefined REST / WebSocket / FIX endpoints surface to a private mesh.</span></div>
         <div class="ln"><span class="num">08</span><span><span class="key">attack</span>  → spawn a fleet of <span class="hl">distributed bots</span> simulating peak market volatility.</span></div>
-        <div class="ln"><span class="num">09</span><span><span class="key">measure</span> → capture granular telemetry. p50 / p90 / p99. TPS. correctness.</span></div>
+        <div class="ln"><span class="num">09</span><span><span class="key">measure</span> → capture granular telemetry: p50 / p90 / p99, TPS, correctness.</span></div>
         <div class="ln"><span class="num">10</span><span><span class="key">rank</span>    → stream a composite score to a live leaderboard.</span></div>
         <div class="ln"><span class="num">11</span><span>&nbsp;</span></div>
         <div class="ln"><span class="num">12</span><span><span class="com"># NON-NEGOTIABLE</span></span></div>
         <div class="ln"><span class="num">13</span><span>You may pick any stack. You may use AI.</span></div>
         <div class="ln"><span class="num">14</span><span>You <span class="hl">must</span> defend every architectural decision: throughput, isolation, scale.</span></div>
         <div class="ln"><span class="num">15</span><span>&nbsp;</span></div>
-        <div class="ln"><span class="num">16</span><span><span class="prompt">$</span> <span style="color:var(--accent);">echo</span> <span class="str">"this is not a demo-to-win event."</span></span></div>
+        <div class="ln"><span class="num">16</span><span><span class="prompt">$</span> <span style="color:var(--accent);">echo</span> <span class="str">"performance data is the only source of truth."</span></span></div>
         <div class="ln"><span class="num">17</span><span><span style="color:var(--text-dim);">▌</span></span></div>
       </div>
     </div>
@@ -875,7 +874,7 @@ footer { padding: var(--s-7) 0; }
 </section>
 
 <!-- =====================================================================
-     E. ARCHITECTURE COMPONENTS — 4 required subsystems
+     E. ARCHITECTURE COMPONENTS - 4 required subsystems
      ---------------------------------------------------------------------
      Pulled directly from the brief. Each card is its own micro-spec
      so the user can see the surface area at a glance.
@@ -890,12 +889,12 @@ footer { padding: var(--s-7) 0; }
       <p class="section-lede">
         Your solution must encompass these components. Decoupled,
         concurrent, resilient. Communication protocols, data stores, and
-        isolation strategies are yours to choose — and yours to defend.
+        isolation strategies are yours to choose and yours to defend.
       </p>
     </div>
 
     <div class="components">
-      <!-- ── Component 01 — Sandboxing ─────────────────────────────── -->
+      <!-- ── Component 01 - Sandboxing ─────────────────────────────── -->
       <div class="component">
         <div class="index">
           <span>// 01 · ingestion</span>
@@ -903,10 +902,10 @@ footer { padding: var(--s-7) 0; }
         </div>
         <h3>Submission &amp; Sandboxing Engine</h3>
         <p>
-          A secure pipeline where contestants upload binaries or source
-          (C++, Rust, Go). Containerise and deploy submissions in
+          A secure pipeline where users upload binaries or source
+          (C++, Rust, Go). Containerize and deploy submissions in
           strictly isolated environments. Malicious code stays caged;
-          fair contestants get fair resource budgets.
+          all users receive identical, fair hardware budgets.
         </p>
         <ul>
           <li>CPU pinning &amp; strict memory caps per submission</li>
@@ -916,7 +915,7 @@ footer { padding: var(--s-7) 0; }
         </ul>
       </div>
 
-      <!-- ── Component 02 — Load Generator ─────────────────────────── -->
+      <!-- ── Component 02 - Load Generator ─────────────────────────── -->
       <div class="component">
         <div class="index">
           <span>// 02 · load</span>
@@ -926,8 +925,8 @@ footer { padding: var(--s-7) 0; }
         <p>
           The engine. A scalable traffic-generation service capable of
           spawning thousands of distributed bots simulating diverse
-          market participants — high-velocity Limit Orders, Market
-          Orders, Cancels — slamming the contestant's endpoints.
+          market participants (high-velocity Limit Orders, Market
+          Orders, Cancels) directed at the user's endpoints.
         </p>
         <ul>
           <li>Horizontally scalable bot orchestration</li>
@@ -937,7 +936,7 @@ footer { padding: var(--s-7) 0; }
         </ul>
       </div>
 
-      <!-- ── Component 03 — Telemetry ──────────────────────────────── -->
+      <!-- ── Component 03 - Telemetry ──────────────────────────────── -->
       <div class="component">
         <div class="index">
           <span>// 03 · telemetry</span>
@@ -946,8 +945,8 @@ footer { padding: var(--s-7) 0; }
         <h3>Telemetry &amp; Validation Ingester</h3>
         <p>
           A low-latency tracking system monitoring every interaction
-          between bot fleet and contestant exchange. Measure the truth,
-          not vibes.
+          between bot fleet and user exchange, measuring raw performance
+          metrics instead of approximations.
         </p>
         <ul>
           <li>Latency: p50 / p90 / p99 acknowledgment time</li>
@@ -957,7 +956,7 @@ footer { padding: var(--s-7) 0; }
         </ul>
       </div>
 
-      <!-- ── Component 04 — Leaderboard ───────────────────────────── -->
+      <!-- ── Component 04 - Leaderboard ───────────────────────────── -->
       <div class="component">
         <div class="index">
           <span>// 04 · ranking</span>
@@ -972,8 +971,8 @@ footer { padding: var(--s-7) 0; }
         </p>
         <ul>
           <li>Sub-second update latency on score deltas</li>
-          <li>Drill-down per-team telemetry &amp; replay</li>
-          <li>Public read-only board + private judge view</li>
+          <li>Drill-down per-run telemetry &amp; replay</li>
+          <li>Public read-only board + private admin view</li>
           <li>Composite score: speed × stability × correctness</li>
         </ul>
       </div>
@@ -985,7 +984,7 @@ footer { padding: var(--s-7) 0; }
      F. LIVE LEADERBOARD MOCKUP
      ---------------------------------------------------------------------
      Animated mock. Numbers are generated/ticked in JS (§13).
-     The whole block is presentational — replace with a real WS feed
+     The whole block is presentational - replace with a real WS feed
      when the platform exists.
 ===================================================================== -->
 <section id="leaderboard">
@@ -997,8 +996,8 @@ footer { padding: var(--s-7) 0; }
       </div>
       <p class="section-lede">
         A simulated stress run. Every cell ticks. Every position
-        re-shuffles. This is the bar — your leaderboard should read
-        as truthfully as a market tape.
+        re-shuffles: the leaderboard updates dynamically and truthfully,
+        resembling a live market feed.
       </p>
     </div>
 
@@ -1065,76 +1064,71 @@ footer { padding: var(--s-7) 0; }
 </section>
 
 <!-- =====================================================================
-     G. TIMELINE — 5 phases across the 32-day window
+     G. TIMELINE - Workflow Lifecycle
 ===================================================================== -->
 <section id="timeline">
   <div class="wrap">
     <div class="section-head">
       <div>
-        <span class="eyebrow">04 / Schedule</span>
-        <h2 style="margin-top: var(--s-3);">32 days. Five phases.</h2>
+        <span class="eyebrow">04 / Workflow</span>
+        <h2 style="margin-top: var(--s-3);">The Benchmark Lifecycle</h2>
       </div>
       <p class="section-lede">
-        Submissions open in the final week. Use the early phases to
-        build, the middle to harden, the last to ship something that
-        won't fall over under load.
+        From upload to AI-reviewed telemetry. QuanTime orchestrates the entire validation pipeline automatically to produce microsecond-accurate optimization profiles.
       </p>
     </div>
 
     <div class="timeline">
       <div class="tl-step active">
-        <div class="date"><span>May 09</span><span class="stamp">NOW</span></div>
-        <h4>Kickoff &amp; team formation</h4>
-        <p>Brief drops. Discord opens. Form teams of up to 3.</p>
+        <div class="date"><span>STEP 01</span><span class="stamp">START</span></div>
+        <h4>Source submission</h4>
+        <p>Upload a compiled binary or source code via Web UI or CLI.</p>
       </div>
       <div class="tl-step">
-        <div class="date"><span>May 10–22</span><span>Wk 01–02</span></div>
-        <h4>Architecture sprint</h4>
-        <p>Ship the blueprint. Wire submission ingest, sandbox, mesh.</p>
+        <div class="date"><span>STEP 02</span><span>SANDBOX</span></div>
+        <h4>Hardened deploy</h4>
+        <p>The platform boots your container with strict CPU cores pinning and memory limits.</p>
       </div>
       <div class="tl-step">
-        <div class="date"><span>May 23–Jun 02</span><span>Wk 03</span></div>
-        <h4>Load &amp; telemetry</h4>
-        <p>Bot fleet, metrics ingest, stream to leaderboard.</p>
+        <div class="date"><span>STEP 03</span><span>SIMULATION</span></div>
+        <h4>Load generation</h4>
+        <p>The distributed bot fleet simulates orders over WebSockets, NATS JetStream, or FIX.</p>
       </div>
       <div class="tl-step">
-        <div class="date"><span>Jun 03–09</span><span>Wk 04</span></div>
-        <h4>Submissions open</h4>
-        <p>Live stress runs. Public leaderboard. IaC review.</p>
+        <div class="date"><span>STEP 04</span><span>TELEMETRY</span></div>
+        <h4>Metrics stream</h4>
+        <p>Latency percentiles and correctness logs stream in real-time to TimescaleDB.</p>
       </div>
       <div class="tl-step">
-        <div class="date"><span>Jun 10</span><span class="stamp">FINAL</span></div>
-        <h4>Judging &amp; awards</h4>
-        <p>Architecture defence. Composite score locks. Winners ship.</p>
+        <div class="date"><span>STEP 05</span><span class="stamp">REPORT</span></div>
+        <h4>AI Performance Audit</h4>
+        <p>Gemini agents analyze code and telemetry to generate optimization insights.</p>
       </div>
     </div>
   </div>
 </section>
 
 <!-- =====================================================================
-     H. DELIVERABLES
+     H. CORE SUBSYSTEMS
 ===================================================================== -->
 <section id="deliverables">
   <div class="wrap">
     <div class="section-head">
       <div>
-        <span class="eyebrow">05 / Deliverables</span>
-        <h2 style="margin-top: var(--s-3);">What you ship.</h2>
+        <span class="eyebrow">05 / Subsystems</span>
+        <h2 style="margin-top: var(--s-3);">Three core pillars.</h2>
       </div>
       <p class="section-lede">
-        Three artefacts. All required. Anything less reads as a demo —
-        and demos do not win this hackathon.
+        Three coupled pillars. Fully automated. The platform orchestrates code validation, load execution, and telemetry collection automatically.
       </p>
     </div>
 
     <div class="deliverables">
       <article class="del">
-        <div class="num">// DELIVERABLE 01</div>
-        <h4>Working infrastructure prototype</h4>
+        <div class="num">// PILLAR 01</div>
+        <h4>Execution Sandbox</h4>
         <p>
-          End-to-end pipeline: code upload → containerised deployment →
-          distributed load testing → real-time scoring. Live, observable,
-          reproducible.
+          Safe execution environment: code upload, isolated containerization, simulated trade execution, and real-time validation. Live and reproducible.
         </p>
         <div class="stack">
           <span>upload</span><span>sandbox</span><span>mesh</span>
@@ -1143,30 +1137,26 @@ footer { padding: var(--s-7) 0; }
       </article>
 
       <article class="del">
-        <div class="num">// DELIVERABLE 02</div>
-        <h4>Architecture blueprint</h4>
+        <div class="num">// PILLAR 02</div>
+        <h4>Distributed Load Fleet</h4>
         <p>
-          A system design doc detailing microservices, inter-service
-          protocols (gRPC, Kafka/Redpanda), data stores
-          (TimescaleDB, Redis), and isolation strategies.
+          A scalable generator simulating high-density order book activity (limit, market, cancel orders) using multiple load-generator instances.
         </p>
         <div class="stack">
-          <span>diagrams</span><span>protocols</span><span>data-stores</span>
-          <span>isolation</span><span>SLOs</span>
+          <span>nats-jetstream</span><span>fix-protocol</span><span>websockets</span>
+          <span>order-bursts</span>
         </div>
       </article>
 
       <article class="del">
-        <div class="num">// DELIVERABLE 03</div>
-        <h4>Infrastructure as Code</h4>
+        <div class="num">// PILLAR 03</div>
+        <h4>Telemetry &amp; Analysis</h4>
         <p>
-          Automated deploy: Terraform, K8s manifests, or Swarm configs.
-          Prove the platform spins up, configures, and scales horizontally
-          in a real cloud environment.
+          Low-latency tracking storing metrics in TimescaleDB, accompanied by parallel code reviews from Gemini-powered safety and performance agents.
         </p>
         <div class="stack">
-          <span>terraform</span><span>k8s</span><span>helm</span>
-          <span>ci/cd</span><span>observability</span>
+          <span>timescaledb</span><span>redis</span><span>opentelemetry</span>
+          <span>gemini-agents</span>
         </div>
       </article>
     </div>
@@ -1184,51 +1174,51 @@ footer { padding: var(--s-7) 0; }
         <h2 style="margin-top: var(--s-3);">Constraints.</h2>
       </div>
       <p class="section-lede">
-        Short list. Tight bounds. Treat them as part of the system spec —
-        the platform you build must respect them too.
+        Short list. Tight bounds. Treat them as part of the system spec:
+        the platform is built to enforce them under high load.
       </p>
     </div>
 
     <div class="rules">
       <div class="rule">
-        <div class="k">// team_size</div>
-        <div class="v">≤ 3</div>
-        <p>Up to three engineers per team. Solo entries welcome and judged the same.</p>
+        <div class="k">// execution</div>
+        <div class="v">STRICT</div>
+        <p>Every matching engine must pass the Price-Time Priority validation oracle.</p>
       </div>
       <div class="rule">
-        <div class="k">// stack</div>
-        <div class="v">FREE</div>
-        <p>Pick any language, framework, or cloud. Defend every choice.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// AI_tooling</div>
-        <div class="v">ALLOWED</div>
-        <p>Use AI freely. We grade the architecture, not the keystrokes.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// scope</div>
-        <div class="v">SYSTEMS</div>
-        <p>UI polish is irrelevant if the system can't survive load.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// submissions</div>
-        <div class="v">WK 04</div>
-        <p>Submissions open Jun 03 → Jun 10. Stress runs are continuous during this window.</p>
-      </div>
-      <div class="rule">
-        <div class="k">// scoring</div>
-        <div class="v">COMPOSITE</div>
-        <p>Speed × stability × correctness. No single metric wins alone.</p>
+        <div class="k">// languages</div>
+        <div class="v">PLUGGABLE</div>
+        <p>Benchmark Go, Rust, C++, Python, or any language compiled inside Docker.</p>
       </div>
       <div class="rule">
         <div class="k">// isolation</div>
-        <div class="v">STRICT</div>
-        <p>CPU pinning + memory caps + namespace isolation are not optional.</p>
+        <div class="v">HARDENED</div>
+        <p>Strict CPU pinning, memory limits, and containerized namespaces prevent host leaks.</p>
       </div>
       <div class="rule">
-        <div class="k">// vibes</div>
-        <div class="v" style="color: var(--alert);">REJECTED</div>
-        <p>This is not a demo-to-win hackathon. Bring numbers.</p>
+        <div class="k">// metrics</div>
+        <div class="v">REAL-TIME</div>
+        <p>Throughput, latency, and correctness metrics stream to a live dashboard.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// security</div>
+        <div class="v">AUDITED</div>
+        <p>Multi-agent LLM reviewer detects memory leaks, unsafe calls, and shell escapes.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// scale</div>
+        <div class="v">DISTRIBUTED</div>
+        <p>Bot fleet simulates realistic market depth and spikes using NATS JetStream.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// database</div>
+        <div class="v">PERSISTENT</div>
+        <p>Full runs, logs, and score histories are stored in TimescaleDB for analysis.</p>
+      </div>
+      <div class="rule">
+        <div class="k">// optimization</div>
+        <div class="v">CONTINUOUS</div>
+        <p>Compare iterations of your engine to find lock contention and hot spots.</p>
       </div>
     </div>
   </div>
@@ -1273,7 +1263,7 @@ footer { padding: var(--s-7) 0; }
       </details>
       <details>
         <summary>How does the bot fleet simulate market traffic?</summary>
-        <p>The bot fleet is distributed across multiple load-generation instances communicating over a NATS JetStream event bus. They generate realistic market activity profiles—ranging from simple random walks to structured liquidity generation, cancellations, and heavy order bursts—to stress-test matching engine throughput bounds.</p>
+        <p>The bot fleet is distributed across multiple load-generation instances communicating over a NATS JetStream event bus. They generate realistic market activity profiles-ranging from simple random walks to structured liquidity generation, cancellations, and heavy order bursts-to stress-test matching engine throughput bounds.</p>
       </details>
       <details>
         <summary>What does the AI Code Review analyzer check?</summary>
@@ -1289,11 +1279,11 @@ footer { padding: var(--s-7) 0; }
 <section id="register" style="border-bottom: 0;">
   <div class="wrap">
     <div class="cta">
-      <span class="eyebrow" style="margin-bottom: var(--s-5);">// final · register</span>
-      <h2>Ship the platform that<br /><em>scores everyone else's.</em></h2>
+      <span class="eyebrow" style="margin-bottom: var(--s-5);">// get started</span>
+      <h2>Deploy your matching engine<br /><em>and benchmark it instantly.</em></h2>
       <p>
-        Registration is open. The clock is running. May 09 → June 10, 2026.
-        Three engineers, one stack, one chance to prove your system holds.
+        Ready to analyze your trading infrastructure? Upload your code, run automated stress tests, 
+        observe live metrics, and view optimization insights immediately.
       </p>
       <div class="actions">
         <a href="platform/console.html" class="btn btn-primary">Enter platform <span class="arrow">→</span></a>
@@ -1309,7 +1299,7 @@ footer { padding: var(--s-7) 0; }
 ===================================================================== -->
 <footer>
   <div class="wrap footer-inner">
-    <div>© 2026 QuanTime · built for the IICPC Summer Hackathon · open-source</div>
+    <div>© 2026 QuanTime · Open Source Matching Engine Benchmarking Platform</div>
     <div style="display:flex; gap: var(--s-5);">
       <a href="#">code of conduct</a>
       <a href="#">privacy</a>
@@ -1375,7 +1365,7 @@ const leaderboardData = [
 ];
 
 // Composite score: lower latency + higher TPS + lower error = better.
-// Formula is illustrative — edit weights to match your real scoring.
+// Formula is illustrative - edit weights to match your real scoring.
 function score(t) {
   const speed       = 100000 / (t.p50 + t.p99);     // weighted toward tail latency
   const throughput  = t.tps / 30000;                // ~80 max
@@ -1506,7 +1496,7 @@ function renderBook() {
 
   bookEl.innerHTML =
     askRows +
-    `<div class="book-mid">— mid · ${mid.toFixed(2)} —</div>` +
+    `<div class="book-mid">- mid · ${mid.toFixed(2)} -</div>` +
     bidRows;
 
   // Apply depth bar widths via inline ::before width hack:

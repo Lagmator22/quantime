@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------
 # Static linking + scratch base → ~12MB image. Pulls a Docker client
 # library so it can talk to the host's Docker socket and spawn
-# contestant containers as siblings.
+# developer containers as siblings.
 # =====================================================================
 FROM golang:1.22-alpine AS build
 WORKDIR /src

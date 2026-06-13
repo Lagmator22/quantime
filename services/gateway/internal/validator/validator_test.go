@@ -33,7 +33,7 @@ func TestValidate_CorrectEngine(t *testing.T) {
 	}
 }
 
-// A broken engine that never fills must be CAUGHT — proving the oracle is a
+// A broken engine that never fills must be CAUGHT - proving the oracle is a
 // real signal, not always-100. Only the 5 expected-zero orders pass → 50%.
 func TestValidate_BrokenEngineCaught(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -42,7 +42,7 @@ func TestValidate_BrokenEngineCaught(t *testing.T) {
 	defer srv.Close()
 	r := Validate(context.Background(), srv.URL, fixedNow)
 	if r.Score == 100 {
-		t.Fatal("broken (never-fills) engine scored 100 — oracle failed to catch it")
+		t.Fatal("broken (never-fills) engine scored 100 - oracle failed to catch it")
 	}
 	if r.Score != 50 {
 		t.Errorf("never-fills engine scored %.0f, want 50 (the 5 expected-zero orders)", r.Score)
@@ -50,7 +50,7 @@ func TestValidate_BrokenEngineCaught(t *testing.T) {
 }
 
 // echoOracle is a stub engine that replays the scenario through its own copy
-// of the reference book and reports the oracle's fills — i.e. a correct engine.
+// of the reference book and reports the oracle's fills - i.e. a correct engine.
 func echoOracle() http.HandlerFunc {
 	b := newBook()
 	return func(w http.ResponseWriter, r *http.Request) {

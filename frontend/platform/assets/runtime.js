@@ -1,7 +1,7 @@
 /* =====================================================================
    IICPC PLATFORM · MULTI-LANGUAGE RUNTIME
    ---------------------------------------------------------------------
-   Loads contestant code and exposes a uniform submit() interface
+   Loads developer code and exposes a uniform submit() interface
    regardless of source language. Each runtime runs in its own
    dedicated Web Worker so:
      • crashes don't kill the page
@@ -10,12 +10,12 @@
      • memory is partly isolated (one worker per submission)
 
    Supported runtimes:
-     • js      — JavaScript module with exports.submit (in-worker eval)
-     • py      — Python via Pyodide (CPython compiled to WASM, real interp)
-     • wasm    — A precompiled .wasm module exporting `submit_bytes`
-     • judge0  — Remote HTTP execution via Judge0 CE API (any language)
+     • js      - JavaScript module with exports.submit (in-worker eval)
+     • py      - Python via Pyodide (CPython compiled to WASM, real interp)
+     • wasm    - A precompiled .wasm module exporting `submit_bytes`
+     • judge0  - Remote HTTP execution via Judge0 CE API (any language)
 
-   The contract — every runtime must satisfy:
+   The contract - every runtime must satisfy:
      submit(order) → Promise<{ acks, fills, error? }>
      close()       → terminate the worker / release resources
 
@@ -45,7 +45,7 @@
     go:     'runtime-js.js',
   };
 
-  // —— Default timeouts per language (Pyodide cold-start is slow) ——
+  // -- Default timeouts per language (Pyodide cold-start is slow) --
   const DEFAULT_TIMEOUTS = {
     js: 1000,        // 1s
     py: 5000,        // 5s (Python is slower)
@@ -53,7 +53,7 @@
     judge0: 30000,   // remote API, slow
   };
 
-  // —— Track all active runtimes for global cleanup ————————
+  // -- Track all active runtimes for global cleanup --------
   const activeRuntimes = new Set();
 
   /**
@@ -79,7 +79,7 @@
           const rt = {
             lang,
             submissionId: submission.id,
-            // —— main API: send a single order, get a response —————
+            // -- main API: send a single order, get a response -----
             async submit(order, callOpts = {}) {
               if (closed) return { acks: [], fills: [], error: 'runtime closed' };
               const reqId = nextReqId++;
@@ -87,7 +87,7 @@
               return new Promise((res) => {
                 const to = setTimeout(() => {
                   pendingReqs.delete(reqId);
-                  // Worker has hung — terminate and mark closed.
+                  // Worker has hung - terminate and mark closed.
                   // The next call will surface "runtime closed".
                   try { w.terminate(); } catch {}
                   closed = true;
@@ -149,7 +149,7 @@
         reject(err);
       });
 
-      // —— Init message: hand the worker its source —————————
+      // -- Init message: hand the worker its source ---------
       w.postMessage({
         type: 'init',
         lang,
@@ -177,7 +177,7 @@
   }
 
   /**
-   * Close every active runtime — useful when the user navigates away.
+   * Close every active runtime - useful when the user navigates away.
    */
   async function closeAll() {
     for (const rt of [...activeRuntimes]) {

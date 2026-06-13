@@ -1,7 +1,7 @@
 -- =====================================================================
 -- IICPC PLATFORM · TIMESCALEDB SCHEMA
 -- ---------------------------------------------------------------------
--- Telemetry lives in TimescaleDB hypertables — chunked by time for fast
+-- Telemetry lives in TimescaleDB hypertables - chunked by time for fast
 -- recent-window queries and automatic compression of older data.
 --
 -- Relational tables (teams, submissions, runs) live in plain Postgres

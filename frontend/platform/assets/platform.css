@@ -15,7 +15,7 @@
      §10 toasts
 ===================================================================== */
 
-/* §1 — RESET ==================================================== */
+/* §1 - RESET ==================================================== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-font-smoothing: antialiased; }
 body {
@@ -39,7 +39,7 @@ img, svg { display: block; max-width: 100%; }
 ::-webkit-scrollbar-thumb { background: var(--line); }
 ::-webkit-scrollbar-thumb:hover { background: var(--line-soft); }
 
-/* §2 — UTILITIES =============================================== */
+/* §2 - UTILITIES =============================================== */
 .mono { font-family: var(--font-mono); }
 .dim { color: var(--text-dim); }
 .mute { color: var(--text-mute); }
@@ -96,7 +96,7 @@ img, svg { display: block; max-width: 100%; }
   font-family: var(--font-mono); font-size: 10px;
   color: var(--text-mute);
   text-transform: uppercase; letter-spacing: 0.08em;
-  white-space: nowrap;       /* never wrap status pills — they're tiny */
+  white-space: nowrap;       /* never wrap status pills - they're tiny */
   flex-shrink: 0;
 }
 .pill .dot {
@@ -107,7 +107,7 @@ img, svg { display: block; max-width: 100%; }
 }
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px oklch(78% 0.17 145 / 0); } }
 
-/* §3 — APP SHELL ============================================== */
+/* §3 - APP SHELL ============================================== */
 .app {
   display: grid;
   grid-template-columns: 240px 1fr;
@@ -196,7 +196,7 @@ img, svg { display: block; max-width: 100%; }
 .topbar .crumb {
   font-family: var(--font-mono); font-size: 11px;
   color: var(--text-dim);
-  white-space: nowrap;        /* breadcrumb stays on one line — truncate the page if needed */
+  white-space: nowrap;        /* breadcrumb stays on one line - truncate the page if needed */
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0; flex: 1;
@@ -225,7 +225,7 @@ img, svg { display: block; max-width: 100%; }
 }
 .menu-toggle { display: none; }
 
-/* §4 — CARDS / PANELS ========================================== */
+/* §4 - CARDS / PANELS ========================================== */
 .panel {
   background: var(--bg-2);
   border: 1px solid var(--line);
@@ -240,7 +240,7 @@ img, svg { display: block; max-width: 100%; }
   text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--text);
   font-weight: 500;
-  white-space: nowrap;        /* panel titles never wrap — they're short labels */
+  white-space: nowrap;        /* panel titles never wrap - they're short labels */
   min-width: 0;
 }
 .panel-head .actions { margin-left: auto; display: flex; gap: var(--s-2); }
@@ -270,7 +270,7 @@ img, svg { display: block; max-width: 100%; }
 .kpi .l { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: var(--s-3); }
 .kpi .v {
   font-family: var(--font-mono);
-  /* Fluid type — shrinks on narrow KPI cells so values like "23d 10h 40m" stay on one line */
+  /* Fluid type - shrinks on narrow KPI cells so values like "23d 10h 40m" stay on one line */
   font-size: clamp(20px, 2.6vw, 28px);
   font-weight: 500; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -278,7 +278,7 @@ img, svg { display: block; max-width: 100%; }
 .kpi .v small { font-size: 13px; color: var(--text-mute); margin-left: 4px; }
 .kpi .delta { font-family: var(--font-mono); font-size: 11px; margin-top: 4px; }
 
-/* §5 — TABLES ================================================== */
+/* §5 - TABLES ================================================== */
 .table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
 .table th {
   text-align: left; padding: 10px var(--s-4);
@@ -302,7 +302,7 @@ img, svg { display: block; max-width: 100%; }
   100% { background: transparent; }
 }
 
-/* §6 — FORMS =================================================== */
+/* §6 - FORMS =================================================== */
 .field { margin-bottom: var(--s-5); }
 .field label {
   display: block;
@@ -348,7 +348,7 @@ img, svg { display: block; max-width: 100%; }
   color: var(--text-dim);
 }
 
-/* §7 — CHARTS ================================================== */
+/* §7 - CHARTS ================================================== */
 .spark { width: 100%; height: 40px; }
 .spark line, .spark path { vector-effect: non-scaling-stroke; }
 .bars { display: flex; gap: 2px; align-items: end; height: 32px; }
@@ -359,7 +359,7 @@ img, svg { display: block; max-width: 100%; }
   transition: height .4s ease;
 }
 
-/* §8 — STATUS BADGES =========================================== */
+/* §8 - STATUS BADGES =========================================== */
 .status {
   display: inline-flex; align-items: center; gap: 6px;
   font-family: var(--font-mono); font-size: 10px;
@@ -383,7 +383,7 @@ img, svg { display: block; max-width: 100%; }
 .status.building { color: var(--accent-3); border-color: oklch(72% 0.17 55 / 0.3); }
 .status.building::before { background: var(--accent-3); animation: pulse 1s ease-in-out infinite; }
 
-/* §9 — MODAL ==================================================== */
+/* §9 - MODAL ==================================================== */
 .modal-bg {
   position: fixed; inset: 0;
   background: oklch(0% 0 0 / 0.7);
@@ -407,7 +407,7 @@ img, svg { display: block; max-width: 100%; }
 .modal-body { padding: var(--s-5); }
 .modal-foot { padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line-soft); display: flex; gap: var(--s-3); justify-content: flex-end; }
 
-/* §10 — TOASTS ================================================== */
+/* §10 - TOASTS ================================================== */
 .toast-stack {
   position: fixed; bottom: var(--s-5); right: var(--s-5);
   z-index: 2000;
@@ -433,7 +433,7 @@ img, svg { display: block; max-width: 100%; }
   to { transform: translateX(0); opacity: 1; }
 }
 
-/* —— Native range slider — dark phosphor-green theme ———————————— */
+/* -- Native range slider - dark phosphor-green theme ------------ */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -466,7 +466,7 @@ input[type="range"]::-moz-range-track {
   height: 4px;
 }
 
-/* —— Misc helpers used across pages —— */
+/* -- Misc helpers used across pages -- */
 .split { display: grid; gap: var(--s-5); }
 .split.cols-2 { grid-template-columns: 1fr 1fr; }
 .split.cols-3 { grid-template-columns: repeat(3, 1fr); }

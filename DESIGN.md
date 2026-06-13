@@ -1,9 +1,9 @@
-# QuanTime — Distributed Benchmarking & Hosting Platform for Trading Infrastructure
+# QuanTime - Distributed Benchmarking & Hosting Platform for Trading Infrastructure
 ### IICPC Summer Hackathon 2026 · System Design Document
 
 > A platform that lets anyone upload a matching engine / order book, securely containerizes
 > and runs it under strict isolation, bombards it with a distributed fleet of trading bots,
-> and measures latency, throughput, and correctness in real time — ranking submissions on a
+> and measures latency, throughput, and correctness in real time - ranking submissions on a
 > live leaderboard. Built as a real, reusable product, not a demo.
 
 ---
@@ -33,8 +33,8 @@
 
 ## 1. System Overview
 
-QuanTime evaluates contestant-submitted trading infrastructure under realistic, high-velocity
-market load. A contestant uploads source code (with a `Dockerfile`); the platform builds it,
+QuanTime evaluates developer-submitted trading infrastructure under realistic, high-velocity
+market load. A developer uploads source code (with a `Dockerfile`); the platform builds it,
 deploys it into a strictly-isolated sibling container, spins up a configurable fleet of
 concurrent trading bots that send limit/market/cancel orders, captures every order's
 acknowledgment latency and outcome, and computes a composite score (speed + throughput +
@@ -42,16 +42,16 @@ correctness) that is streamed to a live leaderboard.
 
 **Design goals**
 - **Real distributed systems, not simulation.** Every leg runs as an independent Go service
-  communicating over a message bus and shared data stores — no in-browser fakery.
+  communicating over a message bus and shared data stores - no in-browser fakery.
 - **Strict, fair isolation.** Submissions run with CPU, memory, PID, capability, and
-  filesystem constraints so one contestant cannot affect another or the host.
+  filesystem constraints so one developer cannot affect another or the host.
 - **Decoupled & horizontally scalable.** Producers and consumers are separated by NATS and a
   buffered ingest path, so the bot fleet and the ingester scale independently.
 - **Reusable beyond the hackathon.** Any developer or quant can benchmark their own engine
   locally with one command (`docker compose up`).
 
 **Primary user flows**
-- *Contestant / developer*: upload engine → watch it build → launch a stress run → read the
+- *Developer / developer*: upload engine → watch it build → launch a stress run → read the
   live metrics and final score.
 - *Judge / operator*: compare submissions on the leaderboard; inspect per-run latency
   distributions and correctness.
@@ -70,7 +70,7 @@ correctness) that is streamed to a live leaderboard.
                        │  Gateway (Go, :7070)     │──────────────────┐ docker build/run
                        │  REST + WebSocket API    │                  ▼  (sibling container)
                        │  Sandbox controller      │        ┌────────────────────────┐
-                       └───┬─────────┬────────┬───┘        │ Contestant submission  │
+                       └───┬─────────┬────────┬───┘        │ Developer submission  │
                   publish  │         │ store  │ cache      │ (e.g. matching engine) │
               runs.<id>.   │         ▼        ▼            │  :9001 on iicpc-net    │
                  control   │   ┌──────────┐ ┌────────┐     └───────────┬────────────┘
@@ -100,15 +100,15 @@ correctness) that is streamed to a live leaderboard.
 
 | Service | Lang | Role | Exposure |
 |---|---|---|---|
-| `caddy` | — | Reverse proxy, static UI, `/api` + `/ws` routing | `:8080` |
+| `caddy` | - | Reverse proxy, static UI, `/api` + `/ws` routing | `:8080` |
 | `gateway` | Go | REST + WebSocket API; sandbox build/run controller (Docker-out-of-Docker) | `:7070` |
 | `botfleet` | Go | Distributed load generator; goroutine bot pool; `--scale botfleet=N` | internal |
 | `telemetry` | Go | Ingests order telemetry, batches into TimescaleDB, computes score, feeds live stream | internal |
 | `ai-analyzer` | Go | Multi-agent static analysis + post-run report via pluggable LLM | `:7080` |
 | `sample-engine` | Go | Reference price-time-priority CLOB (a stand-in submission judges can replace) | `:9001` |
-| `timescale` | — | TimescaleDB (Postgres + hypertables) — telemetry + run metadata | `:5432` |
-| `redis` | — | Leaderboard hot cache (ZSET) + per-run live pub/sub | `:6379` |
-| `nats` | — | JetStream message bus — control, telemetry, summary subjects | `:4222` |
+| `timescale` | - | TimescaleDB (Postgres + hypertables) - telemetry + run metadata | `:5432` |
+| `redis` | - | Leaderboard hot cache (ZSET) + per-run live pub/sub | `:6379` |
+| `nats` | - | JetStream message bus - control, telemetry, summary subjects | `:4222` |
 
 ---
 
@@ -116,31 +116,31 @@ correctness) that is streamed to a live leaderboard.
 
 The verified pipeline is **Upload → Containerized Deployment → Distributed Load → Real-Time Scoring**:
 
-1. **Upload** — `POST /api/submissions` (multipart). Gateway streams the archive, computes a
+1. **Upload** - `POST /api/submissions` (multipart). Gateway streams the archive, computes a
    SHA-256 content hash, deduplicates on `(team_id, hash)`, persists a row (`status=uploaded`),
    and returns `202 Accepted` with the submission id.
-2. **Sandbox build** — Asynchronously: `SaveSource` unpacks the archive (tar.gz/zip/tar, with
+2. **Sandbox build** - Asynchronously: `SaveSource` unpacks the archive (tar.gz/zip/tar, with
    path-traversal protection and a 64 MB per-file cap), validates a root `Dockerfile`, then
    `docker build` produces an image tagged `iicpc-sub-<id>:<hash12>` (`status=building→built`).
-3. **Deploy** — `docker run` launches the image as a **sibling container** on `iicpc-net` with
+3. **Deploy** - `docker run` launches the image as a **sibling container** on `iicpc-net` with
    strict isolation flags; the gateway records the resolvable endpoint
    `http://iicpc-run-<hash>:9001` (`status=deployed`).
-4. **Launch run** — `POST /api/runs {submissionId, profile, seed, durationSec, botsPerFleet}`.
+4. **Launch run** - `POST /api/runs {submissionId, profile, seed, durationSec, botsPerFleet}`.
    Gateway inserts a `runs` row (`status=running`) and publishes a `start` control message to
    NATS subject `runs.<runId>.control`.
-5. **Distributed load** — Every bot-fleet replica receives the control message, spawns its bot
+5. **Distributed load** - Every bot-fleet replica receives the control message, spawns its bot
    goroutines, and each bot issues HTTP orders (limit/market/cancel) to the submission endpoint,
    timing the acknowledgment (`latencyNs = ackTs − sendTs`).
-6. **Telemetry ingest** — Each order emits a telemetry sample to `runs.<runId>.telemetry`. The
+6. **Telemetry ingest** - Each order emits a telemetry sample to `runs.<runId>.telemetry`. The
    ingester batches samples (5 000 rows or 250 ms) and bulk-loads them into the TimescaleDB
    `telemetry` hypertable via `CopyFrom`.
-7. **Live streaming** — Every 1 s the ingester publishes a rolling snapshot
+7. **Live streaming** - Every 1 s the ingester publishes a rolling snapshot
    (`orders`, `tps`, `avgLatMs`, `errPct`) to Redis `run:<id>:updates`; the gateway's
    `/ws/runs/{id}` WebSocket fans it out to the browser.
-8. **Finalize & score** — On `runs.<runId>.summary` the ingester computes exact percentiles
+8. **Finalize & score** - On `runs.<runId>.summary` the ingester computes exact percentiles
    (p50/p90/p99), TPS, and error rate from the hypertable, derives the composite score, writes
    it to the `runs` row + the Redis leaderboard ZSET, and emits a `final` WS event.
-9. **Leaderboard** — `GET /api/leaderboard` returns the best-per-team ranking (Postgres source
+9. **Leaderboard** - `GET /api/leaderboard` returns the best-per-team ranking (Postgres source
    of truth, Redis ZSET for sub-millisecond reads).
 
 ---
@@ -148,15 +148,15 @@ The verified pipeline is **Upload → Containerized Deployment → Distributed L
 ## 4. Submission & Sandboxing Engine
 
 **Pipeline.** `services/gateway/internal/sandbox/sandbox.go` drives the Docker CLI via `os/exec`
-(sibling containers, not Docker-in-Docker — faster and avoids privileged nesting).
+(sibling containers, not Docker-in-Docker - faster and avoids privileged nesting).
 
-**`SaveSource`** — format-detects by magic bytes (`1f 8b` → gzip/tar.gz, `PK\x03\x04` → zip,
+**`SaveSource`** - format-detects by magic bytes (`1f 8b` → gzip/tar.gz, `PK\x03\x04` → zip,
 else plain tar), extracts into `submissions/<id>/`, and enforces:
-- **Path-traversal protection** — entries containing `..` or absolute paths are skipped.
-- **Zip-bomb mitigation** — each file is copied through `io.LimitReader(…, 64<<20)`.
-- **Contract validation** — a `Dockerfile` must exist at the archive root, else the build is
+- **Path-traversal protection** - entries containing `..` or absolute paths are skipped.
+- **Zip-bomb mitigation** - each file is copied through `io.LimitReader(…, 64<<20)`.
+- **Contract validation** - a `Dockerfile` must exist at the archive root, else the build is
   rejected with a clear error.
-- **Idempotency** — a re-upload of the same id cleans the previous directory first.
+- **Idempotency** - a re-upload of the same id cleans the previous directory first.
 
 **Isolation flags** applied at `docker run`:
 
@@ -182,7 +182,7 @@ or a Kubernetes Deployment + HPA). It subscribes to `runs.*.control` and, on a `
 spawns a pool of bot goroutines that each:
 
 - Build an order (side, price in **integer ticks** = price×100, qty, type) from a **deterministic
-  RNG** — `xoshiro256**` seeded via `splitmix64` from `runSeed + botID`, so a run is reproducible.
+  RNG** - `xoshiro256**` seeded via `splitmix64` from `runSeed + botID`, so a run is reproducible.
 - POST the order to the submission endpoint over a `fasthttp` client and measure the ack latency.
 - Publish a per-order telemetry sample to `runs.<runId>.telemetry`.
 
@@ -202,15 +202,15 @@ sharding caveat.
 
 `services/telemetry` is the low-latency measurement spine.
 
-- **Ingest** — subscribes to `runs.*.telemetry`; a non-blocking `select` pushes samples onto a
-  50 000-deep buffered channel (drops on overflow — documented at-most-once contract — so a slow
+- **Ingest** - subscribes to `runs.*.telemetry`; a non-blocking `select` pushes samples onto a
+  50 000-deep buffered channel (drops on overflow - documented at-most-once contract - so a slow
   DB never back-pressures the bus).
-- **Batch load** — a flusher coalesces samples and writes them with pgx **`CopyFrom`** (the
+- **Batch load** - a flusher coalesces samples and writes them with pgx **`CopyFrom`** (the
   Postgres binary fast path) on a 5 000-row / 250 ms trigger.
-- **Live aggregation** — the same single-goroutine flusher maintains per-run rolling counters
+- **Live aggregation** - the same single-goroutine flusher maintains per-run rolling counters
   (orders, errors, latency sum) and publishes a 1 Hz snapshot to `run:<id>:updates` (the live
   WS source). Idle runs are GC'd after 15 ticks.
-- **Finalize** — on `runs.*.summary`, computes **exact** percentiles with
+- **Finalize** - on `runs.*.summary`, computes **exact** percentiles with
   `percentile_cont(…) WITHIN GROUP (ORDER BY latency_ns)`, plus TPS and error rate, writes the
   composite score + metrics JSON to the `runs` row and the Redis ZSET, and emits a `final` WS event.
 
@@ -225,7 +225,7 @@ Two complementary paths:
 
 - **Leaderboard (durable):** `GET /api/leaderboard` runs a `DISTINCT ON (team_id) … ORDER BY
   score DESC` over finished runs in Postgres (source of truth). The finalizer also writes a Redis
-  `leaderboard:scores` **ZSET** (with `ZADD GT` — only improves a team's best) + a
+  `leaderboard:scores` **ZSET** (with `ZADD GT` - only improves a team's best) + a
   `leaderboard:metrics` hash for sub-millisecond reads.
 - **Live run stream (real-time):** `GET /ws/runs/{id}` is a WebSocket that subscribes to the
   Redis `run:<id>:updates` channel and fans `metrics` (1 Hz) and `final` events to the browser,
@@ -254,7 +254,7 @@ the run for full auditability.
 
 `services/gateway/internal/validator` is an **independent** reference order book. At deploy time
 the platform replays a fixed deterministic order sequence (crossing, partial fills, a market order,
-a cancel that removes liquidity, a market sweep) through both the contestant's engine and the
+a cancel that removes liquidity, a market sweep) through both the developer's engine and the
 oracle, then diffs the filled quantity order-by-order. The score (`passed/total`) is stored on the
 submission and feeds the 0.2 correctness weight above, so an engine that mis-orders fills or
 ignores cancels ranks lower. Unit tests assert the oracle catches a never-fills engine (scores 50,
@@ -271,11 +271,11 @@ not 100). The reference sample engine passes all 10 cases (verified).
   **Correctness** (price-time priority, fill semantics, overflow). A **Synthesizer** dedups
   findings and computes a 0–100 risk score; a **Report generator** correlates post-run telemetry
   with source patterns ("p99 spiked because the cancel path is O(n)").
-- **Pluggable backend** — the LLM client is a thin raw-HTTP adapter. The recommended deployment
+- **Pluggable backend** - the LLM client is a thin raw-HTTP adapter. The recommended deployment
   is **local Ollama (Qwen2.5-Coder 7B)** so *proprietary trading code never leaves the operator's
-  infrastructure* — a hard requirement for real quant/firm usage — with **Google Gemini** as an
+  infrastructure* - a hard requirement for real quant/firm usage - with **Google Gemini** as an
   optional cloud fallback. No vendor SDK lock-in.
-- **API** — `POST /api/analyze` (source) → structured findings; `POST /api/report` (source +
+- **API** - `POST /api/analyze` (source) → structured findings; `POST /api/report` (source +
   metrics) → natural-language performance report. Endpoints are caps-guarded (1 MB / 100 k chars)
   with CORS, panic recovery, and graceful shutdown.
 
@@ -303,7 +303,7 @@ high-volume telemetry path where at-most-once + buffered batching is the right t
 **TimescaleDB**
 - `teams`, `submissions` (`UNIQUE(team_id, hash)`), `runs` (status, score, `metrics` JSONB,
   `started_at`/`finished_at`), `analysis_reports` (AI findings).
-- `telemetry` **hypertable** — `(ts, run_id, bot_id, order_id, side, type, price_x100, qty,
+- `telemetry` **hypertable** - `(ts, run_id, bot_id, order_id, side, type, price_x100, qty,
   latency_ns, status, filled, err)`; a 1-second continuous aggregate + compression/retention
   policies for long runs.
 - Init is a single idempotent `sql/init.sql`, mounted at container init; it also seeds a `t_demo`
@@ -317,12 +317,12 @@ high-volume telemetry path where at-most-once + buffered batching is the right t
 
 ## 12. Infrastructure as Code
 
-- **Docker Compose** (primary, verified) — one command (`docker compose up --build`) brings up
+- **Docker Compose** (primary, verified) - one command (`docker compose up --build`) brings up
   the full 9-service stack with healthcheck-gated ordering, a pinned `iicpc-net` bridge, and the
   Docker socket mounted into the gateway for sandbox spawning.
-- **Kubernetes manifests** (`k8s/`) — Deployments, Services, an HPA for the bot fleet
-  (`replicas: 4 → maxReplicas: 50`), RBAC, and NetworkPolicy — the horizontal-scale story.
-- **Terraform** (`terraform/`) — a single-VM AWS deploy (EC2 + EIP + IAM/SSM) that boots the
+- **Kubernetes manifests** (`k8s/`) - Deployments, Services, an HPA for the bot fleet
+  (`replicas: 4 → maxReplicas: 50`), RBAC, and NetworkPolicy - the horizontal-scale story.
+- **Terraform** (`terraform/`) - a single-VM AWS deploy (EC2 + EIP + IAM/SSM) that boots the
   stack via cloud-init; plus a DigitalOcean `doctl` path and a Codespaces devcontainer.
 
 (See §18 for the honest status of the k8s/Terraform paths vs. Compose.)
@@ -339,13 +339,13 @@ regressions. `pages.yml` publishes the static frontend prototype to GitHub Pages
 
 ## 14. Security & Isolation Model
 
-- **Submission isolation** — see §4: memory/CPU/PID caps, all capabilities dropped,
+- **Submission isolation** - see §4: memory/CPU/PID caps, all capabilities dropped,
   no-new-privileges, read-only root FS, isolated bridge network, no host networking.
-- **Upload hardening** — content-hash dedup, size caps, archive path-traversal protection,
+- **Upload hardening** - content-hash dedup, size caps, archive path-traversal protection,
   per-file size limit (zip-bomb), Dockerfile contract validation.
-- **Blast-radius** — submissions run as siblings on a dedicated network and cannot reach the
+- **Blast-radius** - submissions run as siblings on a dedicated network and cannot reach the
   control plane's data stores; the gateway never executes uploaded code in-process.
-- **AI privacy** — local-LLM-first so source never leaves the operator's machine.
+- **AI privacy** - local-LLM-first so source never leaves the operator's machine.
 
 ---
 
@@ -377,7 +377,7 @@ on Kubernetes, with the bot-fleet HPA.
 | **NATS / JetStream** | Lightweight, fast pub/sub; JetStream for durable control, core for the high-volume telemetry firehose. |
 | **TimescaleDB** | Time-series hypertable + `percentile_cont` give exact, cheap latency percentiles; continuous aggregates for long runs. |
 | **Redis** | Sub-millisecond leaderboard reads (ZSET) and per-run pub/sub for live streaming. |
-| **pgx `CopyFrom`** | ~10× faster bulk ingest than row INSERTs — essential at 10k+ orders/sec. |
+| **pgx `CopyFrom`** | ~10× faster bulk ingest than row INSERTs - essential at 10k+ orders/sec. |
 | **Sibling containers (DooD)** | Real isolation without privileged Docker-in-Docker nesting; faster cold start. |
 | **Local-LLM-first AI** | Privacy for proprietary trading code; zero API cost; no rate limits; works offline. |
 | **Caddy** | Automatic HTTPS-ready reverse proxy; one place to route `/api` + `/ws` + static UI. |
@@ -391,7 +391,7 @@ on Kubernetes, with the bot-fleet HPA.
   *win:* no privileged nesting, faster builds, real cgroup isolation.
 - **ADR-2: Buffered drop over back-pressure on telemetry.** Under overload the ingester drops
   samples rather than stalling the NATS callback. *Trade-off:* at-most-once telemetry; *win:* the
-  bus and bot fleet never block, so the measured engine — not the harness — is the bottleneck.
+  bus and bot fleet never block, so the measured engine - not the harness - is the bottleneck.
 - **ADR-3: Postgres as source of truth, Redis as cache.** The leaderboard is always derivable
   from the durable `runs` table; Redis is an accelerator, never the only copy. *Win:* correctness
   survives a Redis flush.
@@ -406,7 +406,7 @@ on Kubernetes, with the bot-fleet HPA.
 
 We hold ourselves to the hackathon's "not a demo-to-win" bar, so we document gaps honestly:
 
-- **Correctness oracle — implemented (deploy-time).** A real independent reference order book diffs
+- **Correctness oracle - implemented (deploy-time).** A real independent reference order book diffs
   fills order-by-order at deploy and feeds the composite score (§9a). The remaining depth is running
   it *continuously* against live bot-fleet traffic (today the high-velocity load path scores
   transport errors only) and expanding the deterministic scenario set.
@@ -437,8 +437,8 @@ The complete pipeline was executed on a clean `docker compose up --build` and ob
   isolated sibling container `iicpc-run-<hash>` on `iicpc-net` → run finished, score 61.05,
   337,409 telemetry rows.
 - **Order outcomes** (post duplicate-id fix): 208k accepted, 199k filled, 24k partial,
-  **0 duplicate-id rejections** — a clean, real benchmark.
+  **0 duplicate-id rejections** - a clean, real benchmark.
 
-> Every component the rubric requires — secure containerized submission, a distributed bot fleet,
-> a low-latency telemetry/validation ingester, and a real-time leaderboard — is implemented as a
+> Every component the rubric requires - secure containerized submission, a distributed bot fleet,
+> a low-latency telemetry/validation ingester, and a real-time leaderboard - is implemented as a
 > real service and verified working end-to-end, with an honest roadmap for the remaining depth.

@@ -115,7 +115,7 @@ func main() {
 		select {
 		case buf <- s:
 		default:
-			// Buffer full — drop sample rather than block the NATS
+			// Buffer full - drop sample rather than block the NATS
 			// callback (which would back up the entire bus). At-most-
 			// once is the documented contract for telemetry.
 		}
@@ -261,7 +261,7 @@ func publishLive(ctx context.Context, rdb *redis.Client, aggs map[string]*runAgg
 	}
 }
 
-// bulkInsert uses CopyFrom — the fastest way to land bulk rows in
+// bulkInsert uses CopyFrom - the fastest way to land bulk rows in
 // Postgres. At 50k rows/sec it's bottlenecked by network, not by SQL.
 func bulkInsert(ctx context.Context, pool *pgxpool.Pool, rows []sample) error {
 	conn, err := pool.Acquire(ctx)
@@ -304,7 +304,7 @@ func (s *pgxCopySource) Values() ([]any, error) {
 		r.Qty,
 		r.LatencyNs,
 		r.Status,
-		0, // filled — derived later
+		0, // filled - derived later
 		r.Err,
 	}, nil
 }

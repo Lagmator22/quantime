@@ -5,7 +5,7 @@
    this first. Change a value here and the entire platform updates.
 ===================================================================== */
 :root {
-  /* —— Color palette: cool dark base, phosphor-green accent —— */
+  /* -- Color palette: cool dark base, phosphor-green accent -- */
   --bg:        oklch(13% 0.008 240);
   --bg-2:      oklch(16% 0.008 240);
   --bg-3:      oklch(19% 0.008 240);

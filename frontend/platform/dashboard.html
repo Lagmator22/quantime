@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- =====================================================================
-     IICPC PLATFORM · CONTESTANT DASHBOARD
+     IICPC PLATFORM · DEVELOPER DASHBOARD
      ---------------------------------------------------------------------
      The home screen for a logged-in team. Shows:
        • Team identity + member roster
@@ -28,32 +28,32 @@
 <div id="app-content">
 
 <div class="page-head">
-  <span class="eyebrow">Contestant · Dashboard</span>
+  <span class="eyebrow">Developer · Dashboard</span>
   <h1 style="margin-top: var(--s-3);" id="team-greeting">Welcome back.</h1>
-  <p class="lede">Submissions queue, recent runs, and your team's current standing. Every metric here is live — updates stream from the leaderboard channel as runs complete.</p>
+  <p class="lede">Submissions queue, recent runs, and your team's current standing. Every metric here is live: updates stream from the leaderboard channel as runs complete.</p>
 </div>
 
-<!-- KPI strip — Best Score, Last p99, Total Runs, Time-to-deadline -->
+<!-- KPI strip - Best Score, Last p99, Total Runs, Telemetry -->
 <div class="kpi-grid" style="margin-bottom: var(--s-6);">
   <div class="kpi">
     <div class="l">// best score</div>
-    <div class="v" id="kpi-score">—</div>
+    <div class="v" id="kpi-score">-</div>
     <div class="delta dim" id="kpi-score-rank">unranked</div>
   </div>
   <div class="kpi">
     <div class="l">// last p99</div>
-    <div class="v" id="kpi-p99">—<small>µs</small></div>
+    <div class="v" id="kpi-p99">-<small>µs</small></div>
     <div class="delta dim" id="kpi-p99-trend">no runs yet</div>
   </div>
   <div class="kpi">
     <div class="l">// peak TPS</div>
-    <div class="v" id="kpi-tps">—<small>ops/s</small></div>
+    <div class="v" id="kpi-tps">-<small>ops/s</small></div>
     <div class="delta dim">across all runs</div>
   </div>
   <div class="kpi">
-    <div class="l">// submissions close</div>
-    <div class="v mono" id="kpi-deadline">—</div>
-    <div class="delta dim">2026-06-10 23:59 UTC</div>
+    <div class="l">// total runs</div>
+    <div class="v" id="kpi-runs-count">0</div>
+    <div class="delta dim">completed benchmarks</div>
   </div>
 </div>
 
@@ -179,9 +179,9 @@ Layout.render({
   crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Dashboard' }],
 });
 
-// —— Helpers ————————————————————————————————————————————————
+// -- Helpers ------------------------------------------------
 function fmtAgo(ts) {
-  if (!ts) return '—';
+  if (!ts) return '-';
   const s = Math.floor((Date.now() - ts) / 1000);
   if (s < 60) return s + 's ago';
   if (s < 3600) return Math.floor(s / 60) + 'm ago';
@@ -189,13 +189,13 @@ function fmtAgo(ts) {
   return Math.floor(s / 86400) + 'd ago';
 }
 function fmtNum(n) {
-  if (n == null) return '—';
+  if (n == null) return '-';
   if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
   if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
   return Math.round(n).toString();
 }
 
-// —— KPI computation ————————————————————————————————————————
+// -- KPI computation ----------------------------------------
 function refreshKPIs() {
   const team = Store.get('team');
   const runs = Store.get('runs', []);
@@ -203,6 +203,7 @@ function refreshKPIs() {
   const myRow = lb.find(r => r.teamId === team.id);
 
   document.getElementById('team-greeting').textContent = `Welcome back, ${team.name}.`;
+  document.getElementById('kpi-runs-count').textContent = runs.length;
 
   if (myRow) {
     document.getElementById('kpi-score').textContent = myRow.score;
@@ -211,18 +212,18 @@ function refreshKPIs() {
     document.getElementById('kpi-score-rank').className = 'delta up';
   } else if (runs.length) {
     const best = runs.reduce((m, r) => r.metrics?.score > (m?.metrics?.score || 0) ? r : m, null);
-    document.getElementById('kpi-score').textContent = best?.metrics?.score || '—';
+    document.getElementById('kpi-score').textContent = best?.metrics?.score || '-';
   }
 
   if (runs.length) {
     const last = runs[runs.length - 1];
-    document.getElementById('kpi-p99').innerHTML = (last.metrics?.p99 || '—') + '<small>µs</small>';
+    document.getElementById('kpi-p99').innerHTML = (last.metrics?.p99 || '-') + '<small>µs</small>';
     const peakTps = runs.reduce((m, r) => Math.max(m, r.metrics?.tps || 0), 0);
     document.getElementById('kpi-tps').innerHTML = fmtNum(peakTps) + '<small>ops/s</small>';
   }
 }
 
-// —— Submissions table ————————————————————————————————————
+// -- Submissions table ------------------------------------
 function renderSubs() {
   const subs = Store.get('submissions', []);
   const runs = Store.get('runs', []);
@@ -236,7 +237,7 @@ function renderSubs() {
   empty.style.display = 'none';
   body.innerHTML = subs.map(s => {
     const subRuns = runs.filter(r => r.submissionId === s.id);
-    const bestScore = subRuns.reduce((m, r) => Math.max(m, r.metrics?.score || 0), 0) || '—';
+    const bestScore = subRuns.reduce((m, r) => Math.max(m, r.metrics?.score || 0), 0) || '-';
     return `
       <tr>
         <td class="team">${escapeHTML(s.name)}</td>
@@ -245,13 +246,13 @@ function renderSubs() {
         <td><span class="status ${s.status}">${s.status}</span></td>
         <td class="dim">${fmtAgo(s.createdAt)}</td>
         <td class="r">${subRuns.length}</td>
-        <td class="r ${bestScore !== '—' ? 'up' : ''}">${bestScore}</td>
+        <td class="r ${bestScore !== '-' ? 'up' : ''}">${bestScore}</td>
         <td class="r"><a class="btn btn-sm" href="run.html?sub=${s.id}">Run →</a></td>
       </tr>`;
   }).join('');
 }
 
-// —— Runs table ————————————————————————————————————————
+// -- Runs table ----------------------------------------
 function renderRuns() {
   const runs = Store.get('runs', []).slice().reverse();
   const subs = Store.get('submissions', []);
@@ -271,18 +272,18 @@ function renderRuns() {
         <td class="dim">${r.id.slice(0, 8)}</td>
         <td>${escapeHTML(sub ? sub.name : 'deleted')}</td>
         <td><span class="status ${r.status}">${r.status}</span></td>
-        <td class="r dim">${r.duration ? (r.duration / 1000).toFixed(1) + 's' : '—'}</td>
-        <td class="r">${m.p50 || '—'}</td>
-        <td class="r ${m.p99 > 200 ? 'down' : 'up'}">${m.p99 || '—'}</td>
-        <td class="r">${m.tps ? fmtNum(m.tps) : '—'}</td>
-        <td class="r ${m.err > 0.01 ? 'down' : ''}">${m.err != null ? (m.err * 100).toFixed(2) + '%' : '—'}</td>
-        <td class="r up">${m.score || '—'}</td>
+        <td class="r dim">${r.duration ? (r.duration / 1000).toFixed(1) + 's' : '-'}</td>
+        <td class="r">${m.p50 || '-'}</td>
+        <td class="r ${m.p99 > 200 ? 'down' : 'up'}">${m.p99 || '-'}</td>
+        <td class="r">${m.tps ? fmtNum(m.tps) : '-'}</td>
+        <td class="r ${m.err > 0.01 ? 'down' : ''}">${m.err != null ? (m.err * 100).toFixed(2) + '%' : '-'}</td>
+        <td class="r up">${m.score || '-'}</td>
         <td class="r dim">${fmtAgo(r.finishedAt)}</td>
       </tr>`;
   }).join('');
 }
 
-// —— Team editor ————————————————————————————————————————
+// -- Team editor ----------------------------------------
 function renderTeam() {
   const t = Store.get('team');
   document.getElementById('team-name').value = t.name;
@@ -321,28 +322,13 @@ document.getElementById('save-team').onclick = () => {
   refreshKPIs();
 };
 
-// —— Deadline countdown ————————————————————————————————————
-(function deadlineTick() {
-  const cfg = Store.get('config');
-  const target = new Date(cfg.submissionsClose).getTime();
-  function update() {
-    const diff = Math.max(0, target - Date.now());
-    const d = Math.floor(diff / 86400000);
-    const h = Math.floor((diff % 86400000) / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    document.getElementById('kpi-deadline').textContent = `${d}d ${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m`;
-  }
-  update();
-  setInterval(update, 30000);
-})();
-
-// —— Wire it all up ————————————————————————————————————————
+// -- Wire it all up ----------------------------------------
 refreshKPIs();
 renderSubs();
 renderRuns();
 renderTeam();
 
-// Live update — when any tab writes new runs/submissions, refresh
+// Live update - when any tab writes new runs/submissions, refresh
 Store.subscribe('submissions', () => { renderSubs(); refreshKPIs(); });
 Store.subscribe('runs', () => { renderRuns(); refreshKPIs(); });
 Store.subscribe('leaderboard', refreshKPIs);

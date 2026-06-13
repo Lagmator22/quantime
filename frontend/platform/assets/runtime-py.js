@@ -2,7 +2,7 @@
    IICPC PLATFORM · PYTHON RUNTIME WORKER (Pyodide)
    ---------------------------------------------------------------------
    Real CPython compiled to WASM via Pyodide. Cold-start is ~5s for
-   the first load, then warm. Contestant writes:
+   the first load, then warm. Developer writes:
 
      def submit(order):
          # order is a dict
@@ -37,7 +37,7 @@ self.addEventListener('message', async (e) => {
       log('ok', 'pyodide loaded · cpython ' + pyodide.version);
 
       if (m.source && m.source.trim()) {
-        // Execute the contestant module
+        // Execute the developer module
         try {
           pyodide.runPython(m.source);
         } catch (err) {

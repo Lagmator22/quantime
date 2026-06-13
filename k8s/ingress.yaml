@@ -4,7 +4,7 @@
 # Caddy as a Deployment serving the static frontend AND reverse-proxying
 # /api and /ws to the gateway service. Plus an Ingress that points TLS-
 # terminated traffic at Caddy. Works with any ingress controller
-# (NGINX, Traefik, Contour) — set the className appropriately.
+# (NGINX, Traefik, Contour) - set the className appropriately.
 # =====================================================================
 apiVersion: v1
 kind: ConfigMap
@@ -48,7 +48,7 @@ spec:
           configMap:
             # Frontend ships as a configmap of HTML/CSS/JS files in a
             # GitOps deploy. For demos, bake into a frontend-static
-            # image instead — same shape, less churn.
+            # image instead - same shape, less churn.
             name: iicpc-frontend
             optional: true
 ---

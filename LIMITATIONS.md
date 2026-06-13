@@ -4,16 +4,16 @@
 
 ## What is genuinely in this repo (and verified)
 
-- **Real distributed system, verified end-to-end.** 5 Go services (gateway, bot fleet, telemetry ingester, AI analyzer, + a reference sample engine) and 3 stateful dependencies (TimescaleDB, Redis, NATS), wired via `docker compose` for local/VM dev and K8s manifests for cluster deploy. The full pipeline — upload → containerized build → isolated deploy → distributed load → scoring → leaderboard → **live WebSocket stream** — has been run and confirmed working (see numbers below).
+- **Real distributed system, verified end-to-end.** 5 Go services (gateway, bot fleet, telemetry ingester, AI analyzer, + a reference sample engine) and 3 stateful dependencies (TimescaleDB, Redis, NATS), wired via `docker compose` for local/VM dev and K8s manifests for cluster deploy. The full pipeline - upload → containerized build → isolated deploy → distributed load → scoring → leaderboard → **live WebSocket stream** - has been run and confirmed working (see numbers below).
 - **Real container sandboxing.** `docker run --memory --cpus --pids-limit --read-only --cap-drop=ALL --security-opt no-new-privileges` on a network-isolated bridge. Not a JS Web Worker pretending to be a sandbox. Uploads are unpacked with path-traversal protection, a 64 MB per-file cap, and Dockerfile validation.
-- **Real bot fleet.** Goroutines firing `fasthttp` requests at the contestant's HTTP endpoint, with deterministic seeded RNG (xoshiro256**), three traffic profiles, and limit/market/cancel order mix.
+- **Real bot fleet.** Goroutines firing `fasthttp` requests at the developer's HTTP endpoint, with deterministic seeded RNG (xoshiro256**), three traffic profiles, and limit/market/cancel order mix.
 - **Real time-series telemetry.** TimescaleDB hypertable + 1-second continuous aggregate; latency percentiles via exact `percentile_cont`. Ingest uses pgx `CopyFrom` batching.
 - **Real leaderboard, two paths.** Durable ranking from the Postgres `runs` table + a Redis ZSET hot cache; live per-run metrics streamed to the browser over WebSocket.
 - **Real IaC.** Terraform module deploys to a single EC2; K8s manifests model the same workloads as Deployments + StatefulSets + HPAs + NetworkPolicies.
 
 **Verified run (laptop, Apple Silicon 16 GB, `docker compose up`, 50 bots, ~20 s):** 480,480
 telemetry rows, ~24,000 orders/sec on a single host/replica, p50 0.25 ms / p99 35 ms, 0 % transport
-errors, composite score 58.8 — written to Postgres + the Redis ZSET, with live metrics streamed over
+errors, composite score 58.8 - written to Postgres + the Redis ZSET, with live metrics streamed over
 the WebSocket. The full upload path (tarball → build → isolated sibling container → run) also
 verified at 337k rows, score 61.05.
 
@@ -25,9 +25,9 @@ verified at 337k rows, score 61.05.
 
 **What's implemented.** Correctness is a real price-time-priority / fill-accuracy oracle
 (`services/gateway/internal/validator`): at deploy time the platform replays one fixed,
-deterministic order sequence through both the contestant's engine and an **independent** reference
+deterministic order sequence through both the developer's engine and an **independent** reference
 order book, then diffs the filled quantity order-by-order. The score (`passed/total`) is stored on
-the submission and **feeds the composite leaderboard score** (the 0.2 correctness weight) — a
+the submission and **feeds the composite leaderboard score** (the 0.2 correctness weight) - a
 buggy engine that mis-orders fills, mishandles partials/market orders, or ignores cancels scores
 below 100 and ranks lower. Unit tests prove the oracle catches a never-fills engine (50, not 100).
 
@@ -50,18 +50,18 @@ lease / queue-group) so a requested total splits cleanly across replicas.
 
 The rubric lists FIX/REST/WebSocket order paths; we implement REST. A WS order client and a minimal
 FIX session are roadmap (FIX is the bulk of the effort). Nothing in the pipeline breaks without
-them — it's a protocol-coverage gap.
+them - it's a protocol-coverage gap.
 
 ### 4. No closed-loop max-TPS discovery
 
 We report sustained/observed TPS over the run window. A rate controller that ramps load until
-latency/error thresholds trip — to find the true *breaking point* — is roadmap.
+latency/error thresholds trip - to find the true *breaking point* - is roadmap.
 
 ### 5. Frontend portal pages are not yet wired to the backend
 
 **Status:** `frontend/platform/*.html` is the visual prototype. The `assets/api.js` bridge is fully
 written (real fetch wiring to `/api/*` and `/ws/*`), and `leaderboard.html` already reads the
-backend when it's online — but `submit.html` and `run.html` still drive an in-browser simulation
+backend when it's online - but `submit.html` and `run.html` still drive an in-browser simulation
 (localStorage + a JS reference engine) instead of calling the real API. **This is why the GitHub
 Pages build is a standalone simulation.**
 
@@ -72,7 +72,7 @@ UI reflects the real backend. The backend is real and verified via API/CLI today
 ### 6. The submission container runtime is `runc`, not gVisor / Firecracker
 
 gVisor adds ~10 % overhead + an extra moving part; Firecracker needs KVM. The hackathon threat model
-(good-faith, possibly-buggy submissions — not adversarial kernel CVEs) is well-served by
+(good-faith, possibly-buggy submissions - not adversarial kernel CVEs) is well-served by
 runc + cgroups + drop-all-caps. `k8s/services.yaml` has a `runtimeClassName: gvisor` block ready to uncomment.
 
 ### 7. No auth on the gateway
@@ -84,13 +84,13 @@ request body during the demo. Production: Auth0 / self-hosted Dex in front, midd
 ### 8. AI analyzer requires a cloud key (local-LLM on roadmap)
 
 The AI analyzer calls Gemini and needs `GEMINI_API_KEY`. Roadmap: a pluggable backend for a local
-LLM (Ollama + Qwen2.5-Coder) so proprietary trading code never leaves the operator's infra — both a
+LLM (Ollama + Qwen2.5-Coder) so proprietary trading code never leaves the operator's infra - both a
 privacy win and a zero-cost/offline demo. The core pipeline runs fine without the AI features.
 
 ### 9. mTLS between services is off; telemetry encoding is JSON
 
 No service mesh installed (cluster-internal traffic is plaintext; Linkerd would close it). Telemetry
-is one JSON message per order — simple and debuggable, but MessagePack/protobuf would cut bytes ~3×
+is one JSON message per order - simple and debuggable, but MessagePack/protobuf would cut bytes ~3×
 and ingester CPU ~5× at extreme scale. Both are deliberate prototype trade-offs.
 
 ### 10. No formal capacity / soak test; k8s & Terraform are reference-grade
@@ -106,8 +106,8 @@ running multi-node cluster). Minor: bots currently run `durationSec + 5 s` (a co
 ## Things we explicitly chose against
 
 - **Kafka instead of NATS.** Kafka's operational complexity (KRaft/Zookeeper + retention tuning + consumer-group rebalancing) isn't justified by our throughput. NATS JetStream gives durable streams + simple setup; core NATS carries the high-frequency telemetry path where at-most-once is acceptable.
-- **ClickHouse / InfluxDB instead of TimescaleDB.** ClickHouse wins at billions of rows; TimescaleDB wins on Postgres ergonomics for our *relational* tables (teams/submissions/runs) — one database, one query language, one client. Right call at our scale.
-- **gRPC between services.** REST is simpler to debug from a terminal and inter-service traffic is dominated by NATS anyway. We'd add gRPC only for sub-millisecond endpoints — none exist here.
+- **ClickHouse / InfluxDB instead of TimescaleDB.** ClickHouse wins at billions of rows; TimescaleDB wins on Postgres ergonomics for our *relational* tables (teams/submissions/runs) - one database, one query language, one client. Right call at our scale.
+- **gRPC between services.** REST is simpler to debug from a terminal and inter-service traffic is dominated by NATS anyway. We'd add gRPC only for sub-millisecond endpoints - none exist here.
 - **A monorepo with a single Go module.** Each service has its own `go.mod` (different dep graphs: fasthttp is bot-fleet-only, pgx is gateway + ingester only) for independent build/release cadence.
 
 ---
@@ -118,7 +118,7 @@ running multi-node cluster). Minor: bots currently run `durationSec + 5 s` (a co
 |---|---|---|
 | Containerize C++/Rust/Go submissions, CPU/memory limits | Real Docker isolation with strict flags, verified upload→build→deploy; gVisor wired but not enabled | 8/10 |
 | Distributed bot fleet, thousands of bots, FIX/REST/WebSocket | Real Go bot fleet, scales via `--scale`/HPA; **HTTP only**, no cross-replica sharding yet | 6/10 |
-| Telemetry — p50/p90/p99 latency, TPS, correctness | Real exact percentiles + TPS; **real price-time-priority/fill-accuracy oracle, wired into the composite score** (deploy-time, not yet continuous) | 8/10 |
+| Telemetry - p50/p90/p99 latency, TPS, correctness | Real exact percentiles + TPS; **real price-time-priority/fill-accuracy oracle, wired into the composite score** (deploy-time, not yet continuous) | 8/10 |
 | Real-time leaderboard | Redis ZSET + Postgres + verified WebSocket live stream | 8/10 |
 | Architecture Blueprint | DESIGN.md + BLUEPRINT.md + this file | 9/10 |
 | IaC | Compose (verified) + Terraform + K8s manifests (reference) | 7/10 |

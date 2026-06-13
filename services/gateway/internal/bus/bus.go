@@ -5,9 +5,9 @@
 //     JetStream's per-message cost would dominate at that rate)
 //
 // Subject layout:
-//   runs.<runID>.control     — start/stop/cancel commands (JetStream)
-//   runs.<runID>.telemetry   — per-order samples (core NATS)
-//   runs.<runID>.summary     — final per-run aggregate (JetStream)
+//   runs.<runID>.control     - start/stop/cancel commands (JetStream)
+//   runs.<runID>.telemetry   - per-order samples (core NATS)
+//   runs.<runID>.summary     - final per-run aggregate (JetStream)
 package bus
 
 import (

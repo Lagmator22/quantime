@@ -1,6 +1,6 @@
 // Package bot is one trading bot. Each instance runs in its own
 // goroutine, picks a strategy from a deterministic mix, and fires
-// HTTP POST /submit at the contestant's endpoint until ctx done.
+// HTTP POST /submit at the developer's endpoint until ctx done.
 //
 // We use a per-bot xoshiro RNG seeded with (run_seed + bot_id) so the
 // entire run is byte-for-byte reproducible. Judges who suspect a

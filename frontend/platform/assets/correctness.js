@@ -1,23 +1,23 @@
 /* =====================================================================
    IICPC PLATFORM · CORRECTNESS VALIDATION SUITE
    ---------------------------------------------------------------------
-   Tests the judges will write to break a contestant's matching engine.
+   Tests the judges will write to break a developer's matching engine.
    Each test:
      • Has a deterministic input sequence
      • Has an expected outcome
-     • Is tagged with a category + severity so contestants can debug
+     • Is tagged with a category + severity so developers can debug
 
    Categories:
-     • protocol      — wire-format correctness (id, status, shape)
-     • priority      — price-time priority violations
-     • cross         — order crossing logic
-     • cancel        — cancel handling correctness
-     • types         — IOC / FOK / postonly
-     • selftrade     — self-trade prevention
-     • robust        — handles malformed / hostile input
-     • idempotence   — same input → same output
-     • determinism   — replay produces identical sequence
-     • conservation  — fill quantity invariants
+     • protocol      - wire-format correctness (id, status, shape)
+     • priority      - price-time priority violations
+     • cross         - order crossing logic
+     • cancel        - cancel handling correctness
+     • types         - IOC / FOK / postonly
+     • selftrade     - self-trade prevention
+     • robust        - handles malformed / hostile input
+     • idempotence   - same input → same output
+     • determinism   - replay produces identical sequence
+     • conservation  - fill quantity invariants
 
    Each test returns { ok, details? }. Severity ∈ critical|major|minor|nit.
 
@@ -193,7 +193,7 @@
       if (total !== 3) return { ok: false, details: `IOC filled ${total}, expected 3 (rest cancelled)` };
       const r2 = await rt.submit(sell(3, 'market', 0, 1));
       if (r2.fills?.some(f => f.makerId === 2)) {
-        return { ok: false, details: 'IOC left residual on book — should have cancelled' };
+        return { ok: false, details: 'IOC left residual on book - should have cancelled' };
       }
       return { ok: true };
     }),

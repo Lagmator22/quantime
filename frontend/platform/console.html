@@ -53,7 +53,7 @@
 <div id="app-content">
 
 <div class="page-head">
-  <span class="eyebrow">Contestant · Live backend</span>
+  <span class="eyebrow">Developer · Live backend</span>
   <h1 style="margin-top:var(--s-3);">Benchmark Console.</h1>
   <p class="lede">Pick an engine, launch a stress run, and watch real latency &amp; throughput stream live from the distributed bot fleet. <span class="mono" id="be-state">checking backend…</span></p>
 </div>
@@ -78,7 +78,7 @@
       <div class="panel-head"><h3>1 · Engine</h3></div>
       <div class="panel-body">
         <button class="btn" id="use-sample" style="width:100%; margin-bottom:var(--s-3);">⚡ Use the sample engine</button>
-        <div class="dim mono" style="font-size:11px; text-align:center; margin-bottom:var(--s-3);">— or upload your own —</div>
+        <div class="dim mono" style="font-size:11px; text-align:center; margin-bottom:var(--s-3);">or upload your own</div>
         <div class="field"><label>Team ID</label><input class="input mono" id="f-team" value="t_demo" /></div>
         <div class="field"><label>Name</label><input class="input mono" id="f-name" value="my-engine" /></div>
         <div class="field"><label>Language</label>
@@ -127,13 +127,13 @@
       <div class="panel-head"><h3>Final score</h3></div>
       <div class="panel-body">
         <div style="display:grid; grid-template-columns:1fr 2fr; gap:var(--s-4); align-items:center;">
-          <div class="score-hero"><div class="l mono dim">COMPOSITE</div><div class="big" id="r-score">—</div></div>
+          <div class="score-hero"><div class="l mono dim">COMPOSITE</div><div class="big" id="r-score">-</div></div>
           <div class="metric-grid" style="grid-template-columns:repeat(3,1fr);">
-            <div class="metric"><div class="l">p50</div><div class="v" id="r-p50">—<small>ms</small></div></div>
-            <div class="metric"><div class="l">p90</div><div class="v" id="r-p90">—<small>ms</small></div></div>
-            <div class="metric"><div class="l">p99</div><div class="v" id="r-p99">—<small>ms</small></div></div>
-            <div class="metric"><div class="l">TPS</div><div class="v" id="r-tps">—</div></div>
-            <div class="metric"><div class="l">Errors</div><div class="v" id="r-err">—<small>%</small></div></div>
+            <div class="metric"><div class="l">p50</div><div class="v" id="r-p50">-<small>ms</small></div></div>
+            <div class="metric"><div class="l">p90</div><div class="v" id="r-p90">-<small>ms</small></div></div>
+            <div class="metric"><div class="l">p99</div><div class="v" id="r-p99">-<small>ms</small></div></div>
+            <div class="metric"><div class="l">TPS</div><div class="v" id="r-tps">-</div></div>
+            <div class="metric"><div class="l">Errors</div><div class="v" id="r-err">-<small>%</small></div></div>
           </div>
         </div>
       </div>
@@ -158,7 +158,7 @@
 <script src="assets/layout.js"></script>
 <script>
 /* =====================================================================
-   CONSOLE CONTROLLER — 100% backend-wired
+   CONSOLE CONTROLLER - 100% backend-wired
 ===================================================================== */
 Layout.render({ active: 'console', crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Console' }] });
 
@@ -197,7 +197,7 @@ $('use-sample').onclick = async () => {
     setStep(1,'done'); setStep(2,'done'); setStep(3,'on');
     $('do-run').disabled = false;
     showCorrectness('sub_sample');
-    toast('Sample engine ready — launch a benchmark', 'info');
+    toast('Sample engine ready: launch a benchmark', 'info');
   } catch(e){ toast('could not load sample: '+e.message, 'error'); }
 };
 
@@ -221,8 +221,8 @@ async function pollDeploy(id){
     const s = await API.getSubmission(id);
     const st = s && (s.Status || s.status);
     if ($('poll')) $('poll').textContent = st;
-    if (st === 'deployed'){ currentSub = id; $('do-run').disabled = false; setStep(2,'done'); setStep(3,'on'); showCorrectness(id); toast('Engine deployed — ready to run','info'); return; }
-    if (st === 'failed'){ if($('poll')) $('poll').innerHTML='<span class="down">build failed</span>'; setStep(2,'fail'); toast('Build failed — check the Dockerfile','error'); return; }
+    if (st === 'deployed'){ currentSub = id; $('do-run').disabled = false; setStep(2,'done'); setStep(3,'on'); showCorrectness(id); toast('Engine deployed: ready to run','info'); return; }
+    if (st === 'failed'){ if($('poll')) $('poll').innerHTML='<span class="down">build failed</span>'; setStep(2,'fail'); toast('Build failed: check the Dockerfile','error'); return; }
     await new Promise(r=>setTimeout(r,2000));
   }
   toast('deploy timed out','warn');

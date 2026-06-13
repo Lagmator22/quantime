@@ -16,7 +16,7 @@
      feed.connect();  feed.close();
 
    If the WS connection fails (CORS in some sandboxes, network down),
-   the feed silently no-ops — caller just gets no callbacks. Run pages
+   the feed silently no-ops - caller just gets no callbacks. Run pages
    should treat this feed as a NICE-TO-HAVE and fall back to synthetic
    order generation when no events arrive within 3s.
 ===================================================================== */

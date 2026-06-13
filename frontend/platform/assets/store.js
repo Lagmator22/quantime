@@ -28,7 +28,7 @@
 (function () {
   const NS = 'iicpc.';
 
-  // —— localStorage wrapper —————————————————————————————————————
+  // -- localStorage wrapper -------------------------------------
   const Store = {
     get(key, fallback = null) {
       try {
@@ -42,7 +42,7 @@
     set(key, value) {
       try {
         localStorage.setItem(NS + key, JSON.stringify(value));
-        // Same-tab listeners — 'storage' only fires cross-tab
+        // Same-tab listeners - 'storage' only fires cross-tab
         Store._fire(key, value);
       } catch (e) {
         console.error('[Store.set]', key, e);
@@ -80,7 +80,7 @@
       return arr;
     },
 
-    // —— cross-tab + same-tab subscriber ——————————————————
+    // -- cross-tab + same-tab subscriber ------------------
     _subs: {},
     _fire(key, value) {
       (Store._subs[key] || []).forEach(cb => { try { cb(value); } catch (e) {} });
@@ -93,7 +93,7 @@
       };
     },
 
-    // —— BroadcastChannel: realtime cross-tab events ——————
+    // -- BroadcastChannel: realtime cross-tab events ------
     _channels: {},
     _channel(name) {
       if (!Store._channels[name]) {
@@ -111,7 +111,7 @@
       return () => ch.removeEventListener('message', handler);
     },
 
-    // —— IndexedDB for binary uploads ——————————————————————
+    // -- IndexedDB for binary uploads ----------------------
     _db: null,
     async _openDB() {
       if (Store._db) return Store._db;
@@ -154,10 +154,10 @@
     }
   });
 
-  // —— Seed defaults if first visit —————————————————————
+  // -- Seed defaults if first visit ---------------------
   if (!Store.get('config')) {
     Store.set('config', {
-      // Composite scoring weights — edit to retune
+      // Composite scoring weights - edit to retune
       weights: { speed: 0.4, throughput: 0.4, correctness: 0.2 },
       submissionsOpen: '2026-06-03T00:00:00Z',
       submissionsClose: '2026-06-10T23:59:59Z',

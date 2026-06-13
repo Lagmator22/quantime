@@ -1,6 +1,6 @@
 #cloud-config
 # =====================================================================
-# Boots the platform on first start. Idempotent — re-running the
+# Boots the platform on first start. Idempotent - re-running the
 # template re-clones and recreates the compose stack.
 # =====================================================================
 package_update: true

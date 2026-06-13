@@ -44,7 +44,7 @@
     <div>
       <span class="eyebrow">Public · Live</span>
       <h1 style="margin-top: var(--s-3);">Leaderboard.</h1>
-      <p class="lede">Composite score = <span class="mono up">speed</span> × <span class="mono info">throughput</span> × <span class="mono warn">correctness</span>. Updates stream from finalised stress runs. Last sync: <span class="mono" id="last-sync">—</span></p>
+      <p class="lede">Composite score = <span class="mono up">speed</span> × <span class="mono info">throughput</span> × <span class="mono warn">correctness</span>. Updates stream from finalised stress runs. Last sync: <span class="mono" id="last-sync">-</span></p>
     </div>
     <div style="display: flex; gap: var(--s-3); align-items: center;">
       <span class="pill"><span class="dot"></span>streaming</span>
@@ -56,19 +56,19 @@
 <div class="kpi-grid" style="margin-bottom: var(--s-6);">
   <div class="kpi">
     <div class="l">// teams ranked</div>
-    <div class="v" id="kpi-teams">—</div>
+    <div class="v" id="kpi-teams">-</div>
   </div>
   <div class="kpi">
     <div class="l">// fastest p99</div>
-    <div class="v" id="kpi-fastest">—<small>µs</small></div>
+    <div class="v" id="kpi-fastest">-<small>µs</small></div>
   </div>
   <div class="kpi">
     <div class="l">// peak TPS</div>
-    <div class="v" id="kpi-peak-tps">—<small>ops/s</small></div>
+    <div class="v" id="kpi-peak-tps">-<small>ops/s</small></div>
   </div>
   <div class="kpi">
     <div class="l">// total runs</div>
-    <div class="v" id="kpi-total-runs">—</div>
+    <div class="v" id="kpi-total-runs">-</div>
   </div>
 </div>
 
@@ -119,7 +119,7 @@ let prevOrder = [];
 let filter = '';
 
 function fmtAgo(ts) {
-  if (!ts) return '—';
+  if (!ts) return '-';
   const s = Math.floor((Date.now() - ts) / 1000);
   if (s < 60) return s + 's ago';
   if (s < 3600) return Math.floor(s / 60) + 'm ago';
@@ -138,8 +138,8 @@ function render() {
 
   // KPIs
   document.getElementById('kpi-teams').textContent = lb.length;
-  document.getElementById('kpi-fastest').innerHTML = lb.length ? (Math.min(...lb.map(r => r.p99))) + '<small>µs</small>' : '—';
-  document.getElementById('kpi-peak-tps').innerHTML = lb.length ? fmtTPS(Math.max(...lb.map(r => r.tps))) + '<small>ops/s</small>' : '—';
+  document.getElementById('kpi-fastest').innerHTML = lb.length ? (Math.min(...lb.map(r => r.p99))) + '<small>µs</small>' : '-';
+  document.getElementById('kpi-peak-tps').innerHTML = lb.length ? fmtTPS(Math.max(...lb.map(r => r.tps))) + '<small>ops/s</small>' : '-';
   document.getElementById('kpi-total-runs').textContent = Store.get('runs', []).length;
   document.getElementById('last-sync').textContent = new Date().toISOString().slice(11, 19);
 
@@ -159,7 +159,7 @@ function render() {
           <div class="team">${escapeHTML(r.name)} ${isMe ? '<span class="dim mono" style="font-size:10px;">· you</span>' : ''}</div>
           <div class="score-bar"><i style="width: ${(r.score / maxScore * 100).toFixed(0)}%;"></i></div>
         </td>
-        <td class="dim">${escapeHTML(r.region || '—')}</td>
+        <td class="dim">${escapeHTML(r.region || '-')}</td>
         <td class="r">${r.p50}µs</td>
         <td class="r ${r.p99 > 250 ? 'down' : 'up'}">${r.p99}µs</td>
         <td class="r">${fmtTPS(r.tps)}</td>
@@ -193,7 +193,7 @@ Store.onBroadcast('runs', render);
 // Periodically refresh "last run" relative times
 setInterval(render, 10000);
 
-// —— Backend bridge ————————————————————————————————————————————
+// -- Backend bridge --------------------------------------------
 // When the gateway is reachable, hydrate Store.leaderboard from the
 // real /api/leaderboard endpoint every 3s. This replaces the seeded
 // mock data with live numbers without touching the render path.

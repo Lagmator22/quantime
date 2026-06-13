@@ -1,7 +1,7 @@
 # =====================================================================
 # IICPC PLATFORM · Application workloads
 # ---------------------------------------------------------------------
-# Gateway, bot fleet, telemetry — Deployments with HPAs for autoscaling.
+# Gateway, bot fleet, telemetry - Deployments with HPAs for autoscaling.
 # Submission pods are NOT defined here; the gateway creates them
 # dynamically via the K8s API server.
 # =====================================================================

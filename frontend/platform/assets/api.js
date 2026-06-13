@@ -108,9 +108,9 @@
   // Probe immediately; pages can `await window.API.ready` to wait.
   API.ready = API.detect().then(() => {
     if (API.online) {
-      console.info('[api] backend detected — using gateway at', BASE || location.origin);
+      console.info('[api] backend detected - using gateway at', BASE || location.origin);
     } else {
-      console.info('[api] no backend — running in standalone prototype mode');
+      console.info('[api] no backend - running in standalone prototype mode');
     }
   });
 

@@ -1,7 +1,7 @@
 /* =====================================================================
    IICPC PLATFORM · WASM RUNTIME WORKER
    ---------------------------------------------------------------------
-   Instantiates a contestant's .wasm module. The wasm must export:
+   Instantiates a developer's .wasm module. The wasm must export:
 
      submit_bytes(ptr: i32, len: i32) -> i32   // returns response ptr
      submit_bytes_len() -> i32                 // length of last response
@@ -19,7 +19,7 @@
    with a thin adapter.
 
    If no .wasm was uploaded, we boot in passthrough mode (reference
-   engine) — same as the JS runtime fallback.
+   engine) - same as the JS runtime fallback.
 ===================================================================== */
 importScripts('engine.js');
 
@@ -39,7 +39,7 @@ self.addEventListener('message', async (e) => {
   if (m.type === 'init') {
     try {
       if (!m.wasm) {
-        log('info', 'no wasm bytes uploaded — using reference engine');
+        log('info', 'no wasm bytes uploaded - using reference engine');
         fallbackEngine = new MatchingEngine();
         self.postMessage({ type: 'ready' });
         return;
@@ -48,7 +48,7 @@ self.addEventListener('message', async (e) => {
       const wasmBytes = m.wasm;
       log('info', `instantiating wasm module (${wasmBytes.byteLength} bytes)`);
 
-      // Provide minimal imports — most quant code doesn't need stdlib
+      // Provide minimal imports - most quant code doesn't need stdlib
       const imports = {
         env: {
           // Generic ABI shims
@@ -85,7 +85,7 @@ self.addEventListener('message', async (e) => {
 
       if (!memory) throw new Error('wasm module must export "memory"');
       if (!submit_bytes) {
-        log('warn', 'no submit_bytes export — using reference engine');
+        log('warn', 'no submit_bytes export - using reference engine');
         fallbackEngine = new MatchingEngine();
       } else {
         log('ok', 'wasm module ready · submit_bytes export found');

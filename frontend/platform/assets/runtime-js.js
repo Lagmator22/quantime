@@ -1,21 +1,21 @@
 /* =====================================================================
    IICPC PLATFORM · JS RUNTIME WORKER
    ---------------------------------------------------------------------
-   Loads a contestant's JavaScript submission and exposes submit().
+   Loads a developer's JavaScript submission and exposes submit().
    Runs in a dedicated Worker so:
      - infinite loops are killable from the main thread (terminate())
      - thrown exceptions don't crash the page
      - one bad submission can't poison other workers
 
-   Contestant contract (JS):
+   Developer contract (JS):
      module.exports.submit = (order) => ({ acks, fills });
      // optional:
      module.exports.snapshot = () => ({ bids, asks });
      module.exports.reset = () => void;
 
    Falls back to the platform reference engine if the source can't be
-   parsed or doesn't export submit() — this lets us still run a fair
-   stress test even when the contestant's code is broken.
+   parsed or doesn't export submit() - this lets us still run a fair
+   stress test even when the developer's code is broken.
 ===================================================================== */
 importScripts('engine.js');
 
@@ -33,7 +33,7 @@ self.addEventListener('message', async (e) => {
   if (m.type === 'init') {
     try {
       if (!m.source || !m.source.trim()) {
-        log('info', 'no source provided — using reference engine');
+        log('info', 'no source provided - using reference engine');
         fallbackEngine = new MatchingEngine();
       } else {
         // Build a CommonJS-style sandbox: expose `module`, `exports`,
@@ -62,7 +62,7 @@ self.addEventListener('message', async (e) => {
         userSubmit = exportObj.submit || result.submit;
         userSnapshot = exportObj.snapshot || result.snapshot;
         if (typeof userSubmit !== 'function') {
-          log('warn', 'no submit() export — falling back to reference engine');
+          log('warn', 'no submit() export - falling back to reference engine');
           fallbackEngine = new MatchingEngine();
           userSubmit = null;
         } else {
@@ -82,13 +82,13 @@ self.addEventListener('message', async (e) => {
     let result;
     try {
       if (userSubmit) {
-        // —— Real contestant code path —————————————————
+        // -- Real developer code path -----------------
         const r = userSubmit(m.order) || {};
         result = {
           acks: Array.isArray(r.acks) ? r.acks : [],
           fills: Array.isArray(r.fills) ? r.fills : [],
         };
-        // —— Defensive output sanitisation (judges WILL probe this) ——
+        // -- Defensive output sanitisation (judges WILL probe this) --
         result.acks = result.acks.filter(a => a && a.id != null);
         result.fills = result.fills.filter(f => f && Number.isFinite(f.price) && Number.isFinite(f.qty));
       } else if (fallbackEngine) {
@@ -98,7 +98,7 @@ self.addEventListener('message', async (e) => {
         result = { acks: [{ id: m.order.id, status: 'error', message: 'no runtime' }], fills: [], error: 'no runtime' };
       }
     } catch (e) {
-      // Contestant code threw — record but don't crash
+      // Developer code threw - record but don't crash
       result = {
         acks: [{ id: m.order.id, status: 'error', message: e.message }],
         fills: [],
