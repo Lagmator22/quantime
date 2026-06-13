@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>IICPC Summer Hackathon 2026 — Distributed Benchmarking Platform</title>
+<title>QuanTime — Distributed Benchmarking Platform for Trading Engines</title>
 <meta name="description" content="Architect and build a distributed benchmarking & hosting platform for trading infrastructure. May 9 – June 10, 2026. Teams of up to 3." />
 
 <!-- =====================================================================
@@ -716,24 +716,22 @@ footer { padding: var(--s-7) 0; }
 <div class="ticker" aria-hidden="true">
   <div class="ticker-track">
     <!-- Copy 1 -->
-    <span class="ticker-item"><span class="sym">IICPC.HACK</span> <span class="up">▲ ACTIVE</span> <span>2026.05.09</span></span>
-    <span class="ticker-item"><span class="sym">SUBMISSIONS</span> <span>OPEN</span> <span class="up">JUN 03 → JUN 10</span></span>
-    <span class="ticker-item"><span class="sym">TEAMS</span> <span>≤ 3 / TEAM</span></span>
-    <span class="ticker-item"><span class="sym">P99_LATENCY</span> <span class="up">▼ 142µs</span></span>
-    <span class="ticker-item"><span class="sym">TPS_CEILING</span> <span class="up">▲ 2.4M ops/s</span></span>
-    <span class="ticker-item"><span class="sym">BOT_FLEET</span> <span>10,000 nodes</span></span>
-    <span class="ticker-item"><span class="sym">STACK</span> <span>C++ · RUST · GO</span></span>
-    <span class="ticker-item"><span class="sym">PROTO</span> <span>FIX · gRPC · WS</span></span>
+    <span class="ticker-item"><span class="sym">QUANTIME</span> <span class="up">▲ LIVE</span> <span>open-source</span></span>
+    <span class="ticker-item"><span class="sym">THROUGHPUT</span> <span class="up">▲ 24K ops/s</span> <span>verified</span></span>
+    <span class="ticker-item"><span class="sym">LATENCY</span> <span class="up">▼ p50 0.25ms</span></span>
+    <span class="ticker-item"><span class="sym">ORDERS</span> <span>480K / run</span></span>
+    <span class="ticker-item"><span class="sym">ISOLATION</span> <span>docker · cgroups · cap-drop</span></span>
+    <span class="ticker-item"><span class="sym">TELEMETRY</span> <span>TimescaleDB · p50/p90/p99</span></span>
+    <span class="ticker-item"><span class="sym">STACK</span> <span>GO · NATS · REDIS</span></span>
     <span class="ticker-item"><span class="sym">SCORE</span> <span class="up">SPEED × STABILITY × CORRECTNESS</span></span>
     <!-- Copy 2 (must match copy 1 for seamless loop) -->
-    <span class="ticker-item"><span class="sym">IICPC.HACK</span> <span class="up">▲ ACTIVE</span> <span>2026.05.09</span></span>
-    <span class="ticker-item"><span class="sym">SUBMISSIONS</span> <span>OPEN</span> <span class="up">JUN 03 → JUN 10</span></span>
-    <span class="ticker-item"><span class="sym">TEAMS</span> <span>≤ 3 / TEAM</span></span>
-    <span class="ticker-item"><span class="sym">P99_LATENCY</span> <span class="up">▼ 142µs</span></span>
-    <span class="ticker-item"><span class="sym">TPS_CEILING</span> <span class="up">▲ 2.4M ops/s</span></span>
-    <span class="ticker-item"><span class="sym">BOT_FLEET</span> <span>10,000 nodes</span></span>
-    <span class="ticker-item"><span class="sym">STACK</span> <span>C++ · RUST · GO</span></span>
-    <span class="ticker-item"><span class="sym">PROTO</span> <span>FIX · gRPC · WS</span></span>
+    <span class="ticker-item"><span class="sym">QUANTIME</span> <span class="up">▲ LIVE</span> <span>open-source</span></span>
+    <span class="ticker-item"><span class="sym">THROUGHPUT</span> <span class="up">▲ 24K ops/s</span> <span>verified</span></span>
+    <span class="ticker-item"><span class="sym">LATENCY</span> <span class="up">▼ p50 0.25ms</span></span>
+    <span class="ticker-item"><span class="sym">ORDERS</span> <span>480K / run</span></span>
+    <span class="ticker-item"><span class="sym">ISOLATION</span> <span>docker · cgroups · cap-drop</span></span>
+    <span class="ticker-item"><span class="sym">TELEMETRY</span> <span>TimescaleDB · p50/p90/p99</span></span>
+    <span class="ticker-item"><span class="sym">STACK</span> <span>GO · NATS · REDIS</span></span>
     <span class="ticker-item"><span class="sym">SCORE</span> <span class="up">SPEED × STABILITY × CORRECTNESS</span></span>
   </div>
 </div>
@@ -745,7 +743,7 @@ footer { padding: var(--s-7) 0; }
   <div class="wrap nav-inner">
     <a href="#" class="logo">
       <span class="logo-mark"></span>
-      IICPC<span style="color:var(--accent);">/</span>HACK
+      Quan<span style="color:var(--accent);">Time</span>
       <span class="ver">v2026.05</span>
     </a>
     <nav class="nav-links">
@@ -754,8 +752,8 @@ footer { padding: var(--s-7) 0; }
       <a class="nav-link" href="#leaderboard">Leaderboard</a>
       <a class="nav-link" href="#timeline">Timeline</a>
       <a class="nav-link" href="#faq">FAQ</a>
-      <a class="nav-link platform-link" href="platform/dashboard.html" style="color: var(--accent);">Platform ↗</a>
-      <a class="btn btn-primary nav-link cta" href="platform/dashboard.html">
+      <a class="nav-link platform-link" href="platform/console.html" style="color: var(--accent);">Platform ↗</a>
+      <a class="btn btn-primary nav-link cta" href="platform/console.html">
         Enter platform <span class="arrow">→</span>
       </a>
     </nav>
@@ -784,16 +782,16 @@ footer { padding: var(--s-7) 0; }
     </h1>
 
     <p class="hero-lede">
-      The <strong>IICPC Summer Hackathon 2026</strong> is for systems engineers,
-      competitive programmers, and algorithmic thinkers who treat latency as
-      a moral obligation. Architect a <strong>distributed benchmarking &amp;
-      hosting platform</strong> that ingests contestant trading code, isolates
-      it, bombards it with thousands of concurrent bots, and scores it on
-      microsecond truth.
+      <strong>QuanTime</strong> is a distributed benchmarking &amp; hosting
+      platform for trading engines, built for the <strong>IICPC Summer
+      Hackathon 2026</strong>. It ingests a contestant's matching engine,
+      isolates it in a hardened container, bombards it with a distributed
+      fleet of bots, and scores it live on latency, throughput, and
+      correctness — on microsecond truth.
     </p>
 
     <div class="hero-actions">
-      <a href="platform/dashboard.html" class="btn btn-primary">
+      <a href="platform/console.html" class="btn btn-primary">
         Enter platform <span class="arrow">→</span>
       </a>
       <a href="platform/submit.html" class="btn">Submit code</a>
@@ -838,9 +836,9 @@ footer { padding: var(--s-7) 0; }
         <h2 style="margin-top: var(--s-3);">The brief, exactly.</h2>
       </div>
       <p class="section-lede">
-        At IICPC, we champion hardcore engineering excellence. Read this
-        terminal carefully — the platform you build evaluates everyone
-        else's platform. Recursion is the point.
+        QuanTime is built for engineers who treat latency as a moral
+        obligation. Read the brief below — this is the challenge QuanTime was
+        built to solve, and the platform you're looking at is the answer.
       </p>
     </div>
 
@@ -1302,7 +1300,7 @@ footer { padding: var(--s-7) 0; }
         Three engineers, one stack, one chance to prove your system holds.
       </p>
       <div class="actions">
-        <a href="platform/dashboard.html" class="btn btn-primary">Enter platform <span class="arrow">→</span></a>
+        <a href="platform/console.html" class="btn btn-primary">Enter platform <span class="arrow">→</span></a>
         <a href="platform/submit.html" class="btn">Submit your engine</a>
         <a href="platform/leaderboard.html" class="btn">View leaderboard</a>
       </div>
@@ -1315,7 +1313,7 @@ footer { padding: var(--s-7) 0; }
 ===================================================================== -->
 <footer>
   <div class="wrap footer-inner">
-    <div>© 2026 IICPC · Summer Hackathon · v2026.05</div>
+    <div>© 2026 QuanTime · built for the IICPC Summer Hackathon · open-source</div>
     <div style="display:flex; gap: var(--s-5);">
       <a href="#">code of conduct</a>
       <a href="#">privacy</a>
@@ -1368,14 +1366,16 @@ footer { padding: var(--s-7) 0; }
 ─────────────────────────────────────────────────────────────────── */
 const leaderboardData = [
   // Edit here to change displayed team list. score is computed.
-  { team: 'parity-bit',     handle: 'tokyo · 3p',  p50: 18, p99: 142, tps: 2_410_000, err: 0.002, vol: 6 },
-  { team: 'cache-warmers',  handle: 'berlin · 2p', p50: 21, p99: 168, tps: 2_180_000, err: 0.005, vol: 8 },
-  { team: 'fix-or-die',     handle: 'london · 3p', p50: 24, p99: 195, tps: 1_980_000, err: 0.004, vol: 7 },
-  { team: 'lockfree.lol',   handle: 'nyc · 1p',    p50: 27, p99: 210, tps: 1_820_000, err: 0.011, vol: 12 },
-  { team: 'hot-path',       handle: 'sf · 3p',     p50: 31, p99: 245, tps: 1_640_000, err: 0.008, vol: 9 },
-  { team: 'epoch.gg',       handle: 'singapore · 2p', p50: 35, p99: 282, tps: 1_510_000, err: 0.014, vol: 11 },
-  { team: 'rdtsc-rd',       handle: 'mumbai · 3p', p50: 41, p99: 318, tps: 1_390_000, err: 0.019, vol: 13 },
-  { team: 'numa-aware',     handle: 'amsterdam · 2p', p50: 48, p99: 360, tps: 1_240_000, err: 0.022, vol: 15 },
+  // Illustrative sample teams (replaced by live /api/leaderboard data when the
+  // backend is reachable). Numbers are in the range QuanTime actually measures.
+  { team: 'parity-bit',     handle: 'tokyo · 3p',  p50: 0.22, p99: 28, tps: 27_800, err: 0.002, vol: 6 },
+  { team: 'cache-warmers',  handle: 'berlin · 2p', p50: 0.25, p99: 33, tps: 24_600, err: 0.005, vol: 8 },
+  { team: 'fix-or-die',     handle: 'london · 3p', p50: 0.29, p99: 41, tps: 22_100, err: 0.004, vol: 7 },
+  { team: 'lockfree.lol',   handle: 'nyc · 1p',    p50: 0.34, p99: 49, tps: 19_800, err: 0.011, vol: 12 },
+  { team: 'hot-path',       handle: 'sf · 3p',     p50: 0.41, p99: 58, tps: 17_500, err: 0.008, vol: 9 },
+  { team: 'epoch.gg',       handle: 'singapore · 2p', p50: 0.52, p99: 71, tps: 15_900, err: 0.014, vol: 11 },
+  { team: 'rdtsc-rd',       handle: 'mumbai · 3p', p50: 0.68, p99: 92, tps: 14_200, err: 0.019, vol: 13 },
+  { team: 'numa-aware',     handle: 'amsterdam · 2p', p50: 0.81, p99: 118, tps: 12_600, err: 0.022, vol: 15 },
 ];
 
 // Composite score: lower latency + higher TPS + lower error = better.
