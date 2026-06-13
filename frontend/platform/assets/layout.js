@@ -8,6 +8,7 @@
 (function () {
   const NAV = [
     { group: 'Contestant', items: [
+      { id: 'console',      label: 'Console',       icon: '▶', href: 'console.html' },
       { id: 'dashboard',    label: 'Dashboard',     icon: '◆', href: 'dashboard.html' },
       { id: 'submit',       label: 'Submit Code',   icon: '↑', href: 'submit.html' },
       { id: 'run',          label: 'Stress Runs',   icon: '⟁', href: 'run.html' },
@@ -53,7 +54,7 @@
       <aside class="sidebar" id="iicpc-sidebar">
         <div class="sidebar-brand">
           <span class="mark"></span>
-          IICPC<span style="color:var(--accent);">/</span>HACK
+          Quan<span style="color:var(--accent);">Time</span>
           <span class="ver">v2026</span>
         </div>
         ${groupHTML}

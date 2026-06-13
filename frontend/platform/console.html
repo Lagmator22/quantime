@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     QuanTime · BENCHMARK CONSOLE  (fully backend-wired)
+     ---------------------------------------------------------------------
+     The real end-to-end console. Unlike the prototype pages, every action
+     here calls the live gateway:
+        upload/select submission → POST /api/submissions  (or pre-seeded)
+        poll deploy status       → GET  /api/submissions/:id
+        launch run               → POST /api/runs
+        live metrics             → WS   /ws/runs/:id
+        final score + ranking    → GET  /api/runs/:id, /api/leaderboard
+     If the backend is offline it shows a clear banner and disables actions
+     (no fake/simulated data). Designed so a non-coder can: pick engine →
+     run → read the numbers.
+===================================================================== -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Benchmark Console · QuanTime</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/platform.css" />
+<style>
+.steps { display:flex; gap:var(--s-3); flex-wrap:wrap; margin-bottom:var(--s-5); }
+.step { flex:1; min-width:200px; border:1px solid var(--line); padding:var(--s-3) var(--s-4); display:flex; gap:var(--s-3); align-items:center; opacity:.5; transition:opacity .2s,border-color .2s; }
+.step.on { opacity:1; border-color:var(--accent); }
+.step.done { opacity:1; }
+.step .n { width:26px; height:26px; flex:0 0 26px; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:12px; }
+.step.on .n { background:var(--accent); color:var(--bg); border-color:var(--accent); }
+.step.done .n { background:var(--bg-3); }
+.step small { display:block; color:var(--text-mute); font-size:11px; }
+.metric-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s-3); }
+.metric { border:1px solid var(--line); padding:var(--s-4); }
+.metric .l { color:var(--text-mute); font-size:11px; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.05em; }
+.metric .v { font-size:30px; font-weight:600; margin-top:6px; font-variant-numeric:tabular-nums; }
+.metric .v small { font-size:13px; color:var(--text-mute); font-weight:400; margin-left:3px; }
+.score-hero { text-align:center; padding:var(--s-5); border:1px solid var(--accent); background:oklch(78% 0.17 145 / 0.05); }
+.score-hero .big { font-size:64px; font-weight:700; line-height:1; color:var(--accent); font-variant-numeric:tabular-nums; }
+#spark { width:100%; height:80px; display:block; border:1px solid var(--line); }
+.status-pill { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border:1px solid var(--line); font-family:var(--font-mono); font-size:12px; }
+.status-pill.run { border-color:var(--accent); color:var(--accent); }
+.status-pill.fail { border-color:#e5484d; color:#e5484d; }
+.field { margin-bottom:var(--s-3); }
+.field label { display:block; font-size:11px; color:var(--text-mute); font-family:var(--font-mono); text-transform:uppercase; margin-bottom:5px; letter-spacing:.05em; }
+.offline-banner { display:none; border:1px solid #e5484d; background:oklch(55% 0.2 25 / 0.08); padding:var(--s-3) var(--s-4); margin-bottom:var(--s-4); color:#e5484d; font-size:13px; }
+@media(max-width:720px){ .metric-grid{ grid-template-columns:repeat(2,1fr);} }
+</style>
+</head>
+<body>
+<div id="app-content">
+
+<div class="page-head">
+  <span class="eyebrow">Contestant · Live backend</span>
+  <h1 style="margin-top:var(--s-3);">Benchmark Console.</h1>
+  <p class="lede">Pick an engine, launch a stress run, and watch real latency &amp; throughput stream live from the distributed bot fleet. <span class="mono" id="be-state">checking backend…</span></p>
+</div>
+
+<div class="offline-banner" id="offline">
+  ⚠ Backend not reachable. Start it with <span class="mono">docker compose up</span>, then reload. (This page never shows fake data.)
+</div>
+
+<!-- progress steps -->
+<div class="steps">
+  <div class="step on" id="st1"><span class="n">1</span><div>Select engine<small id="st1s">upload or use sample</small></div></div>
+  <div class="step" id="st2"><span class="n">2</span><div>Deploy<small id="st2s">build + isolate container</small></div></div>
+  <div class="step" id="st3"><span class="n">3</span><div>Run<small id="st3s">distributed bot fleet</small></div></div>
+  <div class="step" id="st4"><span class="n">4</span><div>Score<small id="st4s">latency · TPS · rank</small></div></div>
+</div>
+
+<div style="display:grid; grid-template-columns:340px 1fr; gap:var(--s-5); align-items:start;">
+
+  <!-- ── left: controls ─────────────────────────────────────────── -->
+  <div>
+    <div class="panel" style="margin-bottom:var(--s-4);">
+      <div class="panel-head"><h3>1 · Engine</h3></div>
+      <div class="panel-body">
+        <button class="btn" id="use-sample" style="width:100%; margin-bottom:var(--s-3);">⚡ Use the sample engine</button>
+        <div class="dim mono" style="font-size:11px; text-align:center; margin-bottom:var(--s-3);">— or upload your own —</div>
+        <div class="field"><label>Team ID</label><input class="input mono" id="f-team" value="t_demo" /></div>
+        <div class="field"><label>Name</label><input class="input mono" id="f-name" value="my-engine" /></div>
+        <div class="field"><label>Language</label>
+          <select class="input mono" id="f-lang"><option>go</option><option>cpp</option><option>rust</option><option>python</option></select>
+        </div>
+        <div class="field"><label>Source archive (.tar.gz / .zip with a Dockerfile)</label><input class="input mono" type="file" id="f-file" accept=".gz,.tgz,.tar,.zip" /></div>
+        <button class="btn" id="do-upload" style="width:100%;">↑ Upload &amp; deploy</button>
+        <div class="mono" id="sub-status" style="margin-top:var(--s-3); font-size:12px;"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>2 · Run config</h3></div>
+      <div class="panel-body">
+        <div class="field"><label>Traffic profile</label>
+          <select class="input mono" id="f-profile"><option value="sustained">sustained</option><option value="burst">burst</option><option value="adversarial">adversarial</option></select>
+        </div>
+        <div class="field"><label>Duration (seconds)</label><input class="input mono" id="f-dur" type="number" value="20" min="5" max="600" /></div>
+        <div class="field"><label>Bots</label><input class="input mono" id="f-bots" type="number" value="50" min="1" max="2000" /></div>
+        <button class="btn btn-primary" id="do-run" style="width:100%;" disabled>▶ Launch benchmark</button>
+        <button class="btn btn-sm" id="do-cancel" style="width:100%; margin-top:var(--s-2); display:none;">■ Cancel run</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── right: live dashboard ──────────────────────────────────── -->
+  <div>
+    <div class="panel" style="margin-bottom:var(--s-4);">
+      <div class="panel-head">
+        <h3>Live telemetry <span class="status-pill" id="run-state" style="margin-left:8px;">idle</span></h3>
+        <div class="actions mono dim" id="run-id" style="font-size:11px;"></div>
+      </div>
+      <div class="panel-body">
+        <div class="metric-grid" style="margin-bottom:var(--s-4);">
+          <div class="metric"><div class="l">Orders</div><div class="v" id="m-orders">0</div></div>
+          <div class="metric"><div class="l">Throughput</div><div class="v" id="m-tps">0<small>ops/s</small></div></div>
+          <div class="metric"><div class="l">Avg latency</div><div class="v" id="m-lat">0<small>ms</small></div></div>
+          <div class="metric"><div class="l">Errors</div><div class="v" id="m-err">0<small>%</small></div></div>
+        </div>
+        <canvas id="spark"></canvas>
+        <div class="dim mono" style="font-size:11px; margin-top:6px;">throughput (ops/s) over time</div>
+      </div>
+    </div>
+
+    <div class="panel" id="result-panel" style="margin-bottom:var(--s-4); display:none;">
+      <div class="panel-head"><h3>Final score</h3></div>
+      <div class="panel-body">
+        <div style="display:grid; grid-template-columns:1fr 2fr; gap:var(--s-4); align-items:center;">
+          <div class="score-hero"><div class="l mono dim">COMPOSITE</div><div class="big" id="r-score">—</div></div>
+          <div class="metric-grid" style="grid-template-columns:repeat(3,1fr);">
+            <div class="metric"><div class="l">p50</div><div class="v" id="r-p50">—<small>ms</small></div></div>
+            <div class="metric"><div class="l">p90</div><div class="v" id="r-p90">—<small>ms</small></div></div>
+            <div class="metric"><div class="l">p99</div><div class="v" id="r-p99">—<small>ms</small></div></div>
+            <div class="metric"><div class="l">TPS</div><div class="v" id="r-tps">—</div></div>
+            <div class="metric"><div class="l">Errors</div><div class="v" id="r-err">—<small>%</small></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Leaderboard</h3><a class="btn btn-sm" href="leaderboard.html">Full board →</a></div>
+      <div class="panel-body flush">
+        <table class="table">
+          <thead><tr><th>#</th><th>Team</th><th class="r">p99</th><th class="r">TPS</th><th class="r">Score</th></tr></thead>
+          <tbody id="lb-mini"><tr><td colspan="5" class="dim" style="text-align:center; padding:var(--s-4);">no finished runs yet</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#app-content -->
+
+<script src="assets/store.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/layout.js"></script>
+<script>
+/* =====================================================================
+   CONSOLE CONTROLLER — 100% backend-wired
+===================================================================== */
+Layout.render({ active: 'console', crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Console' }] });
+
+const $ = id => document.getElementById(id);
+let currentSub = null;     // deployed submission id ready to run
+let stream = null;         // live WS handle
+let activeRun = null;
+const tpsHist = [];
+
+function setStep(n, cls) { const el = $('st' + n); if (el) el.className = 'step ' + (cls || ''); }
+function fmtTPS(n){ if(n>=1e6) return (n/1e6).toFixed(2)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return Math.round(n).toString(); }
+function nsToMs(ns){ return (ns/1e6); }
+
+// ── Backend presence gate ──────────────────────────────────────────
+(async () => {
+  await API.ready;
+  if (API.online) {
+    $('be-state').textContent = 'backend online ●';
+    $('be-state').className = 'mono up';
+    refreshLeaderboard(); setInterval(refreshLeaderboard, 4000);
+  } else {
+    $('be-state').textContent = 'backend offline ○';
+    $('be-state').className = 'mono down';
+    $('offline').style.display = 'block';
+    $('use-sample').disabled = $('do-upload').disabled = $('do-run').disabled = true;
+  }
+})();
+
+// ── Step 1: choose engine ───────────────────────────────────────────
+$('use-sample').onclick = async () => {
+  try {
+    const s = await API.getSubmission('sub_sample');
+    if (!s) return toast('sample engine not seeded', 'error');
+    currentSub = 'sub_sample';
+    $('sub-status').innerHTML = 'using <span class="up">sub_sample</span> · <span class="up">deployed</span>';
+    setStep(1,'done'); setStep(2,'done'); setStep(3,'on');
+    $('do-run').disabled = false;
+    toast('Sample engine ready — launch a benchmark', 'info');
+  } catch(e){ toast('could not load sample: '+e.message, 'error'); }
+};
+
+$('do-upload').onclick = async () => {
+  const file = $('f-file').files[0];
+  if (!file) return toast('choose a .tar.gz/.zip archive first', 'warn');
+  $('do-upload').disabled = true;
+  setStep(1,'done'); setStep(2,'on');
+  $('sub-status').textContent = 'uploading…';
+  try {
+    const r = await API.createSubmission({ teamId:$('f-team').value||'t_demo', name:$('f-name').value||'engine', lang:$('f-lang').value, file });
+    currentSub = r.id;
+    $('sub-status').innerHTML = `submission <span class="mono">${escapeHTML(r.id)}</span> · <span id="poll">building…</span>`;
+    await pollDeploy(r.id);
+  } catch(e){ $('sub-status').innerHTML = '<span class="down">upload failed: '+escapeHTML(e.message)+'</span>'; setStep(2,'fail'); }
+  finally { $('do-upload').disabled = false; }
+};
+
+async function pollDeploy(id){
+  for (let i=0;i<90;i++){
+    const s = await API.getSubmission(id);
+    const st = s && (s.Status || s.status);
+    if ($('poll')) $('poll').textContent = st;
+    if (st === 'deployed'){ currentSub = id; $('do-run').disabled = false; setStep(2,'done'); setStep(3,'on'); toast('Engine deployed — ready to run','info'); return; }
+    if (st === 'failed'){ if($('poll')) $('poll').innerHTML='<span class="down">build failed</span>'; setStep(2,'fail'); toast('Build failed — check the Dockerfile','error'); return; }
+    await new Promise(r=>setTimeout(r,2000));
+  }
+  toast('deploy timed out','warn');
+}
+
+// ── Step 3: launch run ──────────────────────────────────────────────
+$('do-run').onclick = async () => {
+  if (!currentSub) return toast('select an engine first','warn');
+  resetDashboard();
+  setStep(3,'on'); setStep(4,'');
+  try {
+    const r = await API.startRun({
+      submissionId: currentSub,
+      profile: $('f-profile').value,
+      seed: 42,
+      durationSec: Math.max(5, Math.min(600, parseInt($('f-dur').value)||20)),
+      botsPerFleet: Math.max(1, Math.min(2000, parseInt($('f-bots').value)||50)),
+    });
+    activeRun = r.id;
+    $('run-id').textContent = r.id;
+    $('run-state').textContent = 'running'; $('run-state').className = 'status-pill run';
+    $('do-run').disabled = true; $('do-cancel').style.display = 'block';
+    openStream(r.id);
+    toast('Benchmark launched','info');
+  } catch(e){ toast('run failed: '+e.message,'error'); setStep(3,'fail'); }
+};
+
+$('do-cancel').onclick = async () => { if (activeRun){ await API.cancelRun(activeRun); toast('cancel sent','warn'); } };
+
+function openStream(id){
+  if (stream) stream.close();
+  stream = API.streamRun(id, onMsg, () => { /* closed */ });
+}
+
+function onMsg(m){
+  if (m.type === 'metrics'){
+    $('m-orders').textContent = (m.orders||0).toLocaleString();
+    $('m-tps').innerHTML = fmtTPS(m.tps||0)+'<small>ops/s</small>';
+    $('m-lat').innerHTML = (m.avgLatMs||0).toFixed(2)+'<small>ms</small>';
+    $('m-err').innerHTML = (m.errPct||0).toFixed(2)+'<small>%</small>';
+    tpsHist.push(m.tps||0); if (tpsHist.length>120) tpsHist.shift();
+    drawSpark();
+  } else if (m.type === 'final'){
+    $('run-state').textContent = 'finished'; $('run-state').className = 'status-pill';
+    $('do-run').disabled = false; $('do-cancel').style.display = 'none';
+    setStep(3,'done'); setStep(4,'done');
+    $('result-panel').style.display = 'block';
+    $('r-score').textContent = (m.score||0).toFixed(1);
+    $('r-p50').innerHTML = nsToMs(m.p50).toFixed(2)+'<small>ms</small>';
+    $('r-p90').innerHTML = nsToMs(m.p90).toFixed(2)+'<small>ms</small>';
+    $('r-p99').innerHTML = nsToMs(m.p99).toFixed(2)+'<small>ms</small>';
+    $('r-tps').textContent = fmtTPS(m.tps||0);
+    $('r-err').innerHTML = (m.errPct||0).toFixed(2)+'<small>%</small>';
+    refreshLeaderboard();
+    toast('Run complete · score '+(m.score||0).toFixed(1),'info');
+  }
+}
+
+function resetDashboard(){
+  tpsHist.length = 0; drawSpark();
+  ['m-orders'].forEach(i=>$(i).textContent='0');
+  $('m-tps').innerHTML='0<small>ops/s</small>'; $('m-lat').innerHTML='0<small>ms</small>'; $('m-err').innerHTML='0<small>%</small>';
+  $('result-panel').style.display='none';
+}
+
+function drawSpark(){
+  const c = $('spark'); if (!c) return;
+  const dpr = window.devicePixelRatio||1;
+  const w = c.clientWidth, h = c.clientHeight;
+  c.width = w*dpr; c.height = h*dpr;
+  const ctx = c.getContext('2d'); ctx.scale(dpr,dpr); ctx.clearRect(0,0,w,h);
+  if (!tpsHist.length) return;
+  const max = Math.max(...tpsHist, 1);
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#3ddc84';
+  ctx.lineWidth = 1.5; ctx.beginPath();
+  tpsHist.forEach((v,i)=>{ const x=(i/(Math.max(tpsHist.length-1,1)))*w; const y=h-(v/max)*(h-6)-3; i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.stroke();
+}
+window.addEventListener('resize', drawSpark);
+
+// ── Leaderboard (mini) ──────────────────────────────────────────────
+async function refreshLeaderboard(){
+  if (!API.online) return;
+  try {
+    const rows = (await API.leaderboard()).slice().sort((a,b)=>b.score-a.score).slice(0,8);
+    const body = $('lb-mini');
+    if (!rows.length){ body.innerHTML = '<tr><td colspan="5" class="dim" style="text-align:center; padding:var(--s-4);">no finished runs yet</td></tr>'; return; }
+    body.innerHTML = rows.map((r,i)=>`
+      <tr><td><span class="mono">${String(i+1).padStart(2,'0')}</span></td>
+      <td>${escapeHTML(r.name||r.teamId)}</td>
+      <td class="r ${nsToMs(r.p99)>250?'down':'up'}">${nsToMs(r.p99).toFixed(2)}ms</td>
+      <td class="r">${fmtTPS(r.tps||0)}</td>
+      <td class="r up" style="font-weight:500;">${(r.score||0).toFixed(1)}</td></tr>`).join('');
+  } catch(e){ /* transient */ }
+}
+</script>
+</body>
+</html>
