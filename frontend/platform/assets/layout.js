@@ -12,6 +12,7 @@
       { id: 'submit',       label: 'Submit Code',   icon: '↑', href: 'submit.html' },
       { id: 'run',          label: 'Stress Runs',   icon: '⟁', href: 'run.html' },
       { id: 'correctness',  label: 'Correctness',   icon: '✓', href: 'correctness.html' },
+      { id: 'analyze',      label: 'AI Analysis',   icon: '⊛', href: 'analyze.html' },
       { id: 'leaderboard',  label: 'Leaderboard',   icon: '#', href: 'leaderboard.html' },
     ]},
     { group: 'Reference', items: [
