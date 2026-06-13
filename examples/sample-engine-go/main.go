@@ -129,7 +129,7 @@ func (b *book) removeOrder(side string, px int64, id int64) bool {
 type engine struct {
 	bk         book
 	idx        map[int64]struct{ Side string; Px int64; ClientID int64 } // id → location
-	seenIDs    map[int64]struct{}
+	seenIDs    map[[2]int64]struct{} // (clientId,id) → seen; composite so different bots may reuse the same order-id space
 	fillIDSeq  atomic.Int64
 	stpPolicy  string // none|cancel-taker|cancel-maker|cancel-both
 }
@@ -137,7 +137,7 @@ type engine struct {
 func newEngine() *engine {
 	return &engine{
 		idx:       map[int64]struct{ Side string; Px int64; ClientID int64 }{},
-		seenIDs:   map[int64]struct{}{},
+		seenIDs:   map[[2]int64]struct{}{},
 		stpPolicy: "none",
 	}
 }
@@ -184,7 +184,10 @@ func (e *engine) submit(req orderReq) submitResp {
 	r := submitResp{Acks: []ack{}, Fills: []fill{}}
 
 	// Validate ----------------------------------------------------
-	pxX100 := int64(req.Price * 100)
+	// Price arrives already in integer ticks (price * 100); the bot fleet and
+	// the telemetry `priceX100` field use this same convention, so we do NOT
+	// re-scale here (previously `req.Price * 100`, which double-scaled by 100x).
+	pxX100 := int64(req.Price)
 	qty := int64(req.Qty)
 
 	if req.Type == "cancel" || req.Type == "modify" {
@@ -202,12 +205,13 @@ func (e *engine) submit(req orderReq) submitResp {
 			r.Acks = append(r.Acks, ack{ID: req.ID, Status: "rejected", Reason: "bad-price"})
 			return r
 		}
-		if _, dup := e.seenIDs[req.ID]; dup && req.ID != 0 {
+		dedupKey := [2]int64{req.ClientID, req.ID}
+		if _, dup := e.seenIDs[dedupKey]; dup && req.ID != 0 {
 			r.Acks = append(r.Acks, ack{ID: req.ID, Status: "rejected", Reason: "duplicate-id"})
 			return r
 		}
 		if req.ID != 0 {
-			e.seenIDs[req.ID] = struct{}{}
+			e.seenIDs[dedupKey] = struct{}{}
 		}
 	}
 
