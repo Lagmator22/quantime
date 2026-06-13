@@ -31,6 +31,7 @@ import (
 
 	"github.com/iicpc/botfleet/internal/bot"
 	"github.com/nats-io/nats.go"
+	"github.com/redis/go-redis/v9"
 )
 
 type startCmd struct {
@@ -54,6 +55,17 @@ func main() {
 
 	natsURL := envOr("NATS_URL", "nats://nats:4222")
 	bots := envInt("BOTS_PER_INSTANCE", 50)
+	redisURL := envOr("REDIS_URL", "redis://redis:6379")
+
+	opts, err := redis.ParseURL(redisURL)
+	if err != nil {
+		log.Fatalf("[botfleet] redis parse url: %v", err)
+	}
+	rdb := redis.NewClient(opts)
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Fatalf("[botfleet] redis ping: %v", err)
+	}
+	log.Println("[botfleet] redis connected")
 
 	nc, err := nats.Connect(natsURL,
 		nats.Name("iicpc-botfleet"),
@@ -112,7 +124,18 @@ func main() {
 					delete(supervisors, c.RunID)
 					mu.Unlock()
 				}()
-				runFleet(runCtx, nc, c, bots)
+
+				// 1. Claim replica index via Redis
+				key := "run:" + c.RunID + ":replica_index"
+				val, err := rdb.Incr(runCtx, key).Result()
+				if err != nil {
+					log.Printf("[botfleet] failed to get replica index for %s: %v", c.RunID, err)
+					return
+				}
+				rdb.Expire(runCtx, key, time.Hour)
+
+				replicaIdx := int(val - 1)
+				runFleet(runCtx, nc, c, bots, replicaIdx)
 			}()
 
 		case "cancel":
@@ -144,8 +167,8 @@ func main() {
 	time.Sleep(500 * time.Millisecond)
 }
 
-func runFleet(ctx context.Context, nc *nats.Conn, c startCmd, bots int) {
-	log.Printf("[botfleet] run=%s endpoint=%s profile=%s bots=%d", c.RunID, c.Endpoint, c.Profile, bots)
+func runFleet(ctx context.Context, nc *nats.Conn, c startCmd, bots, replicaIdx int) {
+	log.Printf("[botfleet] run=%s endpoint=%s profile=%s bots=%d replicaIdx=%d", c.RunID, c.Endpoint, c.Profile, bots, replicaIdx)
 	start := time.Now()
 
 	// Stagger bot start to avoid thundering-herd on the submission's
@@ -158,9 +181,12 @@ func runFleet(ctx context.Context, nc *nats.Conn, c startCmd, bots int) {
 	var wg sync.WaitGroup
 	for i := 0; i < bots; i++ {
 		wg.Add(1)
-		go func(botID int) {
+		go func(localBotIdx int) {
 			defer wg.Done()
-			time.Sleep(time.Duration(botID) * stagger)
+			time.Sleep(time.Duration(localBotIdx) * stagger)
+			
+			botID := replicaIdx*bots + localBotIdx
+			
 			b := bot.New(bot.Config{
 				BotID:    botID,
 				RunID:    c.RunID,

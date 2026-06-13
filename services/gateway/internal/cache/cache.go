@@ -74,10 +74,28 @@ func (c *Cache) SubscribeRun(ctx context.Context, runID string) (<-chan []byte, 
 // LeaderboardZAdd updates the team's best-ever score in the ZSET.
 // Idempotent: ZADD GT only writes if the new score is strictly greater.
 func (c *Cache) LeaderboardZAdd(ctx context.Context, teamID string, score float64) error {
-	return c.cli.ZAddGT(ctx, "leaderboard", redis.Z{Score: score, Member: teamID}).Err()
+	return c.cli.ZAddGT(ctx, "leaderboard:scores", redis.Z{Score: score, Member: teamID}).Err()
 }
 
 // LeaderboardTop returns the top N teams from the ZSET, ranked desc.
 func (c *Cache) LeaderboardTop(ctx context.Context, n int64) ([]redis.Z, error) {
-	return c.cli.ZRevRangeWithScores(ctx, "leaderboard", 0, n-1).Result()
+	return c.cli.ZRevRangeWithScores(ctx, "leaderboard:scores", 0, n-1).Result()
+}
+
+// LeaderboardMetrics returns the metrics JSON strings for a list of team IDs.
+func (c *Cache) LeaderboardMetrics(ctx context.Context, teamIDs []string) ([]string, error) {
+	if len(teamIDs) == 0 {
+		return nil, nil
+	}
+	res, err := c.cli.HMGet(ctx, "leaderboard:metrics", teamIDs...).Result()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, len(res))
+	for i, v := range res {
+		if v != nil {
+			out[i] = v.(string)
+		}
+	}
+	return out, nil
 }

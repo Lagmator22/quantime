@@ -126,6 +126,7 @@ type Run struct {
 	StartedAt    time.Time
 	FinishedAt   *time.Time
 	Score        *float64
+	RawLog       string
 }
 
 func (d *DB) InsertRun(ctx context.Context, r *Run) error {
@@ -148,16 +149,22 @@ func (d *DB) GetRun(ctx context.Context, id string) (*Run, error) {
 	r := &Run{}
 	err := d.pool.QueryRow(ctx, `
 		SELECT id, submission_id, team_id, profile, seed, status, started_at,
-		       finished_at, score
+		       finished_at, score, COALESCE(raw_log, '')
 		FROM runs WHERE id = $1
 	`, id).Scan(
 		&r.ID, &r.SubmissionID, &r.TeamID, &r.Profile, &r.Seed,
-		&r.Status, &r.StartedAt, &r.FinishedAt, &r.Score,
+		&r.Status, &r.StartedAt, &r.FinishedAt, &r.Score, &r.RawLog,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	return r, err
+}
+
+// UpdateRunLog appends container logs to a finished or failed run.
+func (d *DB) UpdateRunLog(ctx context.Context, id, logText string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE runs SET raw_log=$2 WHERE id=$1`, id, logText)
+	return err
 }
 
 // LeaderboardRows returns the current ranking, which is precomputed by
@@ -213,6 +220,56 @@ func (d *DB) Leaderboard(ctx context.Context, limit int) ([]LeaderboardRow, erro
 		}
 		r.LastRun = int64(lastRun)
 		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ── AI Analysis ───────────────────────────────────────────────────────
+
+type AnalysisReport struct {
+	ID              string
+	SubmissionID    string
+	TeamID          string
+	RiskScore       int
+	Summary         string
+	Findings        []byte
+	Strengths       []byte
+	Recommendations []byte
+	CreatedAt       time.Time
+}
+
+func (d *DB) InsertAnalysisReport(ctx context.Context, r *AnalysisReport) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO analysis_reports (id, submission_id, team_id, risk_score, summary, findings, strengths, recommendations)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		ON CONFLICT (id) DO NOTHING
+	`, r.ID, r.SubmissionID, r.TeamID, r.RiskScore, r.Summary, r.Findings, r.Strengths, r.Recommendations)
+	return err
+}
+
+type Team struct {
+	ID      string
+	Name    string
+	Region  string
+	Members string
+}
+
+func (d *DB) GetTeamsMap(ctx context.Context, ids []string) (map[string]Team, error) {
+	if len(ids) == 0 {
+		return map[string]Team{}, nil
+	}
+	rows, err := d.pool.Query(ctx, `SELECT id, name, COALESCE(region, ''), members::text FROM teams WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[string]Team, len(ids))
+	for rows.Next() {
+		var t Team
+		if err := rows.Scan(&t.ID, &t.Name, &t.Region, &t.Members); err == nil {
+			out[t.ID] = t
+		}
 	}
 	return out, rows.Err()
 }

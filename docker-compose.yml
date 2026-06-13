@@ -70,8 +70,10 @@ services:
       - NATS_URL=nats://nats:4222
       - GATEWAY_URL=http://gateway:7070
       - BOTS_PER_INSTANCE=${BOTS_PER_INSTANCE:-50}
+      - REDIS_URL=redis://redis:6379
     depends_on:
       nats: { condition: service_started }
+      redis: { condition: service_started }
     networks: [iicpc-net]
     # Scale horizontally: docker compose up --scale botfleet=4
 

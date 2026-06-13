@@ -30,10 +30,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
+	"net/url"
 
+	"github.com/nats-io/nats.go"
 	"github.com/iicpc/gateway/internal/api"
 	"github.com/iicpc/gateway/internal/bus"
 	"github.com/iicpc/gateway/internal/cache"
@@ -79,6 +82,44 @@ func main() {
 		Bus:     nc,
 		Sandbox: sb,
 		Now:     time.Now,
+	}
+
+	// Subscribe to run summaries to clean up sandbox containers
+	_, err = nc.JS.Subscribe("runs.*.summary", func(msg *nats.Msg) {
+		msg.Ack()
+		parts := strings.Split(msg.Subject, ".")
+		if len(parts) != 3 {
+			return
+		}
+		runID := parts[1]
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		r, err := db.GetRun(ctx, runID)
+		if err != nil || r == nil {
+			return
+		}
+
+		sub, err := db.GetSubmission(ctx, r.SubmissionID)
+		if err != nil || sub == nil {
+			return
+		}
+
+		u, err := url.Parse(sub.Endpoint)
+		if err != nil {
+			return
+		}
+		containerName := u.Hostname()
+
+		logs, err := sb.Logs(ctx, containerName, 1000)
+		if err == nil {
+			_ = db.UpdateRunLog(ctx, runID, logs)
+		}
+		_ = sb.Stop(ctx, containerName)
+	}, nats.Durable("gateway_summary_listener"), nats.ManualAck())
+	if err != nil {
+		log.Fatalf("[gateway] failed to subscribe to run summaries: %v", err)
 	}
 
 	mux := api.NewRouter(deps)

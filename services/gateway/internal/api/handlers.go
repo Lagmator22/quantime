@@ -9,6 +9,11 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/iicpc/gateway/internal/store"
 	"github.com/iicpc/gateway/internal/validator"
@@ -98,6 +103,9 @@ func (d *Deps) buildAndDeploy(subID, hash string, archive []byte) {
 	}
 	_ = d.DB.UpdateSubmissionStatus(ctx, subID, "building", "", "")
 
+	// Kick off AI analysis in background
+	go triggerAIAnalyzer(context.Background(), d, subID, srcDir)
+
 	tag, err := d.Sandbox.Build(ctx, subID, hash, srcDir)
 	if err != nil {
 		log.Printf("[gateway] build %s: %v", subID, err)
@@ -129,6 +137,83 @@ func (d *Deps) buildAndDeploy(subID, hash string, archive []byte) {
 		}
 	}
 	log.Printf("[gateway] submission %s correctness: %.0f%% (%d/%d cases)", subID, cres.Score, cres.Passed, cres.Total)
+}
+
+func triggerAIAnalyzer(ctx context.Context, d *Deps, subID, srcDir string) {
+	sub, err := d.DB.GetSubmission(ctx, subID)
+	if err != nil || sub == nil {
+		return
+	}
+
+	var buf bytes.Buffer
+	_ = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(info.Name()))
+		if ext == ".go" || ext == ".rs" || ext == ".py" || ext == ".cpp" || ext == ".c" || ext == ".h" || ext == ".hpp" || ext == ".ts" || ext == ".js" {
+			data, err := os.ReadFile(path)
+			if err == nil {
+				rel, _ := filepath.Rel(srcDir, path)
+				buf.WriteString(fmt.Sprintf("// File: %s\n%s\n\n", rel, string(data)))
+			}
+		}
+		return nil
+	})
+
+	if buf.Len() == 0 {
+		log.Printf("[gateway] ai-analyzer: no source code found for %s", subID)
+		return
+	}
+
+	reqBody, _ := json.Marshal(map[string]string{
+		"sourceCode":   buf.String(),
+		"submissionId": subID,
+		"language":     sub.Lang,
+	})
+
+	resp, err := http.Post("http://ai-analyzer:7080/api/analyze", "application/json", bytes.NewReader(reqBody))
+	if err != nil {
+		log.Printf("[gateway] ai-analyzer error: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[gateway] ai-analyzer non-200: %s", string(body))
+		return
+	}
+
+	var res struct {
+		RiskScore       int `json:"riskScore"`
+		Summary         string `json:"summary"`
+		Findings        json.RawMessage `json:"findings"`
+		Strengths       json.RawMessage `json:"strengths"`
+		Recommendations json.RawMessage `json:"recommendations"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		log.Printf("[gateway] ai-analyzer decode error: %v", err)
+		return
+	}
+
+	reportID := newID("rep")
+	rep := &store.AnalysisReport{
+		ID:              reportID,
+		SubmissionID:    subID,
+		TeamID:          sub.TeamID,
+		RiskScore:       res.RiskScore,
+		Summary:         res.Summary,
+		Findings:        res.Findings,
+		Strengths:       res.Strengths,
+		Recommendations: res.Recommendations,
+	}
+
+	if err := d.DB.InsertAnalysisReport(ctx, rep); err != nil {
+		log.Printf("[gateway] failed to save analysis report for %s: %v", subID, err)
+	} else {
+		log.Printf("[gateway] saved analysis report %s for submission %s", reportID, subID)
+	}
 }
 
 func (d *Deps) getSubmission(w http.ResponseWriter, r *http.Request) {
@@ -251,6 +336,45 @@ func (d *Deps) cancelRun(w http.ResponseWriter, r *http.Request) {
 func (d *Deps) getLeaderboard(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := withTimeout(r.Context(), 5*time.Second)
 	defer cancel()
+
+	// 1. Fast path: Redis
+	if topScores, err := d.Cache.LeaderboardTop(ctx, 100); err == nil && len(topScores) > 0 {
+		var teamIDs []string
+		for _, z := range topScores {
+			teamIDs = append(teamIDs, z.Member.(string))
+		}
+
+		metricsStr, _ := d.Cache.LeaderboardMetrics(ctx, teamIDs)
+		teamsMap, _ := d.DB.GetTeamsMap(ctx, teamIDs)
+
+		var out []store.LeaderboardRow
+		for i, z := range topScores {
+			tID := z.Member.(string)
+			tInfo := teamsMap[tID]
+
+			row := store.LeaderboardRow{
+				TeamID: tID,
+				Name:   tInfo.Name,
+				Region: tInfo.Region,
+				Score:  z.Score,
+			}
+
+			if i < len(metricsStr) && metricsStr[i] != "" {
+				var m map[string]float64
+				if json.Unmarshal([]byte(metricsStr[i]), &m) == nil {
+					row.P50 = m["p50"]
+					row.P99 = m["p99"]
+					row.TPS = m["tps"]
+					row.ErrPct = m["err_pct"]
+				}
+			}
+			out = append(out, row)
+		}
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+
+	// 2. Slow path: Postgres fallback
 	rows, err := d.DB.Leaderboard(ctx, 100)
 	if err != nil {
 		httpErr(w, http.StatusInternalServerError, err.Error())
