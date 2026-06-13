@@ -240,7 +240,8 @@ Computed in `finalizeRun` from the run's telemetry:
 ```
 speed       = 100 · 1 / (1 + p99_ns / 200_000_000)     # exp-style decay; 200 ms → ~37
 throughput  = 100 · min(tps / 200_000, 1)              # saturates at 200k ops/s
-correctness = 100 · (1 − error_rate)
+correctness = oracle_score   (price-time priority + fill accuracy; see §9a)
+              ↳ falls back to 100·(1 − error_rate) when no oracle score exists
 score       = 0.40·speed + 0.40·throughput + 0.20·correctness
 ```
 
@@ -248,6 +249,16 @@ Rationale: latency and throughput are the dominant axes of a trading engine's qu
 weighted equally; correctness gates the result. Weights are centralized so the judge console can
 re-tune them. The score and the raw metrics (`p50/p90/p99/tps/err_pct`) are persisted as JSONB on
 the run for full auditability.
+
+### 9a. Correctness oracle (price-time priority + fill accuracy)
+
+`services/gateway/internal/validator` is an **independent** reference order book. At deploy time
+the platform replays a fixed deterministic order sequence (crossing, partial fills, a market order,
+a cancel that removes liquidity, a market sweep) through both the contestant's engine and the
+oracle, then diffs the filled quantity order-by-order. The score (`passed/total`) is stored on the
+submission and feeds the 0.2 correctness weight above, so an engine that mis-orders fills or
+ignores cancels ranks lower. Unit tests assert the oracle catches a never-fills engine (scores 50,
+not 100). The reference sample engine passes all 10 cases (verified).
 
 ---
 
@@ -395,10 +406,10 @@ on Kubernetes, with the bot-fleet HPA.
 
 We hold ourselves to the hackathon's "not a demo-to-win" bar, so we document gaps honestly:
 
-- **Correctness oracle.** Today, correctness scoring is an error-rate proxy. The next step is a
-  Go port of the reference CLOB used as a **golden oracle**: replay an identical deterministic
-  order sequence through both the submission and the oracle and diff fills/price-time-priority
-  order-by-order. The reference engine and a 30-case correctness suite already exist as the spec.
+- **Correctness oracle — implemented (deploy-time).** A real independent reference order book diffs
+  fills order-by-order at deploy and feeds the composite score (§9a). The remaining depth is running
+  it *continuously* against live bot-fleet traffic (today the high-velocity load path scores
+  transport errors only) and expanding the deterministic scenario set.
 - **Bot-fleet replica sharding.** Replicas currently each spawn `BOTS_PER_INSTANCE` bots with
   identical seed ranges; for >1 replica we will partition the bot-id/seed space (StatefulSet
   ordinal or a NATS-KV lease) so the aggregate stream is N distinct bots, not N copies.

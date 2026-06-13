@@ -21,17 +21,21 @@ verified at 337k rows, score 61.05.
 
 ## What is intentionally *not* in this repo (and why)
 
-### 1. Correctness scoring is an error-rate proxy, not yet a true matching-engine oracle
+### 1. Correctness uses a deterministic oracle at deploy time (not continuous during load)
 
-**The honest gap.** The rubric asks the platform to validate *price-time priority* and *fill
-accuracy*. Today the backend's "correctness" component is `100 × (1 − transport_error_rate)` — it
-counts failed HTTP requests, it does **not** reconstruct an order book or diff the submission's
-fills against a known-good oracle. The `filled` telemetry column is recorded but not yet derived.
+**What's implemented.** Correctness is a real price-time-priority / fill-accuracy oracle
+(`services/gateway/internal/validator`): at deploy time the platform replays one fixed,
+deterministic order sequence through both the contestant's engine and an **independent** reference
+order book, then diffs the filled quantity order-by-order. The score (`passed/total`) is stored on
+the submission and **feeds the composite leaderboard score** (the 0.2 correctness weight) — a
+buggy engine that mis-orders fills, mishandles partials/market orders, or ignores cancels scores
+below 100 and ranks lower. Unit tests prove the oracle catches a never-fills engine (50, not 100).
 
-**What we'd add (roadmap, highest priority):** a Go port of the reference CLOB used as a golden
-oracle — replay one deterministic order sequence through both the submission and the oracle, diff
-fills + price-time-priority order-by-order, and write a real correctness score. The reference
-engine and a 30-case correctness suite already exist as the spec.
+**The remaining nuance (roadmap).** The oracle runs a 10-case scenario *once* at deploy; it is not
+yet run *continuously* against the live bot-fleet traffic (the high-velocity load path still scores
+transport errors only). Expanding the scenario set and oracle-checking a sampled stream of live
+orders during a run would deepen coverage. The per-order `filled` telemetry column is also still
+recorded as 0 on the load path (the deterministic oracle is the correctness source today).
 
 ### 2. The bot fleet does not shard across replicas
 
@@ -114,7 +118,7 @@ running multi-node cluster). Minor: bots currently run `durationSec + 5 s` (a co
 |---|---|---|
 | Containerize C++/Rust/Go submissions, CPU/memory limits | Real Docker isolation with strict flags, verified upload→build→deploy; gVisor wired but not enabled | 8/10 |
 | Distributed bot fleet, thousands of bots, FIX/REST/WebSocket | Real Go bot fleet, scales via `--scale`/HPA; **HTTP only**, no cross-replica sharding yet | 6/10 |
-| Telemetry — p50/p90/p99 latency, TPS, correctness | Real exact percentiles + TPS, verified; **correctness is an error-rate proxy, not a true oracle yet** | 7/10 |
+| Telemetry — p50/p90/p99 latency, TPS, correctness | Real exact percentiles + TPS; **real price-time-priority/fill-accuracy oracle, wired into the composite score** (deploy-time, not yet continuous) | 8/10 |
 | Real-time leaderboard | Redis ZSET + Postgres + verified WebSocket live stream | 8/10 |
 | Architecture Blueprint | DESIGN.md + BLUEPRINT.md + this file | 9/10 |
 | IaC | Compose (verified) + Terraform + K8s manifests (reference) | 7/10 |
