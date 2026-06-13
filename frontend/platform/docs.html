@@ -212,7 +212,7 @@ composite = <span class="n">0.40</span> × speedScore
 <p class="docs-p">When deployed to a real cluster, your sandbox exposes <code>:9999</code>:</p>
 
 <h3 class="docs">POST /v1/orders</h3>
-<div class="code">$ curl -X POST https://&lt;sandbox&gt;.iicpc.local:9999/v1/orders \
+<div class="code">$ curl -X POST https://&lt;sandbox&gt;.quantime.local:9999/v1/orders \
   -H <span class="s">"Content-Type: application/json"</span> \
   -d <span class="s">'{"id":1,"side":"buy","type":"limit","price":3142.50,"qty":5}'</span>
 
@@ -239,7 +239,7 @@ composite = <span class="n">0.40</span> × speedScore
 
 <h2 class="docs" id="leaderboard-feed"><span class="num">07</span>Leaderboard feed</h2>
 <p class="docs-p">Subscribe to live rank deltas:</p>
-<div class="code">ws://leaderboard.iicpc.local/v1/feed
+<div class="code">ws://leaderboard.quantime.local/v1/feed
 
 <span class="c">// message</span>
 { <span class="s">"type"</span>: <span class="s">"rank"</span>, <span class="s">"team"</span>: <span class="s">"parity-bit"</span>, <span class="s">"rank"</span>: <span class="n">1</span>,
