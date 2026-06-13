@@ -53,6 +53,21 @@ CREATE INDEX IF NOT EXISTS runs_team_idx ON runs(team_id);
 CREATE INDEX IF NOT EXISTS runs_submission_idx ON runs(submission_id);
 CREATE INDEX IF NOT EXISTS runs_status_idx ON runs(status);
 
+-- AI analysis reports (one per submission, can be re-analyzed)
+CREATE TABLE IF NOT EXISTS analysis_reports (
+    id              TEXT PRIMARY KEY,
+    submission_id   TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    team_id         TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    risk_score      INT NOT NULL DEFAULT 0,       -- 0 (safe) to 100 (dangerous)
+    summary         TEXT,
+    findings        JSONB NOT NULL DEFAULT '[]',   -- array of {severity, category, location, description, suggestion}
+    strengths       JSONB NOT NULL DEFAULT '[]',
+    recommendations JSONB NOT NULL DEFAULT '[]',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS analysis_reports_sub_idx ON analysis_reports(submission_id);
+CREATE INDEX IF NOT EXISTS analysis_reports_team_idx ON analysis_reports(team_id);
+
 -- ── Per-order telemetry (hypertable) ──────────────────────────────────
 -- This is the hot path: bots write one row per order. At 1M ops/s with
 -- 1-minute chunks, each chunk holds ~60M rows. Compression after 1h.
@@ -93,9 +108,7 @@ SELECT
     time_bucket('1 second', ts) AS bucket,
     count(*)                    AS orders,
     avg(latency_ns)             AS mean_lat,
-    approx_percentile(0.50, percentile_agg(latency_ns)) AS p50,
-    approx_percentile(0.90, percentile_agg(latency_ns)) AS p90,
-    approx_percentile(0.99, percentile_agg(latency_ns)) AS p99,
+    max(latency_ns)             AS max_lat,
     sum(CASE WHEN err IS NOT NULL THEN 1 ELSE 0 END)::float / count(*) AS err_rate
 FROM telemetry
 GROUP BY run_id, bucket
@@ -114,3 +127,13 @@ SELECT add_retention_policy('telemetry', INTERVAL '7 days', if_not_exists => TRU
 INSERT INTO teams (id, name, region, members)
 VALUES ('t_demo', 'demo-team', 'local', '[{"name":"You","role":"captain"}]')
 ON CONFLICT (id) DO NOTHING;
+
+-- ── Bootstrap: a pre-deployed "submission" that points at the sample
+-- engine docker-compose already runs at sample-engine:9001. This lets you
+-- launch a stress run immediately (POST /api/runs {"submissionId":"sub_sample"})
+-- WITHOUT the upload→build→deploy path, so the load→telemetry→score→
+-- leaderboard half of the pipeline is demoable on its own.
+INSERT INTO submissions (id, team_id, name, lang, hash, image_tag, endpoint, status, size_bytes)
+VALUES ('sub_sample', 't_demo', 'sample-engine', 'go', 'seed-sample',
+        'iicpc/sample-engine:seed', 'http://sample-engine:9001', 'deployed', 0)
+ON CONFLICT (team_id, hash) DO NOTHING;

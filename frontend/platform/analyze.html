@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<!-- =====================================================================
+     IICPC PLATFORM: AI CODE ANALYSIS
+     ---------------------------------------------------------------------
+     Multi-agent AI pipeline: Security + Performance + Correctness.
+     Calls the ai-analyzer service (POST /api/analyze) with source code
+     and displays structured findings with risk score and recommendations.
+     Falls back to a local mock if no backend is available.
+===================================================================== -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AI Analysis · IICPC Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/platform.css" />
+<style>
+  .risk-gauge {
+    position: relative;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  .risk-gauge .score {
+    font-family: var(--font-mono);
+    font-size: 36px; font-weight: 700;
+    line-height: 1;
+  }
+  .risk-gauge .label {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.1em; margin-top: 4px;
+    color: var(--text-dim);
+  }
+  .risk-low { background: conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--bg-3) 0); }
+  .risk-moderate { background: conic-gradient(#f59e0b calc(var(--pct) * 1%), var(--bg-3) 0); }
+  .risk-high { background: conic-gradient(var(--accent-2) calc(var(--pct) * 1%), var(--bg-3) 0); }
+  .risk-critical { background: conic-gradient(#ef4444 calc(var(--pct) * 1%), var(--bg-3) 0); }
+  .risk-inner {
+    width: 96px; height: 96px; border-radius: 50%;
+    background: var(--bg-2); display: flex;
+    align-items: center; justify-content: center; flex-direction: column;
+  }
+
+  .finding {
+    padding: var(--s-4); border-left: 3px solid var(--line);
+    margin-bottom: var(--s-3); background: var(--bg-3);
+  }
+  .finding.critical { border-left-color: #ef4444; }
+  .finding.high { border-left-color: var(--accent-2); }
+  .finding.medium { border-left-color: #f59e0b; }
+  .finding.low { border-left-color: var(--accent); }
+  .finding.info { border-left-color: var(--text-dim); }
+  .finding-header {
+    display: flex; align-items: center; gap: var(--s-3);
+    margin-bottom: var(--s-2);
+  }
+  .sev-badge {
+    font-family: var(--font-mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 2px 8px; border-radius: 3px;
+    font-weight: 600;
+  }
+  .sev-badge.critical { background: #ef4444; color: #fff; }
+  .sev-badge.high { background: var(--accent-2); color: #fff; }
+  .sev-badge.medium { background: #f59e0b; color: #000; }
+  .sev-badge.low { background: var(--accent); color: #000; }
+  .sev-badge.info { background: var(--bg-4); color: var(--text-dim); }
+  .cat-badge {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-dim); text-transform: uppercase;
+  }
+  .finding-location {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--accent); margin-bottom: var(--s-2);
+  }
+  .finding-desc { font-size: 13px; line-height: 1.5; margin-bottom: var(--s-3); }
+  .finding-suggestion {
+    font-size: 12px; color: var(--accent);
+    padding: var(--s-3); background: var(--bg-2);
+    font-family: var(--font-mono); white-space: pre-wrap;
+  }
+
+  .strength-item {
+    display: flex; align-items: center; gap: var(--s-2);
+    padding: var(--s-2) 0; font-size: 13px;
+  }
+  .strength-item::before {
+    content: '\2713'; color: var(--accent); font-weight: 700;
+    font-size: 16px;
+  }
+
+  .analyze-loading {
+    display: flex; align-items: center; justify-content: center;
+    padding: var(--s-8); flex-direction: column; gap: var(--s-4);
+  }
+  .analyze-loading .spinner {
+    width: 48px; height: 48px; border: 3px solid var(--line);
+    border-top: 3px solid var(--accent); border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .agent-status {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-3);
+    margin-bottom: var(--s-4);
+  }
+  .agent-card {
+    padding: var(--s-3); background: var(--bg-3);
+    text-align: center; font-family: var(--font-mono); font-size: 11px;
+  }
+  .agent-card .icon { font-size: 24px; margin-bottom: var(--s-2); }
+  .agent-card.running { border-bottom: 2px solid var(--accent-4); }
+  .agent-card.done { border-bottom: 2px solid var(--accent); }
+  .agent-card.error { border-bottom: 2px solid var(--accent-2); }
+</style>
+</head>
+<body>
+<div id="app-content">
+
+<div class="page-head">
+  <span class="eyebrow">AI Engine · Multi-Agent Analysis</span>
+  <h1 style="margin-top: var(--s-3);">Analyze your matching engine.</h1>
+  <p class="lede">
+    Three specialized AI agents review your code simultaneously:
+    <strong>Security</strong> (escape vectors, memory safety),
+    <strong>Performance</strong> (O(n) scans, lock contention, allocations), and
+    <strong>Correctness</strong> (price-time priority, fill semantics).
+    Powered by Gemini.
+  </p>
+</div>
+
+<div class="split bias-1-2">
+  <!-- Left: source input -->
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>Source code</h3></div>
+      <div class="panel-body">
+        <div class="field">
+          <label>// select a previous submission or paste code</label>
+          <select class="select mono" id="sub-select">
+            <option value="">Paste code below</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>// source code to analyze</label>
+          <textarea class="textarea" id="source-input" rows="18"
+            placeholder="// paste your matching engine source code here..."></textarea>
+        </div>
+        <button class="btn btn-primary" id="analyze-btn">Analyze with AI agents</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: results -->
+  <div>
+    <!-- Agent status cards -->
+    <div class="agent-status" id="agent-status">
+      <div class="agent-card" id="agent-security">
+        <div class="icon">&#x1f6e1;</div>
+        <div>Security Agent</div>
+        <div class="dim" style="margin-top: 4px;">idle</div>
+      </div>
+      <div class="agent-card" id="agent-performance">
+        <div class="icon">&#x26a1;</div>
+        <div>Performance Agent</div>
+        <div class="dim" style="margin-top: 4px;">idle</div>
+      </div>
+      <div class="agent-card" id="agent-correctness">
+        <div class="icon">&#x2696;</div>
+        <div>Correctness Agent</div>
+        <div class="dim" style="margin-top: 4px;">idle</div>
+      </div>
+    </div>
+
+    <!-- Results container -->
+    <div id="results" style="display: none;">
+      <!-- Risk gauge + summary -->
+      <div class="panel">
+        <div class="panel-head"><h3>Analysis Report</h3></div>
+        <div class="panel-body">
+          <div style="display: flex; gap: var(--s-5); align-items: center;">
+            <div class="risk-gauge" id="risk-gauge">
+              <div class="risk-inner">
+                <div class="score" id="risk-score">0</div>
+                <div class="label">risk</div>
+              </div>
+            </div>
+            <div style="flex: 1;">
+              <p id="summary-text" style="font-size: 13px; line-height: 1.6;"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Strengths -->
+      <div class="panel" id="strengths-panel" style="margin-top: var(--s-4);">
+        <div class="panel-head"><h3>Strengths</h3></div>
+        <div class="panel-body" id="strengths-list"></div>
+      </div>
+
+      <!-- Recommendations -->
+      <div class="panel" id="recs-panel" style="margin-top: var(--s-4);">
+        <div class="panel-head"><h3>Top Recommendations</h3></div>
+        <div class="panel-body" id="recs-list"></div>
+      </div>
+
+      <!-- Findings -->
+      <div class="panel" style="margin-top: var(--s-4);">
+        <div class="panel-head">
+          <h3>Detailed Findings</h3>
+          <div class="actions">
+            <select class="select mono" id="filter-category" style="font-size: 11px;">
+              <option value="all">all categories</option>
+              <option value="security">security</option>
+              <option value="performance">performance</option>
+              <option value="correctness">correctness</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-body" id="findings-list"></div>
+      </div>
+    </div>
+
+    <!-- Loading state -->
+    <div class="analyze-loading" id="loading" style="display: none;">
+      <div class="spinner"></div>
+      <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);" id="loading-text">
+        Running analysis pipeline...
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#app-content -->
+
+<script src="assets/store.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/layout.js"></script>
+<script>
+Layout.render({
+  active: 'analyze',
+  crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'AI Analysis' }],
+});
+
+const el = id => document.getElementById(id);
+let currentReport = null;
+
+// Populate submission dropdown from localStorage
+const subs = Store.get('submissions', []).filter(s => s.source);
+subs.forEach(s => {
+  const opt = document.createElement('option');
+  opt.value = s.id;
+  opt.textContent = `${s.name} (${s.lang})`;
+  el('sub-select').appendChild(opt);
+});
+
+el('sub-select').onchange = () => {
+  const id = el('sub-select').value;
+  if (!id) return;
+  const sub = subs.find(s => s.id === id);
+  if (sub && sub.source) el('source-input').value = sub.source;
+};
+
+// Agent status animation
+function setAgentStatus(agent, status, detail) {
+  const card = el('agent-' + agent);
+  card.className = 'agent-card ' + status;
+  card.querySelector('.dim').textContent = detail || status;
+}
+
+// Main analyze handler
+el('analyze-btn').onclick = async () => {
+  const source = el('source-input').value.trim();
+  if (source.length < 10) {
+    toast('paste source code first (minimum 10 characters)', 'error');
+    return;
+  }
+
+  // Show loading state
+  el('results').style.display = 'none';
+  el('loading').style.display = 'flex';
+  el('analyze-btn').disabled = true;
+  el('analyze-btn').textContent = 'Analyzing...';
+
+  setAgentStatus('security', 'running', 'scanning...');
+  setAgentStatus('performance', 'running', 'scanning...');
+  setAgentStatus('correctness', 'running', 'scanning...');
+
+  try {
+    const resp = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceCode: source }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      throw new Error(err.error || 'analysis failed');
+    }
+
+    currentReport = await resp.json();
+    renderReport(currentReport);
+
+    // Update agent statuses
+    const secCount = currentReport.findings.filter(f => f.category === 'security').length;
+    const perfCount = currentReport.findings.filter(f => f.category === 'performance').length;
+    const corrCount = currentReport.findings.filter(f => f.category === 'correctness').length;
+
+    setAgentStatus('security', secCount > 0 ? 'error' : 'done',
+      secCount > 0 ? `${secCount} issues` : 'clean');
+    setAgentStatus('performance', perfCount > 0 ? 'error' : 'done',
+      perfCount > 0 ? `${perfCount} issues` : 'clean');
+    setAgentStatus('correctness', corrCount > 0 ? 'error' : 'done',
+      corrCount > 0 ? `${corrCount} issues` : 'clean');
+
+  } catch (err) {
+    toast('Analysis failed: ' + err.message, 'error');
+    setAgentStatus('security', 'error', 'failed');
+    setAgentStatus('performance', 'error', 'failed');
+    setAgentStatus('correctness', 'error', 'failed');
+  } finally {
+    el('loading').style.display = 'none';
+    el('analyze-btn').disabled = false;
+    el('analyze-btn').textContent = 'Analyze with AI agents';
+  }
+};
+
+// Render the full analysis report
+function renderReport(report) {
+  el('results').style.display = 'block';
+
+  // Risk gauge
+  const score = report.riskScore || 0;
+  const level = score > 70 ? 'critical' : score > 40 ? 'high' : score > 20 ? 'moderate' : 'low';
+  const gauge = el('risk-gauge');
+  gauge.className = 'risk-gauge risk-' + level;
+  gauge.style.setProperty('--pct', score);
+  el('risk-score').textContent = score;
+
+  // Summary
+  el('summary-text').textContent = report.summary || 'Analysis complete.';
+
+  // Strengths
+  const strengthsHtml = (report.strengths || []).map(s =>
+    `<div class="strength-item">${escapeHTML(s)}</div>`
+  ).join('');
+  el('strengths-list').innerHTML = strengthsHtml || '<div class="dim">No specific strengths noted.</div>';
+
+  // Recommendations
+  const recsHtml = (report.recommendations || []).map((r, i) =>
+    `<div style="display: flex; gap: var(--s-3); padding: var(--s-3) 0; border-bottom: 1px solid var(--line-soft);">
+      <span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent); min-width: 24px;">${String(i+1).padStart(2,'0')}</span>
+      <span style="font-size: 13px;">${escapeHTML(r)}</span>
+    </div>`
+  ).join('');
+  el('recs-list').innerHTML = recsHtml || '<div class="dim">No recommendations.</div>';
+
+  // Findings
+  renderFindings(report.findings || [], 'all');
+}
+
+// Render filtered findings list
+function renderFindings(findings, category) {
+  const filtered = category === 'all' ? findings : findings.filter(f => f.category === category);
+  if (filtered.length === 0) {
+    el('findings-list').innerHTML = '<div style="padding: var(--s-5); text-align: center; color: var(--text-dim);">No findings in this category.</div>';
+    return;
+  }
+
+  el('findings-list').innerHTML = filtered.map(f => `
+    <div class="finding ${f.severity}">
+      <div class="finding-header">
+        <span class="sev-badge ${f.severity}">${f.severity}</span>
+        <span class="cat-badge">${f.category}</span>
+      </div>
+      ${f.location ? `<div class="finding-location">${escapeHTML(f.location)}</div>` : ''}
+      <div class="finding-desc">${escapeHTML(f.description)}</div>
+      ${f.suggestion ? `<div class="finding-suggestion">${escapeHTML(f.suggestion)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// Category filter
+el('filter-category').onchange = () => {
+  if (currentReport) {
+    renderFindings(currentReport.findings || [], el('filter-category').value);
+  }
+};
+</script>
+</body>
+</html>

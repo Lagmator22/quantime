@@ -25,8 +25,9 @@ That brings up:
 |---|---|---|
 | Caddy (frontend + reverse proxy) | 8080 | Open this in a browser |
 | Gateway (HTTP/WS API) | internal | `/api/*`, `/ws/*` |
+| AI Analyzer | internal | Multi-agent code analysis via Gemini |
 | Bot fleet | internal | Load generator (scale with `--scale botfleet=N`) |
-| Telemetry ingester | internal | NATS → TimescaleDB |
+| Telemetry ingester | internal | NATS -> TimescaleDB |
 | TimescaleDB | 5432 | Time-series DB |
 | Redis | 6379 | Hot state |
 | NATS | 4222 | Message bus |
@@ -62,7 +63,13 @@ wscat -c ws://localhost:8080/ws/runs/run_yyy
 # 6. After 30s, see the leaderboard
 curl http://localhost:8080/api/leaderboard | jq .
 
-# 7. Scale the bot fleet horizontally
+# 7. AI code analysis (requires GEMINI_API_KEY in .env)
+curl -H "Content-Type: application/json" -X POST \
+     -d '{"sourceCode":"package main\nfunc submit(o Order) {}"}' \
+     http://localhost:8080/api/analyze | jq .
+# -> {"riskScore":45,"findings":[...],"recommendations":[...]}
+
+# 8. Scale the bot fleet horizontally
 docker compose up -d --scale botfleet=4
 ```
 
@@ -158,6 +165,7 @@ iicpc-platform/
 ├── LIMITATIONS.md           — what's not built and why
 ├── docker-compose.yml       — one-command local stack
 ├── Caddyfile                — edge / reverse proxy
+├── .env.example             — env config (copy to .env)
 ├── sql/init.sql             — TimescaleDB schema + hypertable + cagg
 ├── frontend/                — static UI (HTML/CSS/JS, design bundle)
 │   ├── index.html           — public landing
@@ -166,6 +174,7 @@ iicpc-platform/
 │       ├── submit.html
 │       ├── run.html
 │       ├── correctness.html
+│       ├── analyze.html     — AI code analysis page (NEW)
 │       ├── leaderboard.html
 │       ├── judge.html
 │       ├── architecture.html
@@ -180,25 +189,29 @@ iicpc-platform/
 │   │       ├── cache/       — Redis pubsub + ZSET
 │   │       ├── bus/         — NATS / JetStream
 │   │       └── sandbox/     — docker build + run with strict flags
+│   ├── ai-analyzer/         — Go: Multi-agent code review via Gemini (NEW)
+│   │   ├── cmd/main.go      — HTTP API for /api/analyze, /api/report
+│   │   └── internal/
+│   │       ├── agents/      — security, performance, correctness agents + synthesizer
+│   │       ├── gemini/      — raw HTTP Gemini API client (no SDK)
+│   │       └── report/      — post-run performance report generator
 │   ├── botfleet/            — Go: goroutine-per-bot, fasthttp client
 │   │   ├── cmd/main.go
 │   │   └── internal/bot/    — bot loop + xoshiro256** RNG
-│   └── telemetry/           — Go: NATS → batched COPY → TimescaleDB
+│   └── telemetry/           — Go: NATS → batched COPY → TimescaleDB + Redis ZADD
 │       └── cmd/main.go
+├── tests/                   — standalone unit tests (27 tests)
+│   ├── sandbox_test.go      — archive extraction, path traversal, Dockerfile validation
+│   ├── scoring_test.go      — composite score math, edge cases
+│   └── agent_test.go        — risk scoring, recommendation dedup, strengths
 ├── examples/
 │   └── sample-engine-go/    — reference matching engine (the "submission")
 │       ├── Dockerfile
 │       └── main.go
+├── .github/workflows/ci.yml — CI pipeline: build + vet + test + docker
 ├── terraform/               — single-EC2 AWS deploy
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── cloud-init.yaml
 ├── k8s/                     — production Kubernetes manifests
-│   ├── namespace.yaml       — namespace + ResourceQuota + NetworkPolicy
-│   ├── datastores.yaml      — TimescaleDB + Redis + NATS StatefulSets
-│   ├── services.yaml        — gateway + botfleet + telemetry Deployments + HPAs
-│   └── ingress.yaml         — Caddy + Ingress
+├── deploy/digitalocean/     — doctl + cloud-init deploy
 ├── scripts/
 │   └── demo.sh              — end-to-end demo script
 └── docs/                    — additional diagrams (if any)
@@ -228,4 +241,34 @@ go test ./...
 go run ./cmd
 ```
 
+Run unit tests (no external deps needed):
+
+```bash
+cd tests
+go test -v -count=1 -race ./...
+# 27 tests: sandbox extraction, scoring math, agent risk scoring
+```
+
 Run the full stack via `docker compose up --build` and iterate. Hot-reload isn't wired (`reflex` or `air` would do it); for now `docker compose up --build gateway` rebuilds just that service.
+
+### AI Analysis Setup
+
+```bash
+# 1. Get a Gemini API key from https://aistudio.google.com/app/apikey
+# 2. Add it to your .env file
+cp .env.example .env
+echo "GEMINI_API_KEY=your-key-here" >> .env
+
+# 3. Rebuild and start
+docker compose up --build ai-analyzer
+```
+
+---
+
+## Test Coverage
+
+| Test File | Tests | What it verifies |
+|---|---|---|
+| `sandbox_test.go` | 6 | tar.gz/zip extraction, Dockerfile validation, path traversal protection |
+| `scoring_test.go` | 13 | Composite scoring formula, edge cases (zero, negative, overflow) |
+| `agent_test.go` | 8 | Risk score computation, recommendation dedup, strength detection |

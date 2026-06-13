@@ -7,7 +7,15 @@
 :80 {
     encode gzip zstd
 
-    # API + WebSocket → gateway
+    # AI analysis endpoints route to ai-analyzer service
+    handle /api/analyze {
+        reverse_proxy ai-analyzer:7080
+    }
+    handle /api/report {
+        reverse_proxy ai-analyzer:7080
+    }
+
+    # All other API + WebSocket routes go to gateway
     handle /api/* {
         reverse_proxy gateway:7070
     }

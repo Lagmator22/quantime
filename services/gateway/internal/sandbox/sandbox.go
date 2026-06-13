@@ -17,10 +17,16 @@
 package sandbox
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -180,14 +186,144 @@ func (s *Sandbox) waitHealthy(ctx context.Context, name string, max time.Duratio
 	}
 }
 
-// SaveSource stashes the uploaded archive under submissions/<id>/ and
-// returns the path. The directory is what `Build` consumes.
+// SaveSource unpacks the uploaded archive into submissions/<id>/ and
+// validates a Dockerfile exists at the root. Supports tar.gz, tar, and zip.
+// Returns the directory path for Build to consume.
 func (s *Sandbox) SaveSource(submissionID string, archive []byte) (string, error) {
 	dir := filepath.Join(s.submissionsDir, submissionID)
-	// File writes intentionally omitted for brevity in this snippet —
-	// the production version unpacks zip/tar archives and validates
-	// that they contain a Dockerfile at the root before returning.
+
+	// Clean any previous attempt for idempotent re-uploads
+	_ = os.RemoveAll(dir)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("mkdir %s: %w", dir, err)
+	}
+
+	// Detect format by magic bytes, then extract
+	var extractErr error
+	switch {
+	case len(archive) >= 2 && archive[0] == 0x1f && archive[1] == 0x8b:
+		// gzip magic header: treat as tar.gz
+		extractErr = extractTarGz(archive, dir)
+	case len(archive) >= 4 && string(archive[:4]) == "PK\x03\x04":
+		// zip magic header
+		extractErr = extractZip(archive, dir)
+	default:
+		// Try plain tar as fallback
+		extractErr = extractTar(archive, dir)
+	}
+	if extractErr != nil {
+		_ = os.RemoveAll(dir)
+		return "", fmt.Errorf("extract archive: %w", extractErr)
+	}
+
+	// Validate Dockerfile exists at the root of the extracted directory
+	if _, err := os.Stat(filepath.Join(dir, "Dockerfile")); os.IsNotExist(err) {
+		_ = os.RemoveAll(dir)
+		return "", fmt.Errorf("archive must contain a Dockerfile at the root")
+	}
+
+	log.Printf("[sandbox] saved source for %s (%d bytes)", submissionID, len(archive))
 	return dir, nil
+}
+
+// extractTarGz decompresses gzip, then extracts tar entries into dst.
+func extractTarGz(data []byte, dst string) error {
+	gz, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("gzip open: %w", err)
+	}
+	defer gz.Close()
+	return extractTarReader(tar.NewReader(gz), dst)
+}
+
+// extractTar extracts a plain tar archive into dst.
+func extractTar(data []byte, dst string) error {
+	return extractTarReader(tar.NewReader(bytes.NewReader(data)), dst)
+}
+
+// extractTarReader walks tar entries and writes files/directories to dst.
+// Enforces path safety: rejects entries with ".." or absolute paths.
+func extractTarReader(tr *tar.Reader, dst string) error {
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		// Path traversal protection
+		clean := filepath.Clean(hdr.Name)
+		if strings.Contains(clean, "..") || filepath.IsAbs(clean) {
+			continue
+		}
+		target := filepath.Join(dst, clean)
+
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return err
+			}
+			// Cap file size at 64MB to prevent zip bomb attacks
+			f, err := os.Create(target)
+			if err != nil {
+				return err
+			}
+			_, copyErr := io.Copy(f, io.LimitReader(tr, 64<<20))
+			f.Close()
+			if copyErr != nil {
+				return copyErr
+			}
+		}
+	}
+}
+
+// extractZip extracts a zip archive into dst.
+// Enforces path safety and a 64MB per-file limit.
+func extractZip(data []byte, dst string) error {
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return fmt.Errorf("zip open: %w", err)
+	}
+	for _, f := range r.File {
+		clean := filepath.Clean(f.Name)
+		if strings.Contains(clean, "..") || filepath.IsAbs(clean) {
+			continue
+		}
+		target := filepath.Join(dst, clean)
+
+		if f.FileInfo().IsDir() {
+			if err := os.MkdirAll(target, 0755); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+			return err
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		out, err := os.Create(target)
+		if err != nil {
+			rc.Close()
+			return err
+		}
+		_, copyErr := io.Copy(out, io.LimitReader(rc, 64<<20))
+		out.Close()
+		rc.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+	}
+	return nil
 }
 
 func shortHash(h string) string {

@@ -83,9 +83,23 @@ services:
     environment:
       - DATABASE_URL=postgres://iicpc:iicpc@timescale:5432/iicpc?sslmode=disable
       - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis://redis:6379
     depends_on:
       timescale: { condition: service_healthy }
       nats:      { condition: service_started }
+      redis:     { condition: service_started }
+    networks: [iicpc-net]
+
+  ai-analyzer:
+    build:
+      context: ./services/ai-analyzer
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - PORT=7080
+    expose: ["7080"]
     networks: [iicpc-net]
 
   timescale:
@@ -149,4 +163,8 @@ volumes:
 
 networks:
   iicpc-net:
+    # Pin an explicit name (otherwise Compose prefixes it as
+    # "<project>_iicpc-net"). The gateway spawns contestant sandboxes with
+    # `docker run --network iicpc-net`, so the real network name must match.
+    name: iicpc-net
     driver: bridge
