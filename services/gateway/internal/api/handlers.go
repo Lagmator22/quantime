@@ -36,6 +36,8 @@ type submissionCreateResp struct {
 	Status string `json:"status"`
 }
 
+var buildSem = make(chan struct{}, 4)
+
 func (d *Deps) createSubmission(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := withTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -106,7 +108,10 @@ func (d *Deps) buildAndDeploy(subID, hash string, archive []byte) {
 	// Kick off AI analysis in background
 	go triggerAIAnalyzer(context.Background(), d, subID, srcDir)
 
+	buildSem <- struct{}{}
 	tag, err := d.Sandbox.Build(ctx, subID, hash, srcDir)
+	<-buildSem
+
 	if err != nil {
 		log.Printf("[gateway] build %s: %v", subID, err)
 		_ = d.DB.UpdateSubmissionStatus(ctx, subID, "failed", "", "")
@@ -146,6 +151,7 @@ func triggerAIAnalyzer(ctx context.Context, d *Deps, subID, srcDir string) {
 	}
 
 	var buf bytes.Buffer
+	var bytesRead int64
 	_ = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
@@ -154,6 +160,10 @@ func triggerAIAnalyzer(ctx context.Context, d *Deps, subID, srcDir string) {
 		if ext == ".go" || ext == ".rs" || ext == ".py" || ext == ".cpp" || ext == ".c" || ext == ".h" || ext == ".hpp" || ext == ".ts" || ext == ".js" {
 			data, err := os.ReadFile(path)
 			if err == nil {
+				if bytesRead+int64(len(data)) > 1024*1024 {
+					return filepath.SkipAll
+				}
+				bytesRead += int64(len(data))
 				rel, _ := filepath.Rel(srcDir, path)
 				buf.WriteString(fmt.Sprintf("// File: %s\n%s\n\n", rel, string(data)))
 			}
@@ -172,7 +182,8 @@ func triggerAIAnalyzer(ctx context.Context, d *Deps, subID, srcDir string) {
 		"language":     sub.Lang,
 	})
 
-	resp, err := http.Post("http://ai-analyzer:7080/api/analyze", "application/json", bytes.NewReader(reqBody))
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Post("http://ai-analyzer:7080/api/analyze", "application/json", bytes.NewReader(reqBody))
 	if err != nil {
 		log.Printf("[gateway] ai-analyzer error: %v", err)
 		return
@@ -258,8 +269,18 @@ func (d *Deps) startRun(w http.ResponseWriter, r *http.Request) {
 	if req.Profile == "" {
 		req.Profile = "sustained"
 	}
-	if req.DurationSec <= 0 || req.DurationSec > 600 {
+	if req.DurationSec <= 0 || req.DurationSec > 300 {
+		req.DurationSec = 30 // Default 30s, max 300s
+	}
+	if req.BotsPerFleet <= 0 {
+		req.BotsPerFleet = 50 // Default
+	} else if req.BotsPerFleet > 100 {
+		req.BotsPerFleet = 100 // Hard cap at 100 to prevent host exhaustion
+	}
+	if req.DurationSec <= 0 {
 		req.DurationSec = 30
+	} else if req.DurationSec > 300 {
+		req.DurationSec = 300 // Max 5 minutes
 	}
 	sub, err := d.DB.GetSubmission(ctx, req.SubmissionID)
 	if err != nil || sub == nil {

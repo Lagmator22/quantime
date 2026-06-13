@@ -114,7 +114,7 @@ func main() {
 				mu.Unlock()
 				return // already running on this replica
 			}
-			runCtx, runCancel := context.WithTimeout(ctx, time.Duration(c.DurationSec+5)*time.Second)
+			runCtx, runCancel := context.WithTimeout(ctx, time.Duration(c.DurationSec)*time.Second)
 			supervisors[c.RunID] = runCancel
 			mu.Unlock()
 
@@ -202,15 +202,18 @@ func runFleet(ctx context.Context, nc *nats.Conn, c startCmd, bots, replicaIdx i
 	log.Printf("[botfleet] run=%s done in %v", c.RunID, time.Since(start))
 
 	// Publish a summary message so the telemetry ingester can finalize
-	// the run row and update the leaderboard.
-	summary, _ := json.Marshal(map[string]any{
-		"type":     "summary",
-		"runId":    c.RunID,
-		"bots":     bots,
-		"duration": time.Since(start).Milliseconds(),
-		"endedAt":  time.Now().UnixMilli(),
-	})
-	_ = nc.Publish("runs."+c.RunID+".summary", summary)
+	// the run row and update the leaderboard. We only do this from
+	// replica 0 to prevent N duplicated metrics rows when scaling out.
+	if replicaIdx == 0 {
+		summary, _ := json.Marshal(map[string]any{
+			"type":     "summary",
+			"runId":    c.RunID,
+			"bots":     bots,
+			"duration": time.Since(start).Milliseconds(),
+			"endedAt":  time.Now().UnixMilli(),
+		})
+		_ = nc.Publish("runs."+c.RunID+".summary", summary)
+	}
 }
 
 func envOr(k, d string) string {

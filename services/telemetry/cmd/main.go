@@ -338,6 +338,10 @@ func encodeType(t string) int16 {
 // and updates the runs row. We pull the 1-second continuous aggregate
 // view so this query stays cheap regardless of run length.
 func finalizeRun(ctx context.Context, pool *pgxpool.Pool, rdb *redis.Client, s summary) {
+	// Give the 250ms buffered telemetry flusher time to write the last batch
+	// of records to PostgreSQL before we aggregate the percentiles.
+	time.Sleep(500 * time.Millisecond)
+
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 

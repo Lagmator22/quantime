@@ -51,7 +51,7 @@ func New(dockerHost, submissionsDir string) (*Sandbox, error) {
 	return &Sandbox{
 		dockerHost:     dockerHost,
 		submissionsDir: submissionsDir,
-		network:        "iicpc-net",
+		network:        "iicpc-sandbox-net",
 		memoryMB:       256,
 		cpus:           "1.0",
 		pidsLimit:      128,
@@ -243,7 +243,11 @@ func extractTar(data []byte, dst string) error {
 
 // extractTarReader walks tar entries and writes files/directories to dst.
 // Enforces path safety: rejects entries with ".." or absolute paths.
+// Limits total extracted size to 256MB and 5000 files to prevent tar bombs.
 func extractTarReader(tr *tar.Reader, dst string) error {
+	var totalBytes int64
+	var fileCount int
+
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -266,6 +270,10 @@ func extractTarReader(tr *tar.Reader, dst string) error {
 				return err
 			}
 		case tar.TypeReg:
+			fileCount++
+			if fileCount > 5000 {
+				return fmt.Errorf("archive contains too many files (max 5000)")
+			}
 			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 				return err
 			}
@@ -274,22 +282,33 @@ func extractTarReader(tr *tar.Reader, dst string) error {
 			if err != nil {
 				return err
 			}
-			_, copyErr := io.Copy(f, io.LimitReader(tr, 64<<20))
+			
+			// Copy with a limit to track total bytes safely
+			written, copyErr := io.Copy(f, io.LimitReader(tr, 64<<20))
 			f.Close()
 			if copyErr != nil {
 				return copyErr
+			}
+			
+			totalBytes += written
+			if totalBytes > 256<<20 {
+				return fmt.Errorf("archive extracted size exceeds 256MB limit")
 			}
 		}
 	}
 }
 
 // extractZip extracts a zip archive into dst.
-// Enforces path safety and a 64MB per-file limit.
+// Enforces path safety, a 64MB per-file limit, and a 256MB/5000 file total limit.
 func extractZip(data []byte, dst string) error {
 	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return fmt.Errorf("zip open: %w", err)
 	}
+	
+	var totalBytes int64
+	var fileCount int
+
 	for _, f := range r.File {
 		clean := filepath.Clean(f.Name)
 		if strings.Contains(clean, "..") || filepath.IsAbs(clean) {
@@ -307,6 +326,12 @@ func extractZip(data []byte, dst string) error {
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
 		}
+		
+		fileCount++
+		if fileCount > 5000 {
+			return fmt.Errorf("archive contains too many files (max 5000)")
+		}
+
 		rc, err := f.Open()
 		if err != nil {
 			return err
@@ -316,11 +341,17 @@ func extractZip(data []byte, dst string) error {
 			rc.Close()
 			return err
 		}
-		_, copyErr := io.Copy(out, io.LimitReader(rc, 64<<20))
+		
+		written, copyErr := io.Copy(out, io.LimitReader(rc, 64<<20))
 		out.Close()
 		rc.Close()
 		if copyErr != nil {
 			return copyErr
+		}
+		
+		totalBytes += written
+		if totalBytes > 256<<20 {
+			return fmt.Errorf("archive extracted size exceeds 256MB limit")
 		}
 	}
 	return nil
