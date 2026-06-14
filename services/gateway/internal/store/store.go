@@ -129,6 +129,13 @@ type Run struct {
 	RawLog       string
 }
 
+func (d *DB) GetBestSubmissionCode(ctx context.Context, teamID string) (string, error) {
+	var code string
+	q := `SELECT source_code FROM submissions WHERE team_id = $1 AND source_code IS NOT NULL ORDER BY created_at DESC LIMIT 1`
+	err := d.pool.QueryRow(ctx, q, teamID).Scan(&code)
+	return code, err
+}
+
 func (d *DB) InsertRun(ctx context.Context, r *Run) error {
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO runs (id, submission_id, team_id, profile, seed, status)
@@ -324,4 +331,92 @@ func (d *DB) GetTeamsMap(ctx context.Context, ids []string) (map[string]Team, er
 		}
 	}
 	return out, rows.Err()
+}
+
+// ── Admin / Judge Console Methods ─────────────────────────────────────
+
+type AdminTeamRow struct {
+	TeamID    string  `json:"teamId"`
+	Name      string  `json:"name"`
+	Region    string  `json:"region"`
+	BestScore float64 `json:"bestScore"`
+	Runs      int     `json:"runs"`
+	Status    string  `json:"status"`
+}
+
+func (d *DB) GetAllTeams(ctx context.Context) ([]AdminTeamRow, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT t.id, t.name, COALESCE(t.region,''), 
+		       COALESCE(MAX(r.score), 0) as best_score,
+		       COUNT(r.id) as run_count
+		FROM teams t
+		LEFT JOIN runs r ON r.team_id = t.id AND r.status = 'finished'
+		GROUP BY t.id, t.name, t.region
+		ORDER BY best_score DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []AdminTeamRow
+	for rows.Next() {
+		var r AdminTeamRow
+		if err := rows.Scan(&r.TeamID, &r.Name, &r.Region, &r.BestScore, &r.Runs); err != nil {
+			return nil, err
+		}
+		r.Status = "active"
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+type AdminRunRow struct {
+	RunID        string  `json:"runId"`
+	TeamID       string  `json:"teamId"`
+	TeamName     string  `json:"teamName"`
+	SubmissionID string  `json:"submissionId"`
+	P50          float64 `json:"p50"`
+	P99          float64 `json:"p99"`
+	TPS          float64 `json:"tps"`
+	ErrPct       float64 `json:"err"`
+	Score        float64 `json:"score"`
+	Status       string  `json:"status"`
+}
+
+func (d *DB) GetAllRuns(ctx context.Context, limit int) ([]AdminRunRow, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT r.id, r.team_id, t.name, r.submission_id,
+		       COALESCE((r.metrics->>'p50')::float, 0),
+		       COALESCE((r.metrics->>'p99')::float, 0),
+		       COALESCE((r.metrics->>'tps')::float, 0),
+		       COALESCE((r.metrics->>'err_pct')::float, 0),
+		       COALESCE(r.score, 0), r.status
+		FROM runs r
+		JOIN teams t ON t.id = r.team_id
+		ORDER BY r.started_at DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []AdminRunRow
+	for rows.Next() {
+		var r AdminRunRow
+		if err := rows.Scan(&r.RunID, &r.TeamID, &r.TeamName, &r.SubmissionID,
+			&r.P50, &r.P99, &r.TPS, &r.ErrPct, &r.Score, &r.Status); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+func (d *DB) ResetPlatform(ctx context.Context) error {
+	_, err := d.pool.Exec(ctx, `
+		TRUNCATE runs, submissions, analysis_reports CASCADE;
+	`)
+	return err
 }

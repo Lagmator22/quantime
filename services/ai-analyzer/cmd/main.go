@@ -53,6 +53,16 @@ func main() {
 		key := os.Getenv("GEMINI_API_KEY")
 		provider = llm.NewGeminiProvider(key, model)
 		log.Printf("[ai-analyzer] using gemini provider (model=%s)", model)
+	case "ollama":
+		baseURL := os.Getenv("OLLAMA_BASE_URL")
+		if baseURL == "" {
+			baseURL = "http://host.docker.internal:11434/v1/chat/completions"
+		}
+		if model == "" {
+			model = "llama3"
+		}
+		provider = llm.NewOpenAIProvider("", model, baseURL)
+		log.Printf("[ai-analyzer] using ollama provider (url=%s, model=%s)", baseURL, model)
 	case "local":
 		fallthrough
 	default:
@@ -75,14 +85,15 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", healthHandler)
 	mux.HandleFunc("POST /api/analyze", analyzeHandler(provider))
+	mux.HandleFunc("POST /api/analyze-leaderboard", analyzeLeaderboardHandler(provider))
 	mux.HandleFunc("POST /api/report", reportHandler(provider))
 
 	srv := &http.Server{
 		Addr:              ":" + port,
 		Handler:           withMiddleware(mux),
 		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      120 * time.Second, // AI calls can take up to 60s
-		IdleTimeout:       120 * time.Second,
+		WriteTimeout:      600 * time.Second, // Extended timeout for heavy AI inference
+		IdleTimeout:       600 * time.Second,
 	}
 
 	// Graceful shutdown
@@ -121,6 +132,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 type analyzeRequest struct {
 	RunID      string `json:"runId,omitempty"` // For testing reference
 	SourceCode string `json:"sourceCode"`
+	Logs       string `json:"logs,omitempty"`
 	Provider   string `json:"provider,omitempty"`
 	Model      string `json:"model,omitempty"`
 	APIKey     string `json:"apiKey,omitempty"`
@@ -130,7 +142,7 @@ type analyzeRequest struct {
 // analyzeHandler runs the multi-agent analysis pipeline on submitted code.
 func analyzeHandler(provider llm.Provider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), 600*time.Second)
 		defer cancel()
 
 		var req analyzeRequest
@@ -194,6 +206,14 @@ func analyzeHandler(provider llm.Provider) http.HandlerFunc {
 			case "gemini":
 				p = llm.NewGeminiProvider(req.APIKey, req.Model)
 				log.Printf("[ai-analyzer] using request-override provider: gemini (model=%s)", req.Model)
+			case "ollama":
+				baseURL := "http://host.docker.internal:11434/v1/chat/completions"
+				model := req.Model
+				if model == "" {
+					model = "llama3"
+				}
+				p = llm.NewOpenAIProvider("", model, baseURL)
+				log.Printf("[ai-analyzer] using request-override provider: ollama (model=%s)", model)
 			case "local":
 				baseURL := "http://local-llm:8000/v1/chat/completions"
 				model := req.Model
@@ -205,7 +225,8 @@ func analyzeHandler(provider llm.Provider) http.HandlerFunc {
 			}
 		}
 
-		analysisReport, err := agents.Analyze(ctx, p, sourceCode)
+		// Execute analysis with both source code and system runtime logs
+		analysisReport, err := agents.Analyze(ctx, p, sourceCode, req.Logs)
 		if err != nil {
 			log.Printf("[ai-analyzer] analysis error: %v", err)
 			httpErr(w, http.StatusInternalServerError, "analysis failed: "+err.Error())
@@ -214,6 +235,68 @@ func analyzeHandler(provider llm.Provider) http.HandlerFunc {
 
 		log.Printf("[ai-analyzer] analysis complete: %d findings, risk=%d", len(analysisReport.Findings), analysisReport.RiskScore)
 		writeJSON(w, http.StatusOK, analysisReport)
+	}
+}
+
+// analyzeLeaderboardRequest is the JSON body for POST /api/analyze-leaderboard.
+type analyzeLeaderboardRequest struct {
+	Runs     []agents.LeaderboardRun `json:"runs"`
+	Provider string                  `json:"provider,omitempty"`
+	Model    string                  `json:"model,omitempty"`
+	APIKey   string                  `json:"apiKey,omitempty"`
+}
+
+// analyzeLeaderboardHandler runs the meta-agent on the leaderboard state.
+func analyzeLeaderboardHandler(provider llm.Provider) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
+		defer cancel()
+
+		var req analyzeLeaderboardRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			httpErr(w, http.StatusBadRequest, "invalid json: "+err.Error())
+			return
+		}
+
+		if len(req.Runs) == 0 {
+			httpErr(w, http.StatusBadRequest, "runs array is empty")
+			return
+		}
+
+		p := provider
+		if req.Provider != "" {
+			switch req.Provider {
+			case "openai":
+				p = llm.NewOpenAIProvider(req.APIKey, req.Model, "")
+			case "claude":
+				p = llm.NewClaudeProvider(req.APIKey, req.Model)
+			case "gemini":
+				p = llm.NewGeminiProvider(req.APIKey, req.Model)
+			case "ollama":
+				baseURL := "http://host.docker.internal:11434/v1/chat/completions"
+				model := req.Model
+				if model == "" {
+					model = "llama3"
+				}
+				p = llm.NewOpenAIProvider("", model, baseURL)
+			case "local":
+				baseURL := "http://local-llm:8000/v1/chat/completions"
+				model := req.Model
+				if model == "" {
+					model = "Llama-3.2-3B-Instruct-INT4"
+				}
+				p = llm.NewOpenAIProvider("", model, baseURL)
+			}
+		}
+
+		report, err := agents.AnalyzeLeaderboard(ctx, p, req.Runs)
+		if err != nil {
+			log.Printf("[ai-analyzer] leaderboard analysis error: %v", err)
+			httpErr(w, http.StatusInternalServerError, "analysis failed: "+err.Error())
+			return
+		}
+
+		writeJSON(w, http.StatusOK, report)
 	}
 }
 

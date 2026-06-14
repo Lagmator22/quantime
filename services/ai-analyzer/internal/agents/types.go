@@ -4,6 +4,10 @@
 // The synthesizer combines all findings into a unified report.
 package agents
 
+import (
+	"github.com/iicpc/ai-analyzer/internal/llm"
+)
+
 // Finding represents a single issue found by an agent.
 type Finding struct {
 	Severity    string `json:"severity"`    // critical, high, medium, low, info
@@ -34,4 +38,41 @@ type PerformanceReport struct {
 		CorrectnessScore float64 `json:"correctnessScore"`
 		CompositeScore   float64 `json:"compositeScore"`
 	} `json:"scoreBreakdown"`
+}
+
+var FindingsSchema = &llm.Schema{
+	Type: "object",
+	Properties: map[string]llm.Schema{
+		"findings": {
+			Type: "array",
+			Items: &llm.Schema{
+				Type: "object",
+				Properties: map[string]llm.Schema{
+					"severity":    {Type: "string"},
+					"category":    {Type: "string"},
+					"location":    {Type: "string"},
+					"description": {Type: "string"},
+					"suggestion":  {Type: "string"},
+				},
+				Required: []string{"severity", "category", "location", "description", "suggestion"},
+			},
+		},
+	},
+	Required: []string{"findings"},
+}
+
+var SynthesizerSchema = &llm.Schema{
+	Type: "object",
+	Properties: map[string]llm.Schema{
+		"summary": {Type: "string"},
+		"strengths": {
+			Type: "array",
+			Items: &llm.Schema{Type: "string"},
+		},
+		"recommendations": {
+			Type: "array",
+			Items: &llm.Schema{Type: "string"},
+		},
+	},
+	Required: []string{"summary", "strengths", "recommendations"},
 }

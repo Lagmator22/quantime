@@ -26,7 +26,7 @@ func NewClaudeProvider(apiKey, model string) *ClaudeProvider {
 		model:   model,
 		baseURL: "https://api.anthropic.com/v1/messages",
 		http: &http.Client{
-			Timeout: 120 * time.Second,
+			Timeout: 500 * time.Second,
 		},
 	}
 }

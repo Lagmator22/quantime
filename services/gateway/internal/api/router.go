@@ -51,9 +51,16 @@ func NewRouter(d *Deps) http.Handler {
 
 	// Leaderboard
 	mux.HandleFunc("GET /api/leaderboard", d.getLeaderboard)
+	mux.HandleFunc("POST /api/leaderboard-summary", d.getLeaderboardSummary)
 
 	// Live telemetry stream
 	mux.HandleFunc("GET /ws/runs/{id}", d.streamRun)
+
+	// Judge Console / Admin
+	mux.HandleFunc("GET /api/judge/teams", d.getJudgeTeams)
+	mux.HandleFunc("GET /api/judge/runs", d.getJudgeRuns)
+	mux.HandleFunc("POST /api/judge/weights", d.updateWeights)
+	mux.HandleFunc("POST /api/judge/reset", d.resetPlatform)
 
 	return mux
 }

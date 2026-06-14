@@ -39,6 +39,18 @@ func (d *Deps) streamRun(w http.ResponseWriter, r *http.Request) {
 	pingTicker := time.NewTicker(20 * time.Second)
 	defer pingTicker.Stop()
 
+	// nhooyr.websocket requires a concurrent reader to process control frames (like PONGs).
+	// Without this, conn.Ping() will block and time out after 5s, killing the connection.
+	go func() {
+		for {
+			_, _, err := conn.Read(ctx)
+			if err != nil {
+				cancel()
+				return
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():

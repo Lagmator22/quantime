@@ -23,7 +23,7 @@ var severityWeight = map[string]int{
 
 // Analyze runs all three agents concurrently and synthesizes results.
 // Returns a complete AnalysisReport with risk score and recommendations.
-func Analyze(ctx context.Context, provider llm.Provider, sourceCode string) (*AnalysisReport, error) {
+func Analyze(ctx context.Context, provider llm.Provider, sourceCode string, logs string) (*AnalysisReport, error) {
 	var (
 		secFindings  []Finding
 		perfFindings []Finding
@@ -38,20 +38,20 @@ func Analyze(ctx context.Context, provider llm.Provider, sourceCode string) (*An
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		secFindings, secErr = RunSecurity(ctx, provider, sourceCode)
+		secFindings, secErr = RunSecurity(ctx, provider, sourceCode, logs)
 	}()
 	go func() {
 		defer wg.Done()
-		perfFindings, perfErr = RunPerformance(ctx, provider, sourceCode)
+		perfFindings, perfErr = RunPerformance(ctx, provider, sourceCode, logs)
 	}()
 	go func() {
 		defer wg.Done()
-		corrFindings, corrErr = RunCorrectness(ctx, provider, sourceCode)
+		corrFindings, corrErr = RunCorrectness(ctx, provider, sourceCode, logs)
 	}()
 	wg.Wait()
 
 	// Collect all findings, noting agent failures as info-level findings
-	var allFindings []Finding
+	allFindings := make([]Finding, 0)
 
 	if secErr != nil {
 		allFindings = append(allFindings, Finding{
@@ -115,6 +115,7 @@ func Analyze(ctx context.Context, provider llm.Provider, sourceCode string) (*An
 		},
 		GenerationConfig: &llm.GenerationConfig{
 			ResponseMimeType: "application/json",
+			ResponseSchema:   SynthesizerSchema,
 			Temperature:      0.2, // Low temp for factual synthesis
 			MaxOutputTokens:  1024,
 		},
@@ -142,6 +143,9 @@ func Analyze(ctx context.Context, provider llm.Provider, sourceCode string) (*An
 
 const synthesizerPrompt = `You are the lead engineer reviewing a matching engine.
 Below is a JSON array of findings from the security, performance, and correctness automated agents.
+
+Output Format: Valid parseable JSON with the exact fields provided below.
+IMPORTANT: You MUST respond with ONLY raw JSON. Do NOT include any markdown formatting, explanations, or conversational text. If the input data is missing or garbage, return a generic placeholder JSON object.
 
 Your job is to synthesize these findings into three fields:
 1. "summary": A single, concise, professional paragraph summarizing the overall quality and the most glaring issues.

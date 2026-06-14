@@ -34,19 +34,26 @@ For each finding, provide:
 
 Return your analysis as a JSON object with a "findings" array.
 If the code is clean, return an empty findings array.
-Be precise. Do not hallucinate issues that do not exist in the code.`
+Be precise. Do not hallucinate issues that do not exist in the code.
+IMPORTANT: You MUST respond with ONLY raw JSON. Do NOT include any markdown formatting, explanations, or conversational text. If the input source code is invalid, garbage, or missing, simply return an empty findings array.`
 
 // RunSecurity analyzes code for security vulnerabilities.
-func RunSecurity(ctx context.Context, provider llm.Provider, sourceCode string) ([]Finding, error) {
+func RunSecurity(ctx context.Context, provider llm.Provider, sourceCode string, logs string) ([]Finding, error) {
+	promptText := "Source Code:\n" + sourceCode
+	if logs != "" {
+		promptText += "\n\nRuntime Logs (from Sandbox Execution):\n" + logs
+	}
+
 	req := &llm.GenerateRequest{
 		SystemInstruct: &llm.Content{
 			Parts: []llm.Part{{Text: securityPrompt}},
 		},
 		Contents: []llm.Content{
-			{Role: "user", Parts: []llm.Part{{Text: sourceCode}}},
+			{Role: "user", Parts: []llm.Part{{Text: promptText}}},
 		},
 		GenerationConfig: &llm.GenerationConfig{
 			ResponseMimeType: "application/json",
+			ResponseSchema:   FindingsSchema,
 			Temperature:      0.1, // Low temp for precise analysis
 			MaxOutputTokens:  4096,
 		},

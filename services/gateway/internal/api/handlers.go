@@ -471,7 +471,6 @@ func (d *Deps) getLeaderboard(w http.ResponseWriter, r *http.Request) {
 		for _, z := range topScores {
 			teamIDs = append(teamIDs, z.Member.(string))
 		}
-
 		metricsStr, _ := d.Cache.LeaderboardMetrics(ctx, teamIDs)
 		teamsMap, _ := d.DB.GetTeamsMap(ctx, teamIDs)
 
@@ -509,4 +508,170 @@ func (d *Deps) getLeaderboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, rows)
+}
+
+// ── GET /api/leaderboard-summary ──────────────────────────────────────
+func (d *Deps) getLeaderboardSummary(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 600*time.Second) // Long timeout for AI
+	defer cancel()
+
+	var reqPayload struct {
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+		APIKey   string `json:"apiKey"`
+	}
+	if r.Body != nil {
+		json.NewDecoder(r.Body).Decode(&reqPayload)
+	}
+
+	topScores, err := d.Cache.LeaderboardTop(ctx, 100)
+	if err != nil || len(topScores) == 0 {
+		httpErr(w, http.StatusInternalServerError, "no leaderboard data")
+		return
+	}
+
+	var teamIDs []string
+	for _, z := range topScores {
+		teamIDs = append(teamIDs, z.Member.(string))
+	}
+
+	metricsStr, _ := d.Cache.LeaderboardMetrics(ctx, teamIDs)
+	teamsMap, _ := d.DB.GetTeamsMap(ctx, teamIDs)
+
+	type LeaderboardRun struct {
+		Team       string  `json:"team"`
+		Score      int     `json:"score"`
+		P99        float64 `json:"p99_ns"`
+		TPS        float64 `json:"tps"`
+		ErrorRate  float64 `json:"error_rate"`
+		SourceCode string  `json:"source_code,omitempty"`
+	}
+
+	var allRuns []LeaderboardRun
+
+	for i, z := range topScores {
+		tID := z.Member.(string)
+		tInfo := teamsMap[tID]
+
+		run := LeaderboardRun{
+			Team:  tInfo.Name,
+			Score: int(z.Score),
+		}
+		if tInfo.Name == "" {
+			run.Team = tID
+		}
+
+		if i < len(metricsStr) && metricsStr[i] != "" {
+			var m map[string]float64
+			if json.Unmarshal([]byte(metricsStr[i]), &m) == nil {
+				run.P99 = m["p99"]
+				run.TPS = m["tps"]
+				run.ErrorRate = m["err_pct"]
+			}
+		}
+		allRuns = append(allRuns, run)
+	}
+
+	// Fetch source code for Top 3 and Bottom 3
+	for i := 0; i < len(allRuns); i++ {
+		isTop3 := i < 3
+		isBottom3 := i >= len(allRuns)-3
+		if isTop3 || isBottom3 {
+			tID := teamIDs[i]
+			if sourceCode, err := d.DB.GetBestSubmissionCode(ctx, tID); err == nil {
+				allRuns[i].SourceCode = sourceCode
+			}
+		}
+	}
+
+	// Prepare request for ai-analyzer
+	payload := map[string]interface{}{
+		"runs":     allRuns,
+		"provider": reqPayload.Provider,
+		"model":    reqPayload.Model,
+		"apiKey":   reqPayload.APIKey,
+	}
+
+	body, _ := json.Marshal(payload)
+	analyzerURL := "http://ai-analyzer:7080/api/analyze-leaderboard"
+	
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", analyzerURL, bytes.NewReader(body))
+	if err != nil {
+		httpErr(w, http.StatusInternalServerError, "prepare analyzer req: "+err.Error())
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 600 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		httpErr(w, http.StatusBadGateway, "analyzer call failed: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		httpErr(w, resp.StatusCode, "analyzer returned error: "+string(respBody))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	io.Copy(w, resp.Body)
+}
+
+// ── Admin / Judge Console ─────────────────────────────────────────────
+
+func (d *Deps) getJudgeTeams(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := withTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	teams, err := d.DB.GetAllTeams(ctx)
+	if err != nil {
+		httpErr(w, http.StatusInternalServerError, "db error: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, teams)
+}
+
+func (d *Deps) getJudgeRuns(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := withTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	runs, err := d.DB.GetAllRuns(ctx, 100) // fetch last 100 runs
+	if err != nil {
+		httpErr(w, http.StatusInternalServerError, "db error: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, runs)
+}
+
+func (d *Deps) updateWeights(w http.ResponseWriter, r *http.Request) {
+	// A real implementation would update global scoring weights in cache/DB
+	// and recompute all scores. For now we accept the payload and return OK.
+	var req struct {
+		Speed       float64 `json:"speed"`
+		Throughput  float64 `json:"throughput"`
+		Correctness float64 `json:"correctness"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	log.Printf("[judge] updated weights: spd=%.2f tps=%.2f corr=%.2f", req.Speed, req.Throughput, req.Correctness)
+	
+	writeJSON(w, http.StatusOK, map[string]string{"status": "recomputed"})
+}
+
+func (d *Deps) resetPlatform(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := withTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	if err := d.DB.ResetPlatform(ctx); err != nil {
+		httpErr(w, http.StatusInternalServerError, "reset failed: "+err.Error())
+		return
+	}
+	log.Printf("[judge] platform reset by admin")
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

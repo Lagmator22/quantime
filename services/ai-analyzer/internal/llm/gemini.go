@@ -19,7 +19,7 @@ type GeminiProvider struct {
 
 func NewGeminiProvider(apiKey, model string) *GeminiProvider {
 	if model == "" {
-		model = "gemini-2.5-flash"
+		model = "gemini-3.5-flash"
 	}
 	// Native Gemini API URL
 	baseURL := "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent"
@@ -28,7 +28,7 @@ func NewGeminiProvider(apiKey, model string) *GeminiProvider {
 		model:   model,
 		baseURL: baseURL,
 		http: &http.Client{
-			Timeout: 120 * time.Second,
+			Timeout: 500 * time.Second,
 		},
 	}
 }

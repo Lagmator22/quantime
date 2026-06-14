@@ -46,3 +46,6 @@ uploads/
 
 # Inspector screenshots from the design bundle
 _inspect/
+test_decode.go
+test_json.go
+test_gemma_schema.py

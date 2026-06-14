@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     endpoint    TEXT,                 -- container hostname:port
     status      TEXT NOT NULL,        -- uploaded|built|deployed|failed|archived
     size_bytes  BIGINT,
+    source_code TEXT,                 -- optional: stored source for AI report (nullable)
     correctness JSONB,                -- {score, passed, total, ts}
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (team_id, hash)

@@ -30,7 +30,7 @@ func NewOpenAIProvider(apiKey, model, baseURL string) *OpenAIProvider {
 		model:   model,
 		baseURL: baseURL,
 		http: &http.Client{
-			Timeout: 120 * time.Second,
+			Timeout: 500 * time.Second,
 		},
 	}
 }
