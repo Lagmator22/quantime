@@ -52,10 +52,16 @@ The rubric lists FIX/REST/WebSocket order paths; we implement REST. A WS order c
 FIX session are roadmap (FIX is the bulk of the effort). Nothing in the pipeline breaks without
 them - it's a protocol-coverage gap.
 
-### 4. No closed-loop max-TPS discovery
+### 4. Open-loop rate control & breaking-point discovery — IMPLEMENTED
 
-We report sustained/observed TPS over the run window. A rate controller that ramps load until
-latency/error thresholds trip - to find the true *breaking point* - is roadmap.
+`targetRatePerBot` makes each bot fire at a fixed arrival rate (orders/sec) instead of
+closed-loop send→wait→sleep. Latency is then measured from each order's **scheduled** send time,
+so a backed-up engine is charged for the queueing delay it caused — the wrk2/HdrHistogram
+**coordinated-omission correction** that k6/Locust miss. Verified: at a 10k/s target the sample
+engine tracks it (9.9k/s, p99 38ms); push to 150k/s and the real ceiling (~26k/s) appears with p50
+exploding to 4.5s. Tail latency p99.9/p99.99/max is also reported now. *Remaining roadmap:* an
+automatic staircase profile that ramps the offered rate in steps and scores graceful degradation
+vs. fall-over (today you set the rate per run; the ramp is manual across runs).
 
 ### 5. Frontend portal pages are not yet wired to the backend
 

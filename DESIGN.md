@@ -414,8 +414,10 @@ We hold ourselves to the hackathon's "not a demo-to-win" bar, so we document gap
   identical seed ranges; for >1 replica we will partition the bot-id/seed space (StatefulSet
   ordinal or a NATS-KV lease) so the aggregate stream is N distinct bots, not N copies.
 - **Protocol coverage.** Bots speak REST/HTTP today; FIX and WebSocket order paths are roadmap.
-- **Max-TPS discovery.** We report sustained TPS; a closed-loop rate controller that ramps until
-  latency/error thresholds trip would measure the true breaking point.
+- **Max-TPS discovery — implemented.** `targetRatePerBot` drives open-loop load at a fixed arrival
+  rate with coordinated-omission-corrected latency (measured from the scheduled send time), plus
+  tail percentiles (p99.9/p99.99/max). Pushing past the engine's ceiling reveals the true breaking
+  point (e.g. ~26k/s, p50 → 4.5s). Remaining: an automatic staircase ramp + graceful-degradation score.
 - **Telemetry encoding.** One JSON message per order is simple but heavy at extreme scale;
   MessagePack/protobuf + coalesced publishes are the optimization path.
 - **k8s / Terraform.** Compose is the fully-verified path. The k8s manifests need published
