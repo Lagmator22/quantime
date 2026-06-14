@@ -250,9 +250,9 @@ docker compose up --build ai-analyzer
 
 Measured on a developer laptop (Apple Silicon, 16 GB) with `docker compose up`, 50 bots, ~20 s:
 
-- **480,480** telemetry rows ingested; **~24,000 orders/sec** (single host, one bot-fleet replica)
-- Order-ack latency **p50 0.25 ms / p99 35 ms**, **0 %** transport errors, composite score 58.8
-- Score written to Postgres `runs` + Redis leaderboard ZSET; **live metrics streamed over WebSocket**
-- Full **upload path** verified: tarball → build → isolated sibling container → run finished (337k rows, score 61.05)
+- **5 real engines benchmarked + oracle-verified + ranked**: Go, Python, C++, [timothewt's order book](https://github.com/timothewt/OrderBook), and **[Liquibook](https://github.com/objectcomputing/liquibook)** — the canonical 1.5k★ open-source matching engine (Object Computing). All speak `POST /submit`; Liquibook passes the correctness oracle 10/10.
+- **~24,000 orders/sec** on the fastest engine (Go, p99 35 ms); the C++ engines reveal that a 2M-ops/sec core (Liquibook) is capped to ~6.5k tps by its single-threaded HTTP layer — QuanTime measures the **real end-to-end** path, not just the matching core.
+- **Tail latency** (p50…p99.99/max), **open-loop breaking-point discovery**, **cross-version regression gate**, and **LOBSTER market-data replay** — all live in the Console.
+- Full **upload path** verified: tarball → build → isolated sibling container → correctness oracle → benchmark.
 
 See [DESIGN.md § 19](DESIGN.md) for the full methodology and the honest roadmap.

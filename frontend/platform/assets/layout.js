@@ -7,17 +7,14 @@
 ===================================================================== */
 (function () {
   const NAV = [
-    { group: 'Developer', items: [
-      // Submit / Run / Dashboard all route to the Console — the single
-      // backend-wired page that does upload + run + live results + history.
-      // (The standalone submit.html/run.html/dashboard.html are in-browser
-      // reference simulations and are kept off the main flow.)
+    { group: 'Benchmark', items: [
+      // The Console is the single backend-wired page (upload + pick engine +
+      // run + live results + history). The legacy submit.html/run.html are
+      // in-browser simulations, kept off the nav.
       { id: 'console',      label: 'Console',       icon: '▶', href: 'console.html' },
-      { id: 'submit',       label: 'Submit Code',   icon: '↑', href: 'console.html' },
-      { id: 'run',          label: 'Stress Runs',   icon: '⟁', href: 'console.html' },
+      { id: 'leaderboard',  label: 'Leaderboard',   icon: '#', href: 'leaderboard.html' },
       { id: 'correctness',  label: 'Correctness',   icon: '✓', href: 'correctness.html' },
       { id: 'analyze',      label: 'AI Analysis',   icon: '⊛', href: 'analyze.html' },
-      { id: 'leaderboard',  label: 'Leaderboard',   icon: '#', href: 'leaderboard.html' },
     ]},
     { group: 'Reference', items: [
       { id: 'architecture', label: 'Architecture',  icon: '▤', href: 'architecture.html' },
@@ -31,15 +28,6 @@
   function escape(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
   function renderSidebar(activeId) {
-    const team = Store.get('team', {});
-    const subs = Store.get('submissions', []);
-    const runs = Store.get('runs', []);
-    const counts = {
-      submit: subs.length || '',
-      run: runs.length || '',
-      leaderboard: '',
-    };
-
     const groupHTML = NAV.map(g => `
       <div class="sidebar-section">
         <div class="label">${g.group}</div>
@@ -47,7 +35,6 @@
           <a href="${item.href}" class="sidebar-link ${item.id === activeId ? 'active' : ''}">
             <span class="icon">${item.icon}</span>
             ${item.label}
-            ${counts[item.id] ? `<span class="badge">${counts[item.id]}</span>` : ''}
           </a>
         `).join('')}
       </div>
@@ -62,8 +49,8 @@
         </div>
         ${groupHTML}
         <div class="sidebar-foot">
-          <div>team · ${escape(team.name || '-')}</div>
-          <div style="margin-top:4px;">${(team.members || []).length} member(s)</div>
+          <div class="mono" style="font-size:11px;">QuanTime · open-source</div>
+          <div style="margin-top:4px; color:var(--text-mute);">benchmarking for trading engines</div>
           <a href="../index.html" style="display:block;margin-top:8px;color:var(--text-mute);">← public site</a>
         </div>
       </aside>

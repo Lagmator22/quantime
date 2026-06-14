@@ -63,7 +63,7 @@ h3.docs { font-size: 16px; font-weight: 500; margin: var(--s-6) 0 var(--s-3); fo
 <p class="docs-p">Your submission is a matching engine. The platform sends you orders; you respond with <code>acks</code> and <code>fills</code>. Lower latency, higher throughput, and lower error rate score higher. The platform measures both the wall-clock time of <code>submit()</code> and the correctness of fills under price-time priority.</p>
 
 <h2 class="docs" id="contract"><span class="num">02</span>The submit() contract</h2>
-<p class="docs-p">Same shape across every language. In browser-runtime mode your submission is a module exporting <code>submit(order) → {acks, fills}</code>. In production this becomes a network handler at <code>POST /v1/orders</code> with the same body shape.</p>
+<p class="docs-p">Same shape across every language. Your engine is a container exposing <code>POST /submit</code> that takes an order and returns <code>{acks, fills}</code> — see the Engine contract below.</p>
 
 <h3 class="docs">JavaScript template</h3>
 <div class="code"><span class="c">// orderbook.js: minimal valid JS submission</span>
@@ -184,8 +184,8 @@ env.now_ns()      -&gt; i64                 <span class="c">// monotonic clock</
   <span class="s">"id"</span>:    <span class="n">42</span>,            <span class="c">// monotonic uint64</span>
   <span class="s">"side"</span>:  <span class="s">"buy"</span> | <span class="s">"sell"</span>,
   <span class="s">"type"</span>:  <span class="s">"limit"</span> | <span class="s">"market"</span> | <span class="s">"cancel"</span>,
-  <span class="s">"price"</span>: <span class="n">3142.50</span>,       <span class="c">// ignored for market</span>
-  <span class="s">"qty"</span>:   <span class="n">5.0</span>,
+  <span class="s">"price"</span>: <span class="n">10000</span>,         <span class="c">// integer ticks (price×100); ignored for market</span>
+  <span class="s">"qty"</span>:   <span class="n">5</span>,
   <span class="s">"ts"</span>:    <span class="n">1735689600000000</span>, <span class="c">// µs since epoch</span>
   <span class="s">"targetId"</span>: <span class="n">17</span>            <span class="c">// only on cancel</span>
 }</div>
@@ -208,42 +208,33 @@ composite = <span class="n">0.40</span> × speedScore
           + <span class="n">0.20</span> × correctnessScore</div>
 <p class="docs-p">Weights are tunable by an operator (see the Judge Console). The platform recomputes scores using new weights when a re-score is triggered.</p>
 
-<h2 class="docs" id="rest"><span class="num">05</span>Production REST surface</h2>
-<p class="docs-p">When deployed to a real cluster, your sandbox exposes <code>:9999</code>:</p>
+<h2 class="docs" id="rest"><span class="num">05</span>Engine contract</h2>
+<p class="docs-p">Your engine is a container exposing <code>POST /submit</code> (port <code>9001</code> by convention) and <code>GET /healthz</code>. Prices are <strong>integer ticks</strong> (price × 100) — no floats in the matching path.</p>
 
-<h3 class="docs">POST /v1/orders</h3>
-<div class="code">$ curl -X POST https://&lt;sandbox&gt;.quantime.local:9999/v1/orders \
+<h3 class="docs">POST /submit</h3>
+<div class="code">$ curl -X POST http://&lt;engine&gt;:9001/submit \
   -H <span class="s">"Content-Type: application/json"</span> \
-  -d <span class="s">'{"id":1,"side":"buy","type":"limit","price":3142.50,"qty":5}'</span>
+  -d <span class="s">'{"id":1,"clientId":7,"side":"buy","type":"limit","price":10000,"qty":5}'</span>
 
 <span class="c">// 200 OK</span>
-{<span class="s">"acks"</span>:[{<span class="s">"id"</span>:<span class="n">1</span>,<span class="s">"status"</span>:<span class="s">"accepted"</span>,<span class="s">"filled"</span>:<span class="n">0</span>}],<span class="s">"fills"</span>:[]}</div>
+{<span class="s">"acks"</span>:[{<span class="s">"id"</span>:<span class="n">1</span>,<span class="s">"status"</span>:<span class="s">"filled"</span>,<span class="s">"filled"</span>:<span class="n">5</span>}],<span class="s">"fills"</span>:[...]}</div>
+<p class="docs-p"><code>type</code> ∈ limit · market · cancel (cancel targets a resting <code>targetId</code>). <code>side</code> ∈ buy · sell. <code>GET /healthz</code> returns <code>{"status":"ok"}</code>.</p>
 
-<h3 class="docs">GET /v1/snapshot</h3>
-<div class="code">{
-  <span class="s">"bids"</span>: [{<span class="s">"px"</span>:<span class="n">3142.25</span>,<span class="s">"sz"</span>:<span class="n">5.0</span>}, ...],
-  <span class="s">"asks"</span>: [{<span class="s">"px"</span>:<span class="n">3142.75</span>,<span class="s">"sz"</span>:<span class="n">3.5</span>}, ...],
-  <span class="s">"lastTrade"</span>: {<span class="s">"px"</span>:<span class="n">3142.50</span>,<span class="s">"qty"</span>:<span class="n">1.0</span>,<span class="s">"ts"</span>:<span class="n">...</span>}
-}</div>
+<h2 class="docs" id="ws"><span class="num">06</span>Live telemetry (platform WebSocket)</h2>
+<p class="docs-p">While a run is in flight the platform streams rolling metrics over a WebSocket — this is exactly what the Console dashboard consumes.</p>
+<div class="code">ws://&lt;host&gt;:8080/ws/runs/&lt;runId&gt;
 
-<h2 class="docs" id="ws"><span class="num">06</span>WebSocket (high-throughput)</h2>
-<p class="docs-p">For peak throughput, use the WS endpoint. One TCP connection, binary frames, no JSON overhead. Each frame is a 24-byte order header + payload.</p>
-<div class="code">ws://&lt;sandbox&gt;:9999/v1/stream
+<span class="c">// every 1s while running</span>
+{ <span class="s">"type"</span>:<span class="s">"metrics"</span>, <span class="s">"orders"</span>:<span class="n">..</span>, <span class="s">"tps"</span>:<span class="n">..</span>, <span class="s">"avgLatMs"</span>:<span class="n">..</span>, <span class="s">"errPct"</span>:<span class="n">..</span> }
+<span class="c">// on finish</span>
+{ <span class="s">"type"</span>:<span class="s">"final"</span>, <span class="s">"p50"</span>:<span class="n">..</span>,<span class="s">"p99"</span>:<span class="n">..</span>,<span class="s">"p99_9"</span>:<span class="n">..</span>,<span class="s">"p99_99"</span>:<span class="n">..</span>,<span class="s">"tps"</span>:<span class="n">..</span>,<span class="s">"score"</span>:<span class="n">..</span> }</div>
 
-<span class="c">// frame layout (little-endian)</span>
-[ <span class="n">u64</span> id ][ <span class="n">u8</span> side ][ <span class="n">u8</span> type ]
-[ <span class="n">f64</span> price ][ <span class="n">f64</span> qty ][ <span class="n">u64</span> ts ]
-
-<span class="c">// ack frame back</span>
-[ <span class="n">u64</span> id ][ <span class="n">u8</span> status ][ <span class="n">f64</span> filled ][ <span class="n">f64</span> remaining ]</div>
-
-<h2 class="docs" id="leaderboard-feed"><span class="num">07</span>Leaderboard feed</h2>
-<p class="docs-p">Subscribe to live rank deltas:</p>
-<div class="code">ws://leaderboard.quantime.local/v1/feed
-
-<span class="c">// message</span>
-{ <span class="s">"type"</span>: <span class="s">"rank"</span>, <span class="s">"team"</span>: <span class="s">"parity-bit"</span>, <span class="s">"rank"</span>: <span class="n">1</span>,
-  <span class="s">"score"</span>: <span class="n">184</span>, <span class="s">"p50"</span>: <span class="n">18</span>, <span class="s">"p99"</span>: <span class="n">142</span>, <span class="s">"tps"</span>: <span class="n">2410000</span> }</div>
+<h2 class="docs" id="leaderboard-feed"><span class="num">07</span>Run &amp; leaderboard REST</h2>
+<div class="code">GET  /api/leaderboard            <span class="c">// ranked teams: score, p50, p99, tps</span>
+POST /api/runs                   <span class="c">// {submissionId,profile,durationSec,botsPerFleet,targetRatePerBot}</span>
+GET  /api/runs/&lt;id&gt;               <span class="c">// status + composite score</span>
+POST /api/runs/&lt;id&gt;/baseline      <span class="c">// promote a regression baseline</span>
+GET  /api/runs/&lt;id&gt;/regression    <span class="c">// diff vs baseline → OK | REGRESSION</span></div>
 
 <h2 class="docs" id="limits"><span class="num">08</span>Sandbox limits</h2>
 <div class="code"><span class="k">cpu</span>:           <span class="n">2</span> vCPU (pinned, no oversubscription)
