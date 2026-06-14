@@ -51,7 +51,7 @@
   <h1 style="margin-top: var(--s-3);">Upload your matching engine.</h1>
   <p class="lede">
     Multi-language pipeline. Push <strong>JS</strong>, <strong>Python</strong>, or precompiled <strong>WebAssembly</strong> (.wasm from C++/Rust/Go/Zig); we hash it, boot an isolated runtime worker, and smoke-test the contract. Limits per submission:
-    <strong>2 vCPU · 512MB RAM · 60s build budget · 10MB file cap</strong>.
+    <strong>1 vCPU · 256MB RAM · 60s build budget · 10MB file cap</strong>.
   </p>
 </div>
 
@@ -422,7 +422,7 @@ async function simulatedBuildLogs(lang) {
     plog('info', 'pulling base image · golang:1.22'); await sleep(300);
     plog('info', 'go build -ldflags="-s -w"'); await sleep(500);
   }
-  plog('info', 'cgroup created · cpu=2 mem=512M'); await sleep(150);
+  plog('info', 'cgroup created · cpu=1 mem=256M'); await sleep(150);
   plog('info', 'attaching seccomp profile'); await sleep(150);
 }
 

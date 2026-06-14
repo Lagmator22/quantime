@@ -156,21 +156,21 @@ img, svg { display: block; max-width: 100%; }
   height: 64px;
 }
 .logo {
-  display: inline-flex; align-items: center; gap: var(--s-3);
-  font-weight: 600; letter-spacing: -0.02em; font-size: 16px;
+  display: inline-flex; align-items: center; gap: 10px;
+  font-weight: 700; letter-spacing: -0.02em; font-size: 20px;
 }
 .logo-mark {
   /* rounded chip: accent border + centered phosphor block + inner glow */
-  width: 26px; height: 26px; border-radius: 6px;
+  width: 28px; height: 28px; border-radius: 6px;
   background: linear-gradient(150deg, var(--bg-3), var(--bg-2));
   border: 1px solid var(--accent);
   box-shadow: inset 0 0 10px color-mix(in oklab, var(--accent) 22%, transparent);
   position: relative; flex: 0 0 auto;
 }
 .logo-mark::after {
-  content: ""; position: absolute; inset: 7px;
-  background: var(--accent); border-radius: 2px;
-  box-shadow: 0 0 6px color-mix(in oklab, var(--accent) 60%, transparent);
+  content: ""; position: absolute; inset: 8px;
+  background: var(--accent); border-radius: 3px;
+  box-shadow: 0 0 6px color-mix(in oklab, var(--accent) 80%, transparent);
 }
 .logo .wm-time {
   background: linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 45%, #7dd3fc));

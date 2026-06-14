@@ -237,8 +237,8 @@ POST /api/runs/&lt;id&gt;/baseline      <span class="c">// promote a regression 
 GET  /api/runs/&lt;id&gt;/regression    <span class="c">// diff vs baseline → OK | REGRESSION</span></div>
 
 <h2 class="docs" id="limits"><span class="num">08</span>Sandbox limits</h2>
-<div class="code"><span class="k">cpu</span>:           <span class="n">2</span> vCPU (pinned, no oversubscription)
-<span class="k">memory</span>:        <span class="n">512</span> MB hard cap (RLIMIT_AS + cgroup memory.max)
+<div class="code"><span class="k">cpu</span>:           <span class="n">1</span> vCPU (pinned, no oversubscription)
+<span class="k">memory</span>:        <span class="n">256</span> MB hard cap (RLIMIT_AS + cgroup memory.max)
 <span class="k">disk</span>:          <span class="n">100</span> MB ephemeral, mounted RW only on /tmp
 <span class="k">network</span>:       inbound only · gateway-mesh only
 <span class="k">syscalls</span>:      seccomp default-deny + curated allowlist
