@@ -128,10 +128,13 @@
       <div class="panel-body">
         <div style="display:grid; grid-template-columns:1fr 2fr; gap:var(--s-4); align-items:center;">
           <div class="score-hero"><div class="l mono dim">COMPOSITE</div><div class="big" id="r-score">-</div></div>
-          <div class="metric-grid" style="grid-template-columns:repeat(3,1fr);">
+          <div class="metric-grid" style="grid-template-columns:repeat(4,1fr);">
             <div class="metric"><div class="l">p50</div><div class="v" id="r-p50">-<small>ms</small></div></div>
             <div class="metric"><div class="l">p90</div><div class="v" id="r-p90">-<small>ms</small></div></div>
             <div class="metric"><div class="l">p99</div><div class="v" id="r-p99">-<small>ms</small></div></div>
+            <div class="metric"><div class="l">p99.9 <span class="dim" style="font-size:9px;">tail</span></div><div class="v" id="r-p999">-<small>ms</small></div></div>
+            <div class="metric"><div class="l">p99.99</div><div class="v" id="r-p9999">-<small>ms</small></div></div>
+            <div class="metric"><div class="l">max</div><div class="v" id="r-max">-<small>ms</small></div></div>
             <div class="metric"><div class="l">TPS</div><div class="v" id="r-tps">-</div></div>
             <div class="metric"><div class="l">Errors</div><div class="v" id="r-err">-<small>%</small></div></div>
           </div>
@@ -210,6 +213,9 @@ function restoreState() {
       $('r-p50').innerHTML = nsToMs(m.p50).toFixed(2)+'<small>ms</small>';
       $('r-p90').innerHTML = nsToMs(m.p90).toFixed(2)+'<small>ms</small>';
       $('r-p99').innerHTML = nsToMs(m.p99).toFixed(2)+'<small>ms</small>';
+      $('r-p999').innerHTML = nsToMs(m.p99_9).toFixed(2)+'<small>ms</small>';
+      $('r-p9999').innerHTML = nsToMs(m.p99_99).toFixed(2)+'<small>ms</small>';
+      $('r-max').innerHTML = nsToMs(m.max).toFixed(2)+'<small>ms</small>';
       $('r-tps').textContent = fmtTPS(m.tps||0);
       $('r-err').innerHTML = (m.errPct||0).toFixed(2)+'<small>%</small>';
       setStep(4,'done');
@@ -315,6 +321,9 @@ function onMsg(m){
     $('r-p50').innerHTML = nsToMs(m.p50).toFixed(2)+'<small>ms</small>';
     $('r-p90').innerHTML = nsToMs(m.p90).toFixed(2)+'<small>ms</small>';
     $('r-p99').innerHTML = nsToMs(m.p99).toFixed(2)+'<small>ms</small>';
+    $('r-p999').innerHTML = nsToMs(m.p99_9).toFixed(2)+'<small>ms</small>';
+    $('r-p9999').innerHTML = nsToMs(m.p99_99).toFixed(2)+'<small>ms</small>';
+    $('r-max').innerHTML = nsToMs(m.max).toFixed(2)+'<small>ms</small>';
     $('r-tps').textContent = fmtTPS(m.tps||0);
     $('r-err').innerHTML = (m.errPct||0).toFixed(2)+'<small>%</small>';
     refreshLeaderboard();

@@ -352,15 +352,18 @@ func finalizeRun(ctx context.Context, pool *pgxpool.Pool, rdb *redis.Client, s s
 			    percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_ns) AS p50,
 			    percentile_cont(0.90) WITHIN GROUP (ORDER BY latency_ns) AS p90,
 			    percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ns) AS p99,
+			    percentile_cont(0.999) WITHIN GROUP (ORDER BY latency_ns) AS p999,
+			    percentile_cont(0.9999) WITHIN GROUP (ORDER BY latency_ns) AS p9999,
+			    max(latency_ns) AS maxlat,
 			    count(*)::float / NULLIF(EXTRACT(EPOCH FROM (max(ts) - min(ts))),0) AS tps,
 			    sum(CASE WHEN err IS NOT NULL THEN 1 ELSE 0 END)::float / NULLIF(count(*),0) AS err_rate
 			FROM telemetry
 			WHERE run_id = $1
 		)
-		SELECT COALESCE(p50,0), COALESCE(p90,0), COALESCE(p99,0), COALESCE(tps,0), COALESCE(err_rate,0) FROM agg
+		SELECT COALESCE(p50,0), COALESCE(p90,0), COALESCE(p99,0), COALESCE(p999,0), COALESCE(p9999,0), COALESCE(maxlat,0), COALESCE(tps,0), COALESCE(err_rate,0) FROM agg
 	`, s.RunID)
-	var p50, p90, p99, tps, errRate float64
-	if err := row.Scan(&p50, &p90, &p99, &tps, &errRate); err != nil {
+	var p50, p90, p99, p999, p9999, maxLat, tps, errRate float64
+	if err := row.Scan(&p50, &p90, &p99, &p999, &p9999, &maxLat, &tps, &errRate); err != nil {
 		log.Printf("[telemetry] aggregate run=%s: %v", s.RunID, err)
 		return
 	}
@@ -390,6 +393,9 @@ func finalizeRun(ctx context.Context, pool *pgxpool.Pool, rdb *redis.Client, s s
 		"p50":     p50,
 		"p90":     p90,
 		"p99":     p99,
+		"p99_9":   p999,   // tail latency — what HFT actually cares about
+		"p99_99":  p9999,
+		"max":     maxLat,
 		"tps":     tps,
 		"err_pct": errRate * 100,
 	})
@@ -432,6 +438,9 @@ func finalizeRun(ctx context.Context, pool *pgxpool.Pool, rdb *redis.Client, s s
 			"p50":    p50,
 			"p90":    p90,
 			"p99":    p99,
+			"p99_9":  p999,
+			"p99_99": p9999,
+			"max":    maxLat,
 			"tps":    tps,
 			"errPct": errRate * 100,
 			"score":  composite,
