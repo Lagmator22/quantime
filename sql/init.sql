@@ -143,3 +143,22 @@ VALUES ('sub_sample', 't_demo', 'sample-engine', 'go', 'seed-sample',
         'iicpc/sample-engine:seed', 'http://sample-engine:9001', 'deployed', 0,
         '{"score":100,"passed":10,"total":10}')
 ON CONFLICT (team_id, hash) DO NOTHING;
+
+-- ── Bootstrap: the other 3 pre-built example engines as selectable
+-- submissions (one team each) so the Console can benchmark Go vs C++ vs
+-- Python vs a real third-party C++ order book and the leaderboard shows the
+-- multi-language differentiation. Correctness scores are the oracle-verified
+-- values (Go/C++/Python pass 10/10; the real-world book scores 8/10).
+INSERT INTO teams (id, name, region, members) VALUES
+  ('t_cpp', 'cpp-engine', 'local', '[]'),
+  ('t_python', 'python-engine', 'local', '[]'),
+  ('t_realworld', 'realworld-book', 'local', '[]')
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO submissions (id, team_id, name, lang, hash, image_tag, endpoint, status, size_bytes, correctness) VALUES
+  ('sub_cpp', 't_cpp', 'sample-engine-cpp', 'cpp', 'seed-cpp', 'seed',
+     'http://sample-engine-cpp:9002', 'deployed', 0, '{"score":100,"passed":10,"total":10}'),
+  ('sub_python', 't_python', 'sample-engine-python', 'python', 'seed-python', 'seed',
+     'http://sample-engine-python:9003', 'deployed', 0, '{"score":100,"passed":10,"total":10}'),
+  ('sub_realworld', 't_realworld', 'real-world-orderbook', 'cpp', 'seed-realworld', 'seed',
+     'http://sample-engine-real-world:9004', 'deployed', 0, '{"score":80,"passed":8,"total":10}')
+ON CONFLICT (team_id, hash) DO NOTHING;
