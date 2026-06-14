@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · MULTI-LANGUAGE RUNTIME
+   QuanTime · MULTI-LANGUAGE RUNTIME
    ---------------------------------------------------------------------
    Loads developer code and exposes a uniform submit() interface
    regardless of source language. Each runtime runs in its own

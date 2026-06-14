@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · SEEDED RANDOM (deterministic replay)
+   QuanTime · SEEDED RANDOM (deterministic replay)
    ---------------------------------------------------------------------
    Math.random() can't be seeded, so we ship a tiny PRNG so runs are
    replayable: same seed in → byte-for-byte identical bot traffic out.

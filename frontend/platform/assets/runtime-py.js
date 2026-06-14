@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · PYTHON RUNTIME WORKER (Pyodide)
+   QuanTime · PYTHON RUNTIME WORKER (Pyodide)
    ---------------------------------------------------------------------
    Real CPython compiled to WASM via Pyodide. Cold-start is ~5s for
    the first load, then warm. Developer writes:

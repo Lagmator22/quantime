@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · BOT WORKER (Web Worker)
+   QuanTime · BOT WORKER (Web Worker)
    ---------------------------------------------------------------------
    Spawned from run.html. Each worker simulates a fleet of bots that
    generate orders against the matching engine. Workers post telemetry

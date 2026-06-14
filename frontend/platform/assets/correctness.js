@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · CORRECTNESS VALIDATION SUITE
+   QuanTime · CORRECTNESS VALIDATION SUITE
    ---------------------------------------------------------------------
    Tests the judges will write to break a developer's matching engine.
    Each test:

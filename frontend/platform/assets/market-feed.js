@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · LIVE MARKET DATA FEED (Binance)
+   QuanTime · LIVE MARKET DATA FEED (Binance)
    ---------------------------------------------------------------------
    Optional realistic order-flow source. Subscribes to Binance's public
    WebSocket trade stream for any symbol (default BTCUSDT) and emits

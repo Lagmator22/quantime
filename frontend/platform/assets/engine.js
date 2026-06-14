@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · REFERENCE MATCHING ENGINE
+   QuanTime · REFERENCE MATCHING ENGINE
    ---------------------------------------------------------------------
    Price-time priority orderbook + matching engine in plain JS. Used as
    the platform's default benchmark target and as the oracle the

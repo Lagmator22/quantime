@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · JUDGE0 REMOTE RUNTIME WORKER
+   QuanTime · JUDGE0 REMOTE RUNTIME WORKER
    ---------------------------------------------------------------------
    Adapter for the Judge0 CE multi-language execution API. Lets a
    developer submit code in 60+ languages and have it run on a real

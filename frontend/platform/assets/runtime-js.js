@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · JS RUNTIME WORKER
+   QuanTime · JS RUNTIME WORKER
    ---------------------------------------------------------------------
    Loads a developer's JavaScript submission and exposes submit().
    Runs in a dedicated Worker so:

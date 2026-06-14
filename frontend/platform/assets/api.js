@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · API BRIDGE
+   QuanTime · API BRIDGE
    ---------------------------------------------------------------------
    The frontend was built first as a self-contained prototype that
    persists to localStorage and runs the matching engine in a Web

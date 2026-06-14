@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · T-DIGEST STREAMING PERCENTILES
+   QuanTime · T-DIGEST STREAMING PERCENTILES
    ---------------------------------------------------------------------
    At 1M ops/s, sorting 1M floats every 100ms to compute p50/p99 costs
    ~50ms by itself and dominates the CPU budget. t-digest is a

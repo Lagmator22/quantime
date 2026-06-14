@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · SHARED HEADER + LAYOUT INJECTION
+   QuanTime · SHARED HEADER + LAYOUT INJECTION
    ---------------------------------------------------------------------
    Every platform page calls Layout.render({ active }) on load. This
    injects the sidebar + topbar so we don't duplicate markup across

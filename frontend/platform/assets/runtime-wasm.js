@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · WASM RUNTIME WORKER
+   QuanTime · WASM RUNTIME WORKER
    ---------------------------------------------------------------------
    Instantiates a developer's .wasm module. The wasm must export:
 

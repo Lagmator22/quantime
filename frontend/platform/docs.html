@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- =====================================================================
-     IICPC PLATFORM · API & INTEGRATION DOCS
+     QuanTime · API & INTEGRATION DOCS
      ---------------------------------------------------------------------
      Reference for developers: how to write a matching engine that works
      with the platform. Includes:
@@ -206,7 +206,7 @@ correctnessScore = max(<span class="n">0</span>, <span class="n">100</span> - er
 composite = <span class="n">0.40</span> × speedScore
           + <span class="n">0.40</span> × throughputScore
           + <span class="n">0.20</span> × correctnessScore</div>
-<p class="docs-p">Weights are tunable per round by judges (see Judge Console). The platform recomputes scores using new weights when a re-score is triggered.</p>
+<p class="docs-p">Weights are tunable by an operator (see the Judge Console). The platform recomputes scores using new weights when a re-score is triggered.</p>
 
 <h2 class="docs" id="rest"><span class="num">05</span>Production REST surface</h2>
 <p class="docs-p">When deployed to a real cluster, your sandbox exposes <code>:9999</code>:</p>

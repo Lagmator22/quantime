@@ -1,5 +1,5 @@
 /* =====================================================================
-   IICPC PLATFORM · PERSISTENCE STORE
+   QuanTime · PERSISTENCE STORE
    ---------------------------------------------------------------------
    Tiny localStorage wrapper for cross-page state. IndexedDB is used
    for binary uploads (see uploadBinary below). Everything namespaced
