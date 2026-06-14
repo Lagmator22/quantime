@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =====================================================================
-# IICPC PLATFORM · end-to-end demo
+# PLATFORM · end-to-end demo
 # ---------------------------------------------------------------------
 # Brings the stack up, submits the sample engine, runs a 30s stress
 # test, and prints the leaderboard. Use this as the demo-day script.
