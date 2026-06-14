@@ -128,15 +128,17 @@ img, svg { display: block; max-width: 100%; }
   font-weight: 600; letter-spacing: -0.02em; font-size: 14px;
 }
 .sidebar-brand .mark {
-  width: 22px; height: 22px;
-  background: var(--text);
+  width: 22px; height: 22px; border-radius: 5px;
+  background: linear-gradient(150deg, var(--bg-3), var(--bg-2));
+  border: 1px solid var(--accent);
+  box-shadow: inset 0 0 8px color-mix(in oklab, var(--accent) 22%, transparent);
   position: relative;
   flex-shrink: 0;
 }
 .sidebar-brand .mark::after {
-  content: ""; position: absolute;
-  inset: 5px 11px 11px 5px;
-  background: var(--accent);
+  content: ""; position: absolute; inset: 6px;
+  background: var(--accent); border-radius: 2px;
+  box-shadow: 0 0 5px color-mix(in oklab, var(--accent) 60%, transparent);
 }
 .sidebar-brand .ver {
   margin-left: auto;

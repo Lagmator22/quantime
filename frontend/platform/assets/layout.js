@@ -44,14 +44,13 @@
       <aside class="sidebar" id="iicpc-sidebar">
         <div class="sidebar-brand">
           <span class="mark"></span>
-          Quan<span style="color:var(--accent);">Time</span>
-          <span class="ver">v2026</span>
+          <span>Quan<span style="background:linear-gradient(90deg,var(--accent),color-mix(in oklab,var(--accent) 45%,#7dd3fc));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">Time</span></span>
         </div>
         ${groupHTML}
-        <div class="sidebar-foot">
-          <div class="mono" style="font-size:11px;">QuanTime · open-source</div>
-          <div style="margin-top:4px; color:var(--text-mute);">benchmarking for trading engines</div>
-          <a href="../index.html" style="display:block;margin-top:8px;color:var(--text-mute);">← public site</a>
+        <div class="sidebar-foot" style="background:oklch(78% 0.17 145 / 0.05); border-top: 1px solid var(--accent);">
+          <div class="mono" style="font-size:13px; color:var(--accent); font-weight:600; letter-spacing: 0.05em;">QuanTime</div>
+          <div style="margin-top:6px; color:var(--text-dim); font-size:12px; line-height:1.5;">Open-source benchmarking<br/>for trading engines</div>
+          <a href="../index.html" class="btn btn-sm" style="display:inline-block; margin-top:12px; width:100%; text-align:center; padding:6px 10px;">← public site</a>
         </div>
       </aside>
     `;
