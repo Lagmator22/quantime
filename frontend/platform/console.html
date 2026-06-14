@@ -73,9 +73,9 @@
 <details class="panel" style="margin-bottom:var(--s-5);" open>
   <summary style="cursor:pointer; padding:var(--s-3) var(--s-4); font-weight:600;">New here? How to use this (30 seconds) ▾</summary>
   <div class="panel-body" style="border-top:1px solid var(--line);">
-    <p class="dim" style="margin:0 0 var(--s-3);">QuanTime stress-tests <strong>trading matching engines</strong> — the software exchanges (NYSE, Binance) use to match buy/sell orders. Three steps:</p>
+    <p class="dim" style="margin:0 0 var(--s-3);">QuanTime stress-tests <strong>trading matching engines</strong> - the software exchanges (NYSE, Binance) use to match buy/sell orders. Three steps:</p>
     <ol class="dim" style="margin:0; padding-left:18px; line-height:1.9;">
-      <li><strong>Pick an engine</strong> (left panel) and click <span class="mono">⚡ Use selected engine</span>. Or upload your own — a <span class="mono">.tar.gz</span> with a Dockerfile + a <span class="mono">POST /submit</span> endpoint (see <a href="docs.html" style="color:var(--accent);">API &amp; Docs</a>).</li>
+      <li><strong>Pick an engine</strong> (left panel) and click <span class="mono">⚡ Use selected engine</span>. Or upload your own - a <span class="mono">.tar.gz</span> with a Dockerfile + a <span class="mono">POST /submit</span> endpoint (see <a href="docs.html" style="color:var(--accent);">API &amp; Docs</a>).</li>
       <li>Click <span class="mono">▶ Launch benchmark</span>. A distributed bot fleet floods it with orders; the metrics stream in live.</li>
       <li>Read the result. <strong style="color:var(--accent);">Lower latency = better · higher TPS &amp; correctness = better.</strong></li>
     </ol>
@@ -96,7 +96,7 @@
             <option value="sub_cpp">C++ engine · 100% correct</option>
             <option value="sub_python">Python engine · 100% correct</option>
             <option value="sub_realworld">Real-world C++ book (timothewt) · 80%</option>
-            <option value="sub_liquibook">Liquibook — canonical C++ engine (Object Computing) · 100%</option>
+            <option value="sub_liquibook">Liquibook - canonical C++ engine (Object Computing) · 100%</option>
           </select>
         </div>
         <button class="btn" id="use-sample" style="width:100%; margin-bottom:var(--s-3);">⚡ Use selected engine</button>
@@ -185,7 +185,7 @@
       <div class="panel-body flush">
         <table class="table">
           <thead><tr><th>when</th><th>engine</th><th>profile</th><th class="r">p99</th><th class="r">score</th></tr></thead>
-          <tbody id="run-history"><tr><td colspan="5" class="dim" style="text-align:center; padding:var(--s-4);">no runs yet — they persist here across reloads</td></tr></tbody>
+          <tbody id="run-history"><tr><td colspan="5" class="dim" style="text-align:center; padding:var(--s-4);">no runs yet - they persist here across reloads</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -249,7 +249,7 @@ function histAgo(ts){ const s=Math.floor((Date.now()-ts)/1000); if(s<60)return s
 function renderHistory(){
   const el = $('run-history'); if(!el) return;
   let hist=[]; try{ hist=JSON.parse(localStorage.getItem('qt_run_history')||'[]'); }catch(e){}
-  if(!hist.length){ el.innerHTML='<tr><td colspan="5" class="dim" style="text-align:center; padding:var(--s-4);">no runs yet — they persist here across reloads</td></tr>'; return; }
+  if(!hist.length){ el.innerHTML='<tr><td colspan="5" class="dim" style="text-align:center; padding:var(--s-4);">no runs yet - they persist here across reloads</td></tr>'; return; }
   el.innerHTML = hist.map(h=>`<tr>
     <td class="mono dim">${histAgo(h.ts)}</td>
     <td>${escapeHTML((h.engine||'').replace('sub_',''))}</td>
@@ -384,7 +384,7 @@ async function recoverResult(id){
         $('do-run').disabled=false; $('do-cancel').style.display='none';
         $('result-panel').style.display='block';
         $('r-score').textContent=((run.Score||run.score)||0).toFixed(1);
-        $('reg-line').innerHTML='live stream dropped — score recovered from the server';
+        $('reg-line').innerHTML='live stream dropped - score recovered from the server';
         refreshLeaderboard();
         toast('Run finished (recovered from server)','info');
         return;
@@ -428,7 +428,7 @@ async function showRegression(runId){
   try {
     const reg = await (await fetch((window.IICPC_API_BASE||'')+'/api/runs/'+runId+'/regression')).json();
     const line = $('reg-line'), detail = $('reg-detail');
-    if (!reg.hasBaseline){ line.innerHTML = 'no baseline set — click ★ to make this run the baseline'; detail.innerHTML=''; return; }
+    if (!reg.hasBaseline){ line.innerHTML = 'no baseline set - click ★ to make this run the baseline'; detail.innerHTML=''; return; }
     const cls = reg.verdict==='REGRESSION' ? 'down' : 'up';
     line.innerHTML = `vs baseline: <span class="${cls}" style="font-weight:600;">${reg.verdict}</span> · score Δ ${reg.scoreDelta>=0?'+':''}${reg.scoreDelta.toFixed(1)}`;
     detail.innerHTML = (reg.deltas||[]).map(d=>{
@@ -443,9 +443,9 @@ $('do-baseline').onclick = async () => {
   try {
     const r = await fetch((window.IICPC_API_BASE||'')+'/api/runs/'+activeRun+'/baseline', {method:'POST'});
     if (!r.ok) throw new Error('HTTP '+r.status);
-    $('reg-line').innerHTML = 'this run is now the <span class="up">baseline</span> — run again to gate regressions';
+    $('reg-line').innerHTML = 'this run is now the <span class="up">baseline</span> - run again to gate regressions';
     $('reg-detail').innerHTML = '';
-    toast('Baseline set — future runs are diffed against this','info');
+    toast('Baseline set - future runs are diffed against this','info');
   } catch(e){ toast('set baseline failed: '+e.message,'error'); }
 };
 

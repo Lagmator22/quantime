@@ -421,7 +421,7 @@ We hold ourselves to the hackathon's "not a demo-to-win" bar, so we document gap
   identical seed ranges; for >1 replica we will partition the bot-id/seed space (StatefulSet
   ordinal or a NATS-KV lease) so the aggregate stream is N distinct bots, not N copies.
 - **Protocol coverage.** Bots speak REST/HTTP today; FIX and WebSocket order paths are roadmap.
-- **Max-TPS discovery — implemented.** `targetRatePerBot` drives open-loop load at a fixed arrival
+- **Max-TPS discovery - implemented.** `targetRatePerBot` drives open-loop load at a fixed arrival
   rate with coordinated-omission-corrected latency (measured from the scheduled send time), plus
   tail percentiles (p99.9/p99.99/max). Pushing past the engine's ceiling reveals the true breaking
   point (e.g. ~26k/s, p50 → 4.5s). Remaining: an automatic staircase ramp + graceful-degradation score.

@@ -52,11 +52,11 @@ The rubric lists FIX/REST/WebSocket order paths; we implement REST. A WS order c
 FIX session are roadmap (FIX is the bulk of the effort). Nothing in the pipeline breaks without
 them - it's a protocol-coverage gap.
 
-### 4. Open-loop rate control & breaking-point discovery — IMPLEMENTED
+### 4. Open-loop rate control & breaking-point discovery - IMPLEMENTED
 
 `targetRatePerBot` makes each bot fire at a fixed arrival rate (orders/sec) instead of
 closed-loop send→wait→sleep. Latency is then measured from each order's **scheduled** send time,
-so a backed-up engine is charged for the queueing delay it caused — the wrk2/HdrHistogram
+so a backed-up engine is charged for the queueing delay it caused - the wrk2/HdrHistogram
 **coordinated-omission correction** that k6/Locust miss. Verified: at a 10k/s target the sample
 engine tracks it (9.9k/s, p99 38ms); push to 150k/s and the real ceiling (~26k/s) appears with p50
 exploding to 4.5s. Tail latency p99.9/p99.99/max is also reported now. *Remaining roadmap:* an

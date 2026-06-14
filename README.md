@@ -20,7 +20,7 @@ git clone https://github.com/Lagmator22/quantime.git && cd quantime
 docker compose up --build
 ```
 
-**Then just open the Console — no code needed:** → **<http://localhost:8080/platform/console.html>**
+**Then just open the Console - no code needed:** → **<http://localhost:8080/platform/console.html>**
 Pick an engine (Go, C++, Python, or **Liquibook**) → click **▶ Launch benchmark** → watch live latency, throughput, and the correctness score. Crank "Target rate / bot" to find the breaking point; pick the `replay` profile for real market data.
 
 `docker compose up` brings up:
@@ -253,9 +253,9 @@ docker compose up --build ai-analyzer
 
 Measured on a developer laptop (Apple Silicon, 16 GB) with `docker compose up`, 50 bots, ~20 s:
 
-- **5 real engines benchmarked + oracle-verified + ranked**: Go, Python, C++, [timothewt's order book](https://github.com/timothewt/OrderBook), and **[Liquibook](https://github.com/objectcomputing/liquibook)** — the canonical 1.5k★ open-source matching engine (Object Computing). All speak `POST /submit`; Liquibook passes the correctness oracle 10/10.
-- **~24,000 orders/sec** on the fastest engine (Go, p99 35 ms); the C++ engines reveal that a 2M-ops/sec core (Liquibook) is capped to ~6.5k tps by its single-threaded HTTP layer — QuanTime measures the **real end-to-end** path, not just the matching core.
-- **Tail latency** (p50…p99.99/max), **open-loop breaking-point discovery**, **cross-version regression gate**, and **LOBSTER market-data replay** — all live in the Console.
+- **5 real engines benchmarked + oracle-verified + ranked**: Go, Python, C++, [timothewt's order book](https://github.com/timothewt/OrderBook), and **[Liquibook](https://github.com/objectcomputing/liquibook)** - the canonical 1.5k★ open-source matching engine (Object Computing). All speak `POST /submit`; Liquibook passes the correctness oracle 10/10.
+- **~24,000 orders/sec** on the fastest engine (Go, p99 35 ms); the C++ engines reveal that a 2M-ops/sec core (Liquibook) is capped to ~6.5k tps by its single-threaded HTTP layer - QuanTime measures the **real end-to-end** path, not just the matching core.
+- **Tail latency** (p50…p99.99/max), **open-loop breaking-point discovery**, **cross-version regression gate**, and **LOBSTER market-data replay** - all live in the Console.
 - Full **upload path** verified: tarball → build → isolated sibling container → correctness oracle → benchmark.
 
 See [DESIGN.md § 19](DESIGN.md) for the full methodology and the honest roadmap.
