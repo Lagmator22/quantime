@@ -86,12 +86,12 @@ The interesting word in that sentence is **distributed**. A site that simulates 
 1. POST /api/submissions  (multipart: source.tar.gz + lang + teamId)
        ├── gateway:  hash source, INSERT submissions (status=uploaded)
        └── 202 returned with submission_id
-                                                       ┌──── background
+                                                        ┌──── background
 2. Build phase                                          │
        ├── gateway:  unpack archive to submissions/<id>/
        ├── gateway:  docker build -t iicpc-sub-<id>:<hash> .
        └── gateway:  UPDATE submissions SET status='built', image_tag=...
-                                                       │
+                                                        │
 3. Deploy phase                                         │
        ├── gateway:  docker run --memory=256m --cpus=1 \
        │             --pids-limit=128 --read-only --tmpfs /tmp \
@@ -104,23 +104,23 @@ The interesting word in that sentence is **distributed**. A site that simulates 
        ├── gateway:  INSERT runs (status=running)
        └── gateway:  PUBLISH runs.<id>.control {type:start, ...}
                                                        │
-5. Bot fleet receives control                           │
+5. Bot fleet receives control                          │
        ├── each replica:  spawn N goroutines           │  scale = replicas × N
        ├── each bot:  fasthttp.Do(endpoint + /submit, seeded order)
        ├── each bot:  PUBLISH runs.<id>.telemetry {latencyNs, status, ...}
        └── after durationSec:  PUBLISH runs.<id>.summary
                                                        │
-6. Telemetry batches into Timescale                     │
+6. Telemetry batches into Timescale                    │
        ├── subscriber:  buffer samples, flush every 250ms OR 5000 rows
        └── CopyFrom telemetry hypertable
                                                        │
-7. On runs.<id>.summary                                 │
+7. On runs.<id>.summary                                │
        ├── telemetry:  query continuous aggregate for p50/p90/p99/tps/err
        ├── telemetry:  compute composite score
        ├── telemetry:  UPDATE runs SET status='finished', score=..., metrics=...
        └── telemetry:  ZADD leaderboard <score> <teamId>   (Redis)
                                                        │
-8. Frontend                                             │
+8. Frontend                                            │
        ├── /ws/runs/<id> streams live samples while running
        └── /api/leaderboard reads from Postgres / Redis cache
 ```
