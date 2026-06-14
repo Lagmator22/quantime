@@ -45,8 +45,9 @@ CREATE TABLE IF NOT EXISTS runs (
     started_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     finished_at   TIMESTAMPTZ,
     status        TEXT NOT NULL,    -- queued|running|finished|failed|cancelled
-    metrics       JSONB,            -- final {p50, p90, p99, tps, err_pct, ...}
+    metrics       JSONB,            -- final {p50, p90, p99, p99_9, p99_99, max, tps, err_pct}
     score         NUMERIC,
+    is_baseline   BOOLEAN NOT NULL DEFAULT false, -- the team's regression baseline (one per team)
     raw_log       TEXT
 );
 CREATE INDEX IF NOT EXISTS runs_team_idx ON runs(team_id);

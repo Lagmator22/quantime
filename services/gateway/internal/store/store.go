@@ -161,6 +161,58 @@ func (d *DB) GetRun(ctx context.Context, id string) (*Run, error) {
 	return r, err
 }
 
+// ── Regression baselines ──────────────────────────────────────────────
+
+// RunResult is a finished run's scoreable output, for regression diffs.
+type RunResult struct {
+	RunID      string
+	TeamID     string
+	Score      *float64
+	Metrics    []byte // raw JSON: {p50,p90,p99,p99_9,p99_99,max,tps,err_pct}
+	IsBaseline bool
+}
+
+// SetBaseline makes runID the team's single regression baseline.
+func (d *DB) SetBaseline(ctx context.Context, runID, teamID string) error {
+	_, err := d.pool.Exec(ctx,
+		`UPDATE runs SET is_baseline = (id = $1) WHERE team_id = $2`, runID, teamID)
+	return err
+}
+
+// GetRunResult returns a run's metrics/score for diffing. nil if not found.
+func (d *DB) GetRunResult(ctx context.Context, runID string) (*RunResult, error) {
+	rr := &RunResult{}
+	var metrics *string
+	err := d.pool.QueryRow(ctx,
+		`SELECT id, team_id, score, metrics::text, is_baseline FROM runs WHERE id = $1`, runID,
+	).Scan(&rr.RunID, &rr.TeamID, &rr.Score, &metrics, &rr.IsBaseline)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if metrics != nil {
+		rr.Metrics = []byte(*metrics)
+	}
+	return rr, err
+}
+
+// GetTeamBaseline returns the team's current finished baseline run, or nil.
+func (d *DB) GetTeamBaseline(ctx context.Context, teamID string) (*RunResult, error) {
+	rr := &RunResult{}
+	var metrics *string
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, team_id, score, metrics::text, is_baseline
+		FROM runs WHERE team_id = $1 AND is_baseline = true AND status = 'finished'
+		ORDER BY finished_at DESC LIMIT 1
+	`, teamID).Scan(&rr.RunID, &rr.TeamID, &rr.Score, &metrics, &rr.IsBaseline)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if metrics != nil {
+		rr.Metrics = []byte(*metrics)
+	}
+	return rr, err
+}
+
 // UpdateRunLog appends container logs to a finished or failed run.
 func (d *DB) UpdateRunLog(ctx context.Context, id, logText string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE runs SET raw_log=$2 WHERE id=$1`, id, logText)

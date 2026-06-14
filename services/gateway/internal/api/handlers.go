@@ -355,6 +355,111 @@ func (d *Deps) cancelRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]string{"id": id, "status": "cancelling"})
 }
 
+// ── POST /api/runs/{id}/baseline ──────────────────────────────────────
+// Promote a finished run to the team's regression baseline.
+func (d *Deps) setBaseline(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := withTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	id := r.PathValue("id")
+	run, err := d.DB.GetRun(ctx, id)
+	if err != nil {
+		httpErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if run == nil {
+		httpErr(w, http.StatusNotFound, "no such run")
+		return
+	}
+	if run.Status != "finished" {
+		httpErr(w, http.StatusConflict, "run not finished")
+		return
+	}
+	if err := d.DB.SetBaseline(ctx, id, run.TeamID); err != nil {
+		httpErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"baseline": id, "teamId": run.TeamID})
+}
+
+// ── GET /api/runs/{id}/regression ─────────────────────────────────────
+// Diff a run against its team's baseline (latency tails + throughput +
+// composite score), classifying each metric as regression/improvement —
+// the "release-gating QA" view exchanges run on every engine change.
+func (d *Deps) getRegression(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := withTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	id := r.PathValue("id")
+	cur, err := d.DB.GetRunResult(ctx, id)
+	if err != nil {
+		httpErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if cur == nil {
+		httpErr(w, http.StatusNotFound, "no such run")
+		return
+	}
+	base, err := d.DB.GetTeamBaseline(ctx, cur.TeamID)
+	if err != nil {
+		httpErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if base == nil || base.RunID == cur.RunID {
+		writeJSON(w, http.StatusOK, map[string]any{"hasBaseline": false})
+		return
+	}
+
+	cm := map[string]float64{}
+	bm := map[string]float64{}
+	_ = json.Unmarshal(cur.Metrics, &cm)
+	_ = json.Unmarshal(base.Metrics, &bm)
+
+	checks := []struct {
+		key           string
+		betterIsLower bool
+	}{
+		{"p99", true}, {"p99_9", true}, {"p99_99", true}, {"tps", false},
+	}
+	const threshold = 0.05 // 5% band = neutral
+	deltas := []map[string]any{}
+	regressions := 0
+	for _, c := range checks {
+		b, cv := bm[c.key], cm[c.key]
+		if b == 0 {
+			continue
+		}
+		worse := (c.betterIsLower && cv > b*(1+threshold)) || (!c.betterIsLower && cv < b*(1-threshold))
+		better := (c.betterIsLower && cv < b*(1-threshold)) || (!c.betterIsLower && cv > b*(1+threshold))
+		verdict := "neutral"
+		if worse {
+			verdict = "regression"
+			regressions++
+		} else if better {
+			verdict = "improvement"
+		}
+		deltas = append(deltas, map[string]any{
+			"metric": c.key, "baseline": b, "current": cv,
+			"deltaPct": (cv - b) / b * 100, "verdict": verdict,
+		})
+	}
+	var scoreDelta float64
+	if cur.Score != nil && base.Score != nil {
+		scoreDelta = *cur.Score - *base.Score
+	}
+	overall := "OK"
+	if regressions > 0 {
+		overall = "REGRESSION"
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"hasBaseline":   true,
+		"baselineRunId": base.RunID,
+		"currentRunId":  cur.RunID,
+		"deltas":        deltas,
+		"scoreDelta":    scoreDelta,
+		"regressions":   regressions,
+		"verdict":       overall,
+	})
+}
+
 // ── GET /api/leaderboard ──────────────────────────────────────────────
 func (d *Deps) getLeaderboard(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := withTimeout(r.Context(), 5*time.Second)

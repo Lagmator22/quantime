@@ -46,6 +46,8 @@ func NewRouter(d *Deps) http.Handler {
 	mux.HandleFunc("POST /api/runs", d.startRun)
 	mux.HandleFunc("GET /api/runs/{id}", d.getRun)
 	mux.HandleFunc("POST /api/runs/{id}/cancel", d.cancelRun)
+	mux.HandleFunc("POST /api/runs/{id}/baseline", d.setBaseline)
+	mux.HandleFunc("GET /api/runs/{id}/regression", d.getRegression)
 
 	// Leaderboard
 	mux.HandleFunc("GET /api/leaderboard", d.getLeaderboard)
