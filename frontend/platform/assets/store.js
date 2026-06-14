@@ -159,10 +159,9 @@
     Store.set('config', {
       // Composite scoring weights - edit to retune
       weights: { speed: 0.4, throughput: 0.4, correctness: 0.2 },
-      submissionsOpen: '2026-06-03T00:00:00Z',
-      submissionsClose: '2026-06-10T23:59:59Z',
-      maxTeamSize: 3,
-      sandbox: { cpu: 2, memMB: 512, timeoutS: 60 },
+      // Sandbox limits mirror the real server-side container caps
+      // (see docs.html · Submission sandbox).
+      sandbox: { cpu: 1, memMB: 256, timeoutS: 60 },
     });
   }
   if (!Store.get('team')) {
@@ -176,15 +175,18 @@
   if (!Store.get('submissions')) Store.set('submissions', []);
   if (!Store.get('runs')) Store.set('runs', []);
   if (!Store.get('leaderboard')) {
-    // Seed 7 fake teams so the leaderboard isn't empty before you submit
+    // Seed sample teams so the leaderboard isn't empty before a real run.
+    // Shown only when the backend is offline (the live bridge replaces these).
+    // p50/p99 are nanoseconds (the render path divides by 1e6 → ms); err is a
+    // fraction. Values track the landing page's honest p50 ~0.2ms / p99 ~10-32ms.
     Store.set('leaderboard', [
-      { teamId: 'parity-bit',    name: 'parity-bit',    region: 'tokyo',     score: 184, p50: 18, p99: 142, tps: 2410000, err: 0.002, lastRun: Date.now() - 12000 },
-      { teamId: 'cache-warmers', name: 'cache-warmers', region: 'berlin',    score: 171, p50: 21, p99: 168, tps: 2180000, err: 0.005, lastRun: Date.now() - 30000 },
-      { teamId: 'fix-or-die',    name: 'fix-or-die',    region: 'london',    score: 162, p50: 24, p99: 195, tps: 1980000, err: 0.004, lastRun: Date.now() - 45000 },
-      { teamId: 'lockfree.lol',  name: 'lockfree.lol',  region: 'nyc',       score: 149, p50: 27, p99: 210, tps: 1820000, err: 0.011, lastRun: Date.now() - 60000 },
-      { teamId: 'hot-path',      name: 'hot-path',      region: 'sf',        score: 138, p50: 31, p99: 245, tps: 1640000, err: 0.008, lastRun: Date.now() - 90000 },
-      { teamId: 'epoch.gg',      name: 'epoch.gg',      region: 'singapore', score: 124, p50: 35, p99: 282, tps: 1510000, err: 0.014, lastRun: Date.now() - 120000 },
-      { teamId: 'rdtsc-rd',      name: 'rdtsc-rd',      region: 'mumbai',    score: 109, p50: 41, p99: 318, tps: 1390000, err: 0.019, lastRun: Date.now() - 180000 },
+      { teamId: 'parity-bit',    name: 'parity-bit',    region: 'tokyo',     score: 184, p50: 180000, p99: 9500000,  tps: 2410000, err: 0.002, lastRun: Date.now() - 12000 },
+      { teamId: 'cache-warmers', name: 'cache-warmers', region: 'berlin',    score: 171, p50: 210000, p99: 16800000, tps: 2180000, err: 0.005, lastRun: Date.now() - 30000 },
+      { teamId: 'fix-or-die',    name: 'fix-or-die',    region: 'london',    score: 162, p50: 240000, p99: 19500000, tps: 1980000, err: 0.004, lastRun: Date.now() - 45000 },
+      { teamId: 'lockfree.lol',  name: 'lockfree.lol',  region: 'nyc',       score: 149, p50: 270000, p99: 21000000, tps: 1820000, err: 0.011, lastRun: Date.now() - 60000 },
+      { teamId: 'hot-path',      name: 'hot-path',      region: 'sf',        score: 138, p50: 310000, p99: 24500000, tps: 1640000, err: 0.008, lastRun: Date.now() - 90000 },
+      { teamId: 'epoch.gg',      name: 'epoch.gg',      region: 'singapore', score: 124, p50: 350000, p99: 28200000, tps: 1510000, err: 0.014, lastRun: Date.now() - 120000 },
+      { teamId: 'rdtsc-rd',      name: 'rdtsc-rd',      region: 'mumbai',    score: 109, p50: 410000, p99: 31800000, tps: 1390000, err: 0.019, lastRun: Date.now() - 180000 },
     ]);
   }
 

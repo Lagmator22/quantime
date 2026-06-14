@@ -30,7 +30,7 @@
 <div class="page-head">
   <span class="eyebrow">Developer · Dashboard</span>
   <h1 style="margin-top: var(--s-3);" id="team-greeting">Welcome back.</h1>
-  <p class="lede">Submissions queue, recent runs, and your team's current standing. Every metric here is live: updates stream from the leaderboard channel as runs complete.</p>
+  <p class="lede">A local overview of submissions, runs, and standings cached in this browser. For real benchmark runs and live backend results, use the <a href="console.html" style="color:var(--accent);">Console</a>.</p>
 </div>
 
 <!-- KPI strip - Best Score, Last p99, Total Runs, Telemetry -->
@@ -176,7 +176,7 @@
 ===================================================================== */
 Layout.render({
   active: 'dashboard',
-  crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Dashboard' }],
+  crumb: [{ label: 'Platform', href: 'console.html' }, { label: 'Dashboard' }],
 });
 
 // -- Helpers ------------------------------------------------

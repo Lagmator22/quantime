@@ -1006,15 +1006,17 @@ footer { padding: var(--s-7) 0; }
 
       <article class="del">
         <div class="num">// 02 · ai analyzer</div>
-        <h4>Private local-LLM analyzer</h4>
+        <h4>Multi-agent AI code analyzer</h4>
         <p>
           A multi-agent static reviewer (security, performance,
-          correctness) runs a local Llama-3.2-3B by default, so your
-          submitted code never leaves your own infrastructure. A cloud
-          backend (Gemini) is optional and fully pluggable.
+          correctness) reads a submission and returns a structured report.
+          The LLM backend is pluggable — Google Gemini by default, with
+          OpenAI and Anthropic Claude selectable. You bring your own API
+          key; it is stored only in your browser and never persisted
+          server-side.
         </p>
         <div class="stack">
-          <span>llama-3.2-3b</span><span>on-prem / private</span><span>pluggable backend</span>
+          <span>gemini</span><span>openai</span><span>claude</span><span>bring-your-own-key</span>
         </div>
       </article>
 

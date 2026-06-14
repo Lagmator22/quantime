@@ -119,7 +119,7 @@
           <select class="input mono" id="f-profile"><option value="sustained">sustained</option><option value="burst">burst</option><option value="adversarial">adversarial</option><option value="replay">replay · real market data (LOBSTER)</option></select>
         </div>
         <div class="field"><label>Duration (seconds) <span class="dim" style="font-size:9px;">max 300</span></label><input class="input mono" id="f-dur" type="number" value="20" min="5" max="300" /></div>
-        <div class="field"><label>Bots <span class="dim" style="font-size:9px;">max 100</span></label><input class="input mono" id="f-bots" type="number" value="50" min="1" max="100" /></div>
+        <div class="field"><label>Bots <span class="dim" style="font-size:9px;">suggested: 50-100 · warning: &gt;300 may freeze host hardware</span></label><input class="input mono" id="f-bots" type="number" value="50" min="1" max="1000" /></div>
         <div class="field"><label>Target rate / bot (orders/sec) <span class="dim" style="font-size:9px;">0 = closed-loop · &gt;0 = open-loop</span></label><input class="input mono" id="f-rate" type="number" value="0" min="0" max="20000" /></div>
         <button class="btn btn-primary" id="do-run" style="width:100%;" disabled>▶ Launch benchmark</button>
         <button class="btn btn-sm" id="do-cancel" style="width:100%; margin-top:var(--s-2); display:none;">■ Cancel run</button>
@@ -201,7 +201,7 @@
 /* =====================================================================
    CONSOLE CONTROLLER - 100% backend-wired
 ===================================================================== */
-Layout.render({ active: 'console', crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Console' }] });
+Layout.render({ active: 'console', crumb: [{ label: 'Platform', href: 'console.html' }, { label: 'Console' }] });
 
 const $ = id => document.getElementById(id);
 let currentSub = null;     // deployed submission id ready to run
@@ -352,7 +352,7 @@ $('do-run').onclick = async () => {
       profile: $('f-profile').value,
       seed: 42,
       durationSec: Math.max(5, Math.min(300, parseInt($('f-dur').value)||20)),
-      botsPerFleet: Math.max(1, Math.min(100, parseInt($('f-bots').value)||50)),
+      botsPerFleet: Math.max(1, Math.min(1000, parseInt($('f-bots').value)||50)),
       targetRatePerBot: Math.max(0, Math.min(20000, parseInt($('f-rate').value)||0)),
     });
     activeRun = r.id;

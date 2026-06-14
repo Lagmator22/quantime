@@ -16,9 +16,11 @@
    No build step. Drop this file in <script>, after store.js, before
    page-specific code, and check API.online before any network call.
 
-   Pages that consume it: leaderboard.html, submit.html, run.html,
-   dashboard.html. correctness.html runs entirely in-browser and is
-   intentionally not wired.
+   Primary consumer: console.html (the fully backend-wired upload →
+   run → live-results → history page). leaderboard.html and analyze.html
+   also call the gateway directly. submit.html / run.html / dashboard.html
+   are in-browser prototypes kept off the nav; correctness.html runs its
+   own in-browser suite and is intentionally not wired.
 ===================================================================== */
 (function () {
   const BASE = window.IICPC_API_BASE || '';   // same-origin by default

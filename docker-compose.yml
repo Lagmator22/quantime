@@ -96,9 +96,17 @@ services:
       redis:     { condition: service_started }
     networks: [iicpc-net]
 
-  # AI services are OPT-IN (profile "ai") so the core stack always comes up
-  # for anyone: `docker compose up` = core; `docker compose --profile ai up`
-  # adds the AI analyzer + local LLM (which needs a local OpenVINO model dir).
+  # AI services are OPT-IN so the core stack always comes up for anyone:
+  #   docker compose up                          -> core platform only
+  #   docker compose --profile ai up             -> + cloud AI analyzer
+  #                                                 (bring your own Gemini/
+  #                                                  OpenAI/Claude key in the UI)
+  #   docker compose --profile ai --profile ai-local up
+  #                                              -> also runs a self-hosted
+  #                                                 OpenVINO LLM (needs a local
+  #                                                 model dir; amd64/Rosetta).
+  # The cloud analyzer does NOT require local-llm, so `--profile ai` builds
+  # cleanly on any machine without the OpenVINO model mount.
   ai-analyzer:
     profiles: ["ai"]
     build:
@@ -106,7 +114,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      - AI_PROVIDER=${AI_PROVIDER:-local}
+      - AI_PROVIDER=${AI_PROVIDER:-gemini}
       - AI_MODEL=${AI_MODEL:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -114,12 +122,14 @@ services:
       - LOCAL_LLM_URL=http://local-llm:8000/v1/chat/completions
       - PORT=7080
     expose: ["7080"]
-    depends_on:
-      - local-llm
     networks: [iicpc-net]
 
+  # Optional self-hosted LLM for air-gapped / private analysis. Separate
+  # profile so it never blocks the cloud analyzer build on machines without
+  # an OpenVINO model or arm64 wheel support.
   local-llm:
-    profiles: ["ai"]
+    profiles: ["ai-local"]
+    platform: linux/amd64
     build:
       context: ./services/ai-analyzer/local_llm
       dockerfile: Dockerfile
@@ -127,7 +137,8 @@ services:
     environment:
       - MODEL_PATH=/models/Llama-3.2-3B-Instruct-INT4
     volumes:
-      # Override with your own OpenVINO model dir: LLM_MODEL_DIR=/path docker compose --profile ai up
+      # Override with your own OpenVINO model dir:
+      #   LLM_MODEL_DIR=/path docker compose --profile ai --profile ai-local up
       - ${LLM_MODEL_DIR:-/Users/lagmator22/OpenvinoDemo/OvaSearch/models}:/models:ro
     expose: ["8000"]
     networks: [iicpc-net]

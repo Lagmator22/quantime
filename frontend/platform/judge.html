@@ -2,11 +2,11 @@
 <!-- =====================================================================
      QuanTime · JUDGE CONSOLE
      ---------------------------------------------------------------------
-     Admin view. Lets a judge:
+     Admin / operator view. Lets an operator:
        • See all teams + submissions + runs across the platform
-       • Pause / resume submission acceptance globally
-       • Force re-score with new weights (tune speed/throughput/corr)
-       • Mark a team disqualified (sandbox-escape attempts, cheating)
+       • Preview how different score weightings would re-rank the loaded
+         runs (a client-side what-if; authoritative scores are computed
+         server-side when each run finishes)
        • Inspect raw telemetry per run
        • Reset the platform (dev-only)
 ===================================================================== -->
@@ -27,7 +27,7 @@
 <div class="page-head">
   <span class="eyebrow">Admin · Judge Console</span>
   <h1 style="margin-top: var(--s-3);">Judge console.</h1>
-  <p class="lede">Platform-wide controls. Tune scoring weights, pause submissions, recompute the leaderboard, inspect raw runs. All actions are logged.</p>
+  <p class="lede">Platform-wide visibility. Inspect every team, submission, and run; preview how different score weightings would re-rank results; reset platform state.</p>
 </div>
 
 <!-- Platform controls -->
@@ -35,7 +35,7 @@
   <div class="panel">
     <div class="panel-head"><h3>Scoring weights</h3></div>
     <div class="panel-body">
-      <p class="mute" style="font-size:13px;margin-bottom:var(--s-4);">Composite = w_speed · speed + w_throughput · tps + w_correctness · correctness. Re-scoring runs the new weights over all stored runs.</p>
+      <p class="mute" style="font-size:13px;margin-bottom:var(--s-4);">Composite = w_speed · speed + w_throughput · throughput + w_correctness · correctness. <strong>Preview</strong> re-ranks the runs below in your browser from their stored metrics — authoritative scores are computed server-side when each run finishes.</p>
       <div class="field">
         <label>// speed weight · <span class="mono dim" id="lab-speed">0.40</span></label>
         <input type="range" id="w-speed" min="0" max="100" value="40" style="width:100%;" />
@@ -48,7 +48,7 @@
         <label>// correctness weight · <span class="mono dim" id="lab-corr">0.20</span></label>
         <input type="range" id="w-corr" min="0" max="100" value="20" style="width:100%;" />
       </div>
-      <button class="btn btn-primary" id="rescore">Recompute leaderboard</button>
+      <button class="btn btn-primary" id="rescore">Preview re-rank</button>
     </div>
   </div>
 
@@ -59,17 +59,17 @@
         <div>
           <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">// submissions</div>
           <div style="display:flex;align-items:center;gap:var(--s-3);margin-top:var(--s-2);">
-            <span class="status passed" id="sub-state">OPEN</span>
-            <button class="btn btn-sm" id="toggle-sub">Toggle</button>
+            <span class="status passed">OPEN</span>
+            <span class="mute" style="font-size:12px;">accepting submissions via the Console</span>
           </div>
         </div>
         <div>
           <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">// platform totals</div>
           <div class="mono" style="margin-top:var(--s-2);line-height:1.8;font-size:13px;">
             <div>teams: <span class="up" id="t-teams">-</span></div>
-            <div>submissions: <span class="up" id="t-subs">-</span></div>
+            <div>submissions (distinct): <span class="up" id="t-subs">-</span></div>
             <div>runs: <span class="up" id="t-runs">-</span></div>
-            <div>total ops processed: <span class="up" id="t-ops">-</span></div>
+            <div>finished runs: <span class="up" id="t-done">-</span></div>
           </div>
         </div>
         <div style="border-top:1px solid var(--line-soft);padding-top:var(--s-4);">
@@ -97,11 +97,12 @@
           <th>Run ID</th>
           <th>Team</th>
           <th>Submission</th>
-          <th class="r">p50</th>
-          <th class="r">p99</th>
+          <th class="r">p50 (ms)</th>
+          <th class="r">p99 (ms)</th>
           <th class="r">TPS</th>
           <th class="r">Err</th>
           <th class="r">Score</th>
+          <th class="r">Preview</th>
           <th>Status</th>
           <th class="r"></th>
         </tr>
@@ -116,7 +117,7 @@
   <div class="panel-head"><h3>Teams</h3></div>
   <div class="panel-body flush">
     <table class="table">
-      <thead><tr><th>Team</th><th>Region</th><th class="r">Best score</th><th class="r">Runs</th><th>Status</th><th class="r">Action</th></tr></thead>
+      <thead><tr><th>Team</th><th>Region</th><th class="r">Best score</th><th class="r">Runs</th><th>Status</th></tr></thead>
       <tbody id="teams-body"></tbody>
     </table>
   </div>
@@ -127,7 +128,7 @@
 <script src="assets/store.js"></script>
 <script src="assets/layout.js"></script>
 <script>
-Layout.render({ active: 'judge', crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Judge Console' }] });
+Layout.render({ active: 'judge', crumb: [{ label: 'Platform', href: 'console.html' }, { label: 'Judge Console' }] });
 
 const el = id => document.getElementById(id);
 const fmtTPS = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : Math.round(n);
@@ -175,34 +176,45 @@ async function fetchState() {
   }
 }
 
-el('rescore').onclick = async () => {
-  const total = +el('w-speed').value + +el('w-tps').value + +el('w-corr').value;
-  const weights = {
-    speed: +el('w-speed').value / total,
-    throughput: +el('w-tps').value / total,
-    correctness: +el('w-corr').value / total,
-  };
-  
-  try {
-    const res = await fetch('/api/judge/weights', {
-      method: 'POST',
-      body: JSON.stringify(weights)
-    });
-    if (res.ok) {
-      toast(`recomputed · weights ${weights.speed.toFixed(2)}/${weights.throughput.toFixed(2)}/${weights.correctness.toFixed(2)}`, 'info', 'OK');
-      fetchState();
-    }
-  } catch (e) {
-    toast('failed to update weights', 'error');
-  }
-};
+// -- Client-side score-weight preview --------------------
+// Recomputes a composite from the loaded runs using the slider weights and
+// re-ranks the table below. This is a what-if view computed entirely in the
+// browser; the authoritative score is computed server-side when a run finishes.
+let previewById = null;
 
-let submissionsOpen = true;
-el('toggle-sub').onclick = () => {
-  submissionsOpen = !submissionsOpen;
-  el('sub-state').textContent = submissionsOpen ? 'OPEN' : 'PAUSED';
-  el('sub-state').className = 'status ' + (submissionsOpen ? 'passed' : 'failed');
-  toast(`submissions ${submissionsOpen ? 'reopened' : 'paused'}`, submissionsOpen ? 'info' : 'warn');
+function computePreview() {
+  const total = +el('w-speed').value + +el('w-tps').value + +el('w-corr').value;
+  if (total === 0) return null;
+  const w = {
+    speed: +el('w-speed').value / total,
+    tps:   +el('w-tps').value / total,
+    corr:  +el('w-corr').value / total,
+  };
+  // Only runs that actually have metrics participate.
+  const runs = state.runs.filter(r => r.p50 > 0 || r.tps > 0);
+  if (runs.length === 0) return null;
+  const p50s = runs.map(r => r.p50);
+  const tpss = runs.map(r => r.tps);
+  const minP = Math.min(...p50s), maxP = Math.max(...p50s);
+  const minT = Math.min(...tpss), maxT = Math.max(...tpss);
+  const norm = (v, lo, hi) => hi > lo ? (v - lo) / (hi - lo) : 1;
+  const out = {};
+  runs.forEach(r => {
+    const speed = 1 - norm(r.p50, minP, maxP);   // lower latency = better
+    const tput  = norm(r.tps, minT, maxT);       // higher throughput = better
+    const corr  = Math.max(0, 1 - (r.err || 0)); // lower error = better
+    out[r.runId] = Math.round((w.speed * speed + w.tps * tput + w.corr * corr) * 100);
+  });
+  return out;
+}
+
+el('rescore').onclick = () => {
+  const p = computePreview();
+  if (!p) { toast('no runs with metrics to preview yet', 'warn'); return; }
+  previewById = p;
+  render();
+  const total = +el('w-speed').value + +el('w-tps').value + +el('w-corr').value;
+  toast(`previewed re-rank · weights ${(+el('w-speed').value/total).toFixed(2)}/${(+el('w-tps').value/total).toFixed(2)}/${(+el('w-corr').value/total).toFixed(2)}`, 'info', 'Client-side');
 };
 
 el('reset-all').onclick = async () => {
@@ -221,45 +233,52 @@ el('run-filter').oninput = e => { state.filter = e.target.value.toLowerCase(); r
 // -- Render ----------------------------------------------
 
 function render() {
+  // -- Platform totals (all computed from real data)
   el('t-teams').textContent = state.teams.length;
   el('t-runs').textContent = state.runs.length;
-  // Submissions count / ops count require additional aggregate queries we skipped, so we approximate
-  el('t-subs').textContent = '-';
-  el('t-ops').textContent = '-';
+  const subs = new Set(state.runs.map(r => r.submissionId).filter(Boolean));
+  el('t-subs').textContent = subs.size || '0';
+  el('t-done').textContent = state.runs.filter(r => (r.status || '').toLowerCase() === 'finished').length;
 
   // -- Runs table
-  const filteredRuns = state.runs.filter(r =>
+  let filteredRuns = state.runs.filter(r =>
     !state.filter || (r.teamName || '').toLowerCase().includes(state.filter)
   );
+  if (previewById) {
+    filteredRuns = [...filteredRuns].sort((a, b) =>
+      (previewById[b.runId] ?? -1) - (previewById[a.runId] ?? -1));
+  }
+  const ms = v => v > 0 ? (v / 1e6).toFixed(2) : null;
   el('all-runs').innerHTML = filteredRuns.length === 0
-    ? `<tr><td colspan="10" style="padding:var(--s-7);text-align:center;color:var(--text-dim);">no runs match</td></tr>`
+    ? `<tr><td colspan="11" style="padding:var(--s-7);text-align:center;color:var(--text-dim);">no runs match</td></tr>`
     : filteredRuns.map(r => {
+      const p50 = ms(r.p50), p99 = ms(r.p99);
+      const pv = previewById && previewById[r.runId] != null ? previewById[r.runId] : '–';
+      const sub = (r.submissionId || '');
       return `<tr>
         <td class="dim">${r.runId.slice(0,10)}</td>
         <td class="team">${escapeHTML(r.teamName || '-')}</td>
-        <td class="dim" title="${r.submissionId}">${escapeHTML(r.submissionId.slice(0,8) || '-')}</td>
-        <td class="r">${r.p50||'-'}</td>
-        <td class="r ${r.p99>250?'down':'up'}">${r.p99||'-'}</td>
-        <td class="r">${r.tps?fmtTPS(r.tps):'-'}</td>
-        <td class="r ${r.err>0.02?'down':''}">${r.err!=null?(r.err*100).toFixed(2)+'%':'-'}</td>
-        <td class="r up">${r.score||'-'}</td>
-        <td><span class="status ${r.status||'idle'}">${r.status||'-'}</span></td>
+        <td class="dim" title="${escapeHTML(sub)}">${escapeHTML(sub.slice(0,8) || '-')}</td>
+        <td class="r">${p50 != null ? p50 : '-'}</td>
+        <td class="r ${p99 != null && +p99 > 50 ? 'down' : 'up'}">${p99 != null ? p99 : '-'}</td>
+        <td class="r">${r.tps ? fmtTPS(r.tps) : '-'}</td>
+        <td class="r ${r.err > 0.02 ? 'down' : ''}">${r.err != null ? (r.err*100).toFixed(2)+'%' : '-'}</td>
+        <td class="r up">${r.score ? Math.round(r.score) : '-'}</td>
+        <td class="r ${previewById && previewById[r.runId] != null ? 'up' : 'dim'}">${pv}</td>
+        <td><span class="status ${r.status || 'idle'}">${r.status || '-'}</span></td>
         <td class="r"><button class="btn btn-sm js-inspect" data-run-id="${r.runId}">Inspect</button></td>
       </tr>`;
     }).join('');
 
-  // -- Teams table
-  const teamsRows = state.teams.map(t => {
-    return `<tr>
+  // -- Teams table (no DQ control — there is no backend for disqualification)
+  el('teams-body').innerHTML = state.teams.map(t => `
+    <tr>
       <td class="team">${escapeHTML(t.name)}</td>
-      <td class="dim">${escapeHTML(t.region||'-')}</td>
-      <td class="r up">${t.bestScore}</td>
+      <td class="dim">${escapeHTML(t.region || '-')}</td>
+      <td class="r up">${t.bestScore != null ? Math.round(t.bestScore) : '-'}</td>
       <td class="r">${t.runs}</td>
-      <td><span class="status passed">${t.status}</span></td>
-      <td class="r"><button class="btn btn-sm" disabled>DQ</button></td>
-    </tr>`;
-  }).join('');
-  el('teams-body').innerHTML = teamsRows;
+      <td><span class="status passed">${escapeHTML(t.status || 'active')}</span></td>
+    </tr>`).join('');
 }
 
 el('all-runs').addEventListener('click', e => {
@@ -286,7 +305,13 @@ el('all-runs').addEventListener('click', e => {
           <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-3);">// metadata</div>
           <pre class="log" style="max-height:160px;">${escapeHTML(JSON.stringify(meta, null, 2))}</pre>
           <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin:var(--s-4) 0 var(--s-3);">// metrics</div>
-          <pre class="log">${escapeHTML(JSON.stringify({p50: run.p50, p99: run.p99, tps: run.tps, err: run.err, score: run.score}, null, 2))}</pre>
+          <pre class="log">${escapeHTML(JSON.stringify({
+            p50_ms: run.p50 ? +(run.p50/1e6).toFixed(3) : null,
+            p99_ms: run.p99 ? +(run.p99/1e6).toFixed(3) : null,
+            tps: run.tps || null,
+            err_pct: run.err != null ? +(run.err*100).toFixed(3) : null,
+            score: run.score != null ? Math.round(run.score) : null
+          }, null, 2))}</pre>
         </div>
         <div class="modal-foot">
           <button class="btn" onclick="document.getElementById('inspect-modal').remove()">Close</button>

@@ -275,8 +275,8 @@ func (d *Deps) startRun(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.BotsPerFleet <= 0 {
 		req.BotsPerFleet = 50 // Default
-	} else if req.BotsPerFleet > 100 {
-		req.BotsPerFleet = 100 // Hard cap at 100 to prevent host exhaustion
+	} else if req.BotsPerFleet > 1000 {
+		req.BotsPerFleet = 1000 // Hard cap at 1000 to prevent host exhaustion
 	}
 	if req.DurationSec <= 0 {
 		req.DurationSec = 30

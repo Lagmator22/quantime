@@ -2,9 +2,10 @@
 <!-- =====================================================================
      QuanTime · REAL-TIME LEADERBOARD
      ---------------------------------------------------------------------
-     Reads from Store.leaderboard, which is updated by run.html when
-     stress tests complete. Also receives BroadcastChannel pings for
-     near-instant updates across tabs.
+     When the backend is reachable, bridges to GET /api/leaderboard
+     (durable Redis ZSET, Postgres fallback) and polls every few seconds.
+     Offline, it falls back to Store.leaderboard. Also receives
+     BroadcastChannel pings for near-instant updates across tabs.
 
      Features:
        • Top-N table with full metrics
@@ -12,8 +13,8 @@
        • Highlight your own team
        • Auto-resort with row-flash animation on rank change
        • Side panel: aggregate stats (total runs, fastest p99, peak TPS)
-       • Inline sparkline of score over time per team (mock per-team
-         history; in production, hydrate from telemetry store)
+       • Optional AI meta-analysis of top vs bottom engines (bring-your-
+         own cloud key, stored only in the browser)
 ===================================================================== -->
 <html lang="en">
 <head>
@@ -60,7 +61,7 @@
   </div>
   <div class="kpi">
     <div class="l">// fastest p99</div>
-    <div class="v" id="kpi-fastest">-<small>µs</small></div>
+    <div class="v" id="kpi-fastest">-<small>ms</small></div>
   </div>
   <div class="kpi">
     <div class="l">// peak TPS</div>
@@ -78,7 +79,7 @@
     <div class="actions">
       <button class="btn btn-sm btn-outline" id="ai-meta-btn" style="color: var(--accent); border-color: var(--accent);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12 2.1 14.8a10 10 0 0 1 9.9-12.8z"/></svg> AI Meta-Analysis</button>
       <button class="btn btn-sm" id="export-csv">Export CSV</button>
-      <a class="btn btn-sm" href="run.html">Launch run →</a>
+      <a class="btn btn-sm" href="console.html">Launch run →</a>
     </div>
   </div>
   
@@ -137,8 +138,8 @@
           <th>#</th>
           <th>Engine</th>
           <th>Region</th>
-          <th class="r">p50</th>
-          <th class="r">p99</th>
+          <th class="r">p50 (ms)</th>
+          <th class="r">p99 (ms)</th>
           <th class="r">TPS</th>
           <th class="r">Err</th>
           <th class="r">Score</th>
@@ -161,7 +162,7 @@
 ===================================================================== */
 Layout.render({
   active: 'leaderboard',
-  crumb: [{ label: 'Platform', href: 'dashboard.html' }, { label: 'Leaderboard' }],
+  crumb: [{ label: 'Platform', href: 'console.html' }, { label: 'Leaderboard' }],
 });
 
 const team = Store.get('team');
@@ -209,7 +210,7 @@ function render() {
 
   // KPIs
   document.getElementById('kpi-teams').textContent = lb.length;
-  document.getElementById('kpi-fastest').innerHTML = lb.length ? (Math.min(...lb.map(r => r.p99))) + '<small>µs</small>' : '-';
+  document.getElementById('kpi-fastest').innerHTML = lb.length ? (Math.min(...lb.map(r => r.p99))/1e6).toFixed(2) + '<small>ms</small>' : '-';
   document.getElementById('kpi-peak-tps').innerHTML = lb.length ? fmtTPS(Math.max(...lb.map(r => r.tps))) + '<small>ops/s</small>' : '-';
   document.getElementById('kpi-total-runs').textContent = Store.get('runs', []).length;
   document.getElementById('last-sync').textContent = new Date().toISOString().slice(11, 19);
@@ -231,11 +232,11 @@ function render() {
           <div class="score-bar"><i style="width: ${(r.score / maxScore * 100).toFixed(0)}%;"></i></div>
         </td>
         <td class="dim">${escapeHTML(r.region || '-')}</td>
-        <td class="r">${r.p50}µs</td>
-        <td class="r ${r.p99 > 250 ? 'down' : 'up'}">${r.p99}µs</td>
+        <td class="r">${(r.p50/1e6).toFixed(2)}</td>
+        <td class="r ${(r.p99/1e6) > 50 ? 'down' : 'up'}">${(r.p99/1e6).toFixed(2)}</td>
         <td class="r">${fmtTPS(r.tps)}</td>
         <td class="r ${r.err > 0.02 ? 'down' : ''}">${(r.err * 100).toFixed(2)}%</td>
-        <td class="r up" style="font-weight: 500;">${r.score}</td>
+        <td class="r up" style="font-weight: 500;">${Math.round(r.score)}</td>
         <td class="r dim">${fmtAgo(r.lastRun)}</td>
       </tr>`;
   }).join('');
@@ -246,7 +247,7 @@ function render() {
 document.getElementById('search').oninput = (e) => { filter = e.target.value; render(); };
 
 document.getElementById('export-csv').addEventListener('click', () => {
-  const rows = [['Rank','Engine','Region','p99_ns','TPS','ErrorPct','Score']];
+  const rows = [['Rank','Engine','Region','p50_ms','p99_ms','TPS','Err','Score','LastRun']];
   const sorted = Array.from(document.querySelectorAll('#lb-body tr')).map(tr => {
     return Array.from(tr.querySelectorAll('td')).map(td => td.innerText);
   });
@@ -285,6 +286,15 @@ document.getElementById('meta-run-btn').addEventListener('click', async () => {
   const model = document.getElementById('meta-model').value.trim();
   const apiKey = document.getElementById('meta-key').value.trim();
 
+  // Guard: the analyzer needs a bring-your-own key. Without it the request
+  // hangs against the provider and returns an opaque error — catch it early.
+  if (!apiKey) {
+    if (window.toast) toast(`Add your ${provider || 'provider'} API key first — it stays in your browser.`, 'warn', 'API key required');
+    else alert(`An API key is required for ${provider || 'the selected provider'}. It is stored only in your browser.`);
+    document.getElementById('meta-key').focus();
+    return;
+  }
+
   // Save for future
   localStorage.setItem('analyze_state', JSON.stringify({
     source: JSON.parse(localStorage.getItem('analyze_state') || '{}').source || '',
@@ -320,7 +330,11 @@ document.getElementById('meta-run-btn').addEventListener('click', async () => {
     result.style.display = 'block';
   } catch (err) {
     console.error(err);
-    alert('AI Meta-Analysis failed: ' + err.message);
+    const msg = (err.message || '').includes('no leaderboard data')
+      ? 'No finished runs yet — run an engine in the Console first.'
+      : (err.message || 'request failed');
+    if (window.toast) toast(msg, 'error', 'Meta-analysis failed');
+    else alert('AI Meta-Analysis failed: ' + msg);
   } finally {
     btn.disabled = false;
     loader.style.display = 'none';
@@ -349,8 +363,22 @@ setInterval(render, 10000);
   async function pull() {
     try {
       const rows = await API.leaderboard();
-      // API rows already match the Store shape (see Postgres LeaderboardRow JSON tags)
-      Store.set('leaderboard', rows);
+      // Normalize the API shape to what render() expects:
+      //  • `err` arrives as a percentage (err_pct = rate×100); render()
+      //    multiplies by 100, so convert it back to a fraction here.
+      //  • p50/p99 are nanoseconds (render divides by 1e6 → ms).
+      const norm = (rows || []).map(r => ({
+        teamId:  r.teamId,
+        name:    r.name || r.teamId,
+        region:  r.region || '',
+        score:   r.score,
+        p50:     r.p50,
+        p99:     r.p99,
+        tps:     r.tps,
+        err:     (r.err || 0) / 100,
+        lastRun: r.lastRun || Date.now(),
+      }));
+      Store.set('leaderboard', norm);
     } catch (e) { /* transient; next tick retries */ }
   }
   pull();
