@@ -140,6 +140,11 @@
             <div class="metric"><div class="l">Errors</div><div class="v" id="r-err">-<small>%</small></div></div>
           </div>
         </div>
+        <div style="margin-top:var(--s-4); display:flex; gap:var(--s-3); align-items:center; flex-wrap:wrap;">
+          <button class="btn btn-sm" id="do-baseline">★ Set as regression baseline</button>
+          <span class="mono dim" style="font-size:12px;" id="reg-line">set a baseline, then run again to gate regressions →</span>
+        </div>
+        <div id="reg-detail" style="margin-top:var(--s-3); font-size:12px;"></div>
       </div>
     </div>
 
@@ -330,9 +335,37 @@ function onMsg(m){
     $('r-err').innerHTML = (m.errPct||0).toFixed(2)+'<small>%</small>';
     refreshLeaderboard();
     saveState(m);
+    showRegression(activeRun);
     toast('Run complete · score '+(m.score||0).toFixed(1),'info');
   }
 }
+
+// ── Regression vs baseline (release-gating QA) ──────────────────────
+async function showRegression(runId){
+  if (!runId) return;
+  try {
+    const reg = await (await fetch((window.IICPC_API_BASE||'')+'/api/runs/'+runId+'/regression')).json();
+    const line = $('reg-line'), detail = $('reg-detail');
+    if (!reg.hasBaseline){ line.innerHTML = 'no baseline set — click ★ to make this run the baseline'; detail.innerHTML=''; return; }
+    const cls = reg.verdict==='REGRESSION' ? 'down' : 'up';
+    line.innerHTML = `vs baseline: <span class="${cls}" style="font-weight:600;">${reg.verdict}</span> · score Δ ${reg.scoreDelta>=0?'+':''}${reg.scoreDelta.toFixed(1)}`;
+    detail.innerHTML = (reg.deltas||[]).map(d=>{
+      const c = d.verdict==='regression'?'down':(d.verdict==='improvement'?'up':'dim');
+      const sign = d.deltaPct>=0?'+':'';
+      return `<span class="mono" style="display:inline-block;margin-right:14px;">${d.metric} <span class="${c}">${sign}${d.deltaPct.toFixed(0)}%</span></span>`;
+    }).join('');
+  } catch(e){ /* no regression yet */ }
+}
+$('do-baseline').onclick = async () => {
+  if (!activeRun){ return toast('run a benchmark first','warn'); }
+  try {
+    const r = await fetch((window.IICPC_API_BASE||'')+'/api/runs/'+activeRun+'/baseline', {method:'POST'});
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    $('reg-line').innerHTML = 'this run is now the <span class="up">baseline</span> — run again to gate regressions';
+    $('reg-detail').innerHTML = '';
+    toast('Baseline set — future runs are diffed against this','info');
+  } catch(e){ toast('set baseline failed: '+e.message,'error'); }
+};
 
 function resetDashboard(){
   tpsHist.length = 0; drawSpark();
