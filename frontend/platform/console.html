@@ -165,6 +165,16 @@
         </table>
       </div>
     </div>
+
+    <div class="panel" style="margin-top:var(--s-4);">
+      <div class="panel-head"><h3>Run history</h3><button class="btn btn-sm" id="clear-history">clear</button></div>
+      <div class="panel-body flush">
+        <table class="table">
+          <thead><tr><th>when</th><th>engine</th><th>profile</th><th class="r">p99</th><th class="r">score</th></tr></thead>
+          <tbody id="run-history"><tr><td colspan="5" class="dim" style="text-align:center; padding:var(--s-4);">no runs yet — they persist here across reloads</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -208,7 +218,34 @@ function nsToMs(ns){ return (ns/1e6); }
 function saveState(m) {
   localStorage.setItem('qt_last_run', JSON.stringify(m));
   if (currentSub) localStorage.setItem('qt_last_sub', currentSub);
+  // Append to persistent run history (most-recent first, keep 25).
+  try {
+    const hist = JSON.parse(localStorage.getItem('qt_run_history')||'[]');
+    hist.unshift({
+      runId: m.runId, engine: currentSub||'?',
+      profile: ($('f-profile') ? $('f-profile').value : ''),
+      score: m.score||0, p99ms: nsToMs(m.p99||0), tps: m.tps||0, ts: Date.now(),
+    });
+    localStorage.setItem('qt_run_history', JSON.stringify(hist.slice(0,25)));
+  } catch(e){}
+  renderHistory();
 }
+
+function histAgo(ts){ const s=Math.floor((Date.now()-ts)/1000); if(s<60)return s+'s ago'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
+function renderHistory(){
+  const el = $('run-history'); if(!el) return;
+  let hist=[]; try{ hist=JSON.parse(localStorage.getItem('qt_run_history')||'[]'); }catch(e){}
+  if(!hist.length){ el.innerHTML='<tr><td colspan="5" class="dim" style="text-align:center; padding:var(--s-4);">no runs yet — they persist here across reloads</td></tr>'; return; }
+  el.innerHTML = hist.map(h=>`<tr>
+    <td class="mono dim">${histAgo(h.ts)}</td>
+    <td>${escapeHTML((h.engine||'').replace('sub_',''))}</td>
+    <td class="dim mono" style="font-size:11px;">${escapeHTML(h.profile||'')}</td>
+    <td class="r ${h.p99ms>250?'down':'up'}">${(h.p99ms||0).toFixed(2)}ms</td>
+    <td class="r up" style="font-weight:500;">${(h.score||0).toFixed(1)}</td>
+  </tr>`).join('');
+}
+$('clear-history').onclick = () => { localStorage.removeItem('qt_run_history'); renderHistory(); toast('history cleared','info'); };
+renderHistory();
 
 function restoreState() {
   const sub = localStorage.getItem('qt_last_sub');
