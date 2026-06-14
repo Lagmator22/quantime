@@ -20,7 +20,10 @@ git clone https://github.com/Lagmator22/quantime.git && cd quantime
 docker compose up --build
 ```
 
-Open <http://localhost:8080>. That brings up:
+**Then just open the Console — no code needed:** → **<http://localhost:8080/platform/console.html>**
+Pick an engine (Go, C++, Python, or **Liquibook**) → click **▶ Launch benchmark** → watch live latency, throughput, and the correctness score. Crank "Target rate / bot" to find the breaking point; pick the `replay` profile for real market data.
+
+`docker compose up` brings up:
 
 | Service | Port | What it is |
 |---|---|---|

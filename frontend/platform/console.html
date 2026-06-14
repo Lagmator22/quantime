@@ -70,6 +70,19 @@
   <div class="step" id="st4"><span class="n">4</span><div>Score<small id="st4s">latency · TPS · rank</small></div></div>
 </div>
 
+<details class="panel" style="margin-bottom:var(--s-5);" open>
+  <summary style="cursor:pointer; padding:var(--s-3) var(--s-4); font-weight:600;">New here? How to use this (30 seconds) ▾</summary>
+  <div class="panel-body" style="border-top:1px solid var(--line);">
+    <p class="dim" style="margin:0 0 var(--s-3);">QuanTime stress-tests <strong>trading matching engines</strong> — the software exchanges (NYSE, Binance) use to match buy/sell orders. Three steps:</p>
+    <ol class="dim" style="margin:0; padding-left:18px; line-height:1.9;">
+      <li><strong>Pick an engine</strong> (left panel) and click <span class="mono">⚡ Use selected engine</span>. Or upload your own — a <span class="mono">.tar.gz</span> with a Dockerfile + a <span class="mono">POST /submit</span> endpoint (see <a href="docs.html" style="color:var(--accent);">API &amp; Docs</a>).</li>
+      <li>Click <span class="mono">▶ Launch benchmark</span>. A distributed bot fleet floods it with orders; the metrics stream in live.</li>
+      <li>Read the result. <strong style="color:var(--accent);">Lower latency = better · higher TPS &amp; correctness = better.</strong></li>
+    </ol>
+    <p class="dim" style="margin:var(--s-3) 0 0; font-size:12px;"><strong>Power moves:</strong> set <span class="mono">Target rate / bot</span> high → find the <em>breaking point</em> (latency explodes) · choose the <span class="mono">replay</span> profile → drive it with <em>real market data</em> · <span class="mono">★ Set as baseline</span> then re-run → <em>gate regressions</em>.</p>
+  </div>
+</details>
+
 <div style="display:grid; grid-template-columns:340px 1fr; gap:var(--s-5); align-items:start;">
 
   <!-- ── left: controls ─────────────────────────────────────────── -->
