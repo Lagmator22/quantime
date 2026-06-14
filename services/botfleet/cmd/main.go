@@ -179,28 +179,39 @@ func runFleet(ctx context.Context, nc *nats.Conn, c startCmd, bots, replicaIdx i
 		stagger = 250 * time.Millisecond / time.Duration(bots)
 	}
 
-	var wg sync.WaitGroup
-	for i := 0; i < bots; i++ {
-		wg.Add(1)
-		go func(localBotIdx int) {
-			defer wg.Done()
-			time.Sleep(time.Duration(localBotIdx) * stagger)
-			
-			botID := replicaIdx*bots + localBotIdx
-			
-			b := bot.New(bot.Config{
-				BotID:            botID,
-				RunID:            c.RunID,
-				Endpoint:         c.Endpoint,
-				Profile:          c.Profile,
-				Seed:             c.Seed + int64(botID), // per-bot seed
-				TargetRatePerBot: c.TargetRatePerBot,
-				NATS:             nc,
-			})
-			b.Run(ctx)
-		}(i)
+	if c.Profile == "replay" {
+		// Market-data replay: a single ordered stream (LOBSTER/ITCH-format)
+		// drives the engine with REAL microstructure. Only replica 0 streams,
+		// so the order/cancel sequence stays consistent across the fleet.
+		if replicaIdx == 0 {
+			bot.ReplayMarketData(ctx, nc, c.RunID, c.Endpoint, envOr("REPLAY_FILE", "/data/sample-lobster.csv"))
+		} else {
+			<-ctx.Done()
+		}
+	} else {
+		var wg sync.WaitGroup
+		for i := 0; i < bots; i++ {
+			wg.Add(1)
+			go func(localBotIdx int) {
+				defer wg.Done()
+				time.Sleep(time.Duration(localBotIdx) * stagger)
+
+				botID := replicaIdx*bots + localBotIdx
+
+				b := bot.New(bot.Config{
+					BotID:            botID,
+					RunID:            c.RunID,
+					Endpoint:         c.Endpoint,
+					Profile:          c.Profile,
+					Seed:             c.Seed + int64(botID), // per-bot seed
+					TargetRatePerBot: c.TargetRatePerBot,
+					NATS:             nc,
+				})
+				b.Run(ctx)
+			}(i)
+		}
+		wg.Wait()
 	}
-	wg.Wait()
 	log.Printf("[botfleet] run=%s done in %v", c.RunID, time.Since(start))
 
 	// Publish a summary message so the telemetry ingester can finalize

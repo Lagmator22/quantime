@@ -9,4 +9,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/botfleet ./cmd
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates
 COPY --from=build /out/botfleet /usr/local/bin/botfleet
+# Bundled LOBSTER-format sample for the "replay" profile (override via REPLAY_FILE).
+COPY marketdata /data
 ENTRYPOINT ["/usr/local/bin/botfleet"]
