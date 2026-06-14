@@ -62,11 +62,11 @@
     },
 
     // ── Runs ────────────────────────────────────────────────────
-    async startRun({ submissionId, profile = 'sustained', seed = 42, durationSec = 30, botsPerFleet = 50 }) {
+    async startRun({ submissionId, profile = 'sustained', seed = 42, durationSec = 30, botsPerFleet = 50, targetRatePerBot = 0 }) {
       const r = await fetch(BASE + '/api/runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ submissionId, profile, seed, durationSec, botsPerFleet }),
+        body: JSON.stringify({ submissionId, profile, seed, durationSec, botsPerFleet, targetRatePerBot }),
       });
       if (!r.ok) throw new Error('run start failed: ' + r.status);
       return r.json();
