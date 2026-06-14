@@ -47,7 +47,7 @@
       <p class="lede">Composite score = <span class="mono up">speed</span> × <span class="mono info">throughput</span> × <span class="mono warn">correctness</span>. Updates stream from finalised stress runs. Last sync: <span class="mono" id="last-sync">-</span></p>
     </div>
     <div style="display: flex; gap: var(--s-3); align-items: center;">
-      <span class="pill"><span class="dot"></span>streaming</span>
+      <span class="pill" id="lb-status"><span class="dot"></span>streaming</span>
       <input class="input mono" id="search" placeholder="filter teams…" style="width: 220px;" />
     </div>
   </div>
@@ -339,7 +339,13 @@ setInterval(render, 10000);
 // mock data with live numbers without touching the render path.
 (async () => {
   await API.ready;
-  if (!API.online) return;
+  const pill = document.getElementById('lb-status');
+  if (!API.online) {
+    // Honest offline label: the rows shown are seeded samples, not live.
+    if (pill) pill.innerHTML = '<span class="dot" style="background:var(--text-mute);"></span>sample data (backend offline)';
+    return;
+  }
+  if (pill) pill.innerHTML = '<span class="dot"></span>live · streaming';
   async function pull() {
     try {
       const rows = await API.leaderboard();
