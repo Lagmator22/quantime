@@ -245,11 +245,12 @@ func (d *Deps) getSubmission(w http.ResponseWriter, r *http.Request) {
 
 // ── POST /api/runs ────────────────────────────────────────────────────
 type runCreateReq struct {
-	SubmissionID string `json:"submissionId"`
-	Profile      string `json:"profile"` // sustained|burst|adversarial
-	Seed         int64  `json:"seed"`
-	DurationSec  int    `json:"durationSec"`
-	BotsPerFleet int    `json:"botsPerFleet"`
+	SubmissionID     string  `json:"submissionId"`
+	Profile          string  `json:"profile"` // sustained|burst|adversarial
+	Seed             int64   `json:"seed"`
+	DurationSec      int     `json:"durationSec"`
+	BotsPerFleet     int     `json:"botsPerFleet"`
+	TargetRatePerBot float64 `json:"targetRatePerBot"` // >0 => open-loop fixed arrival rate (orders/sec/bot)
 }
 
 type runCreateResp struct {
@@ -308,13 +309,14 @@ func (d *Deps) startRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	control := map[string]any{
-		"type":         "start",
-		"runId":        runID,
-		"endpoint":     sub.Endpoint,
-		"profile":      req.Profile,
-		"seed":         req.Seed,
-		"durationSec":  req.DurationSec,
-		"botsPerFleet": req.BotsPerFleet,
+		"type":             "start",
+		"runId":            runID,
+		"endpoint":         sub.Endpoint,
+		"profile":          req.Profile,
+		"seed":             req.Seed,
+		"durationSec":      req.DurationSec,
+		"botsPerFleet":     req.BotsPerFleet,
+		"targetRatePerBot": req.TargetRatePerBot,
 	}
 	payload, _ := json.Marshal(control)
 	if err := d.Bus.PublishRunControl(runID, payload); err != nil {

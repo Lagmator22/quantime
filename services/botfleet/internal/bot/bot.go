@@ -19,12 +19,13 @@ import (
 )
 
 type Config struct {
-	BotID    int
-	RunID    string
-	Endpoint string
-	Profile  string // sustained|burst|adversarial
-	Seed     int64
-	NATS     *nats.Conn
+	BotID            int
+	RunID            string
+	Endpoint         string
+	Profile          string  // sustained|burst|adversarial
+	Seed             int64
+	TargetRatePerBot float64 // >0 = open-loop fixed arrival rate (orders/sec/bot); 0 = closed-loop profile pacing
+	NATS             *nats.Conn
 }
 
 type Bot struct {
@@ -54,6 +55,19 @@ func (b *Bot) Run(ctx context.Context) {
 	midPrice := 100_00 // price * 100, integer ticks
 	url := b.cfg.Endpoint + "/submit"
 
+	// Open-loop mode (targetRate > 0): fire at a fixed arrival rate regardless
+	// of how fast the engine responds — markets deliver flow open-loop. Latency
+	// is then measured from each order's SCHEDULED send time, so when the engine
+	// falls behind the queueing delay is counted (coordinated-omission
+	// correction, à la wrk2/HdrHistogram). targetRate == 0 keeps the classic
+	// closed-loop profile pacing (send → wait for ack → sleep).
+	openLoop := b.cfg.TargetRatePerBot > 0
+	var interval time.Duration
+	sched := time.Now()
+	if openLoop {
+		interval = time.Duration(float64(time.Second) / b.cfg.TargetRatePerBot)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -61,22 +75,40 @@ func (b *Bot) Run(ctx context.Context) {
 		default:
 		}
 
-		// Profile-driven inter-arrival time. Lower = more aggressive.
-		var pauseUs int64
-		switch b.cfg.Profile {
-		case "burst":
-			// Every 1s, 100ms of high-rate; otherwise relaxed.
-			if (time.Now().UnixMilli()/100)%10 == 0 {
-				pauseUs = 50 + int64(b.rng.next()%200)
-			} else {
-				pauseUs = 500 + int64(b.rng.next()%500)
+		var schedNs int64
+		if openLoop {
+			// Wait until this order's scheduled fire time (never skip — if we
+			// are behind, fire immediately and the latency-from-schedule will
+			// reflect the backlog).
+			if now := time.Now(); sched.After(now) {
+				t := time.NewTimer(sched.Sub(now))
+				select {
+				case <-ctx.Done():
+					t.Stop()
+					return
+				case <-t.C:
+				}
 			}
-		case "adversarial":
-			pauseUs = 20 + int64(b.rng.next()%80) // very tight, cancels heavy
-		default: // sustained
-			pauseUs = 200 + int64(b.rng.next()%400)
+			schedNs = sched.UnixNano()
+			sched = sched.Add(interval)
+		} else {
+			// Profile-driven inter-arrival time. Lower = more aggressive.
+			var pauseUs int64
+			switch b.cfg.Profile {
+			case "burst":
+				// Every 1s, 100ms of high-rate; otherwise relaxed.
+				if (time.Now().UnixMilli()/100)%10 == 0 {
+					pauseUs = 50 + int64(b.rng.next()%200)
+				} else {
+					pauseUs = 500 + int64(b.rng.next()%500)
+				}
+			case "adversarial":
+				pauseUs = 20 + int64(b.rng.next()%80) // very tight, cancels heavy
+			default: // sustained
+				pauseUs = 200 + int64(b.rng.next()%400)
+			}
+			time.Sleep(time.Duration(pauseUs) * time.Microsecond)
 		}
-		time.Sleep(time.Duration(pauseUs) * time.Microsecond)
 
 		// Build a plausible order. ~70% limit, ~20% market, ~10% cancel.
 		orderID := b.nextOID.Add(1)
@@ -118,6 +150,13 @@ func (b *Bot) Run(ctx context.Context) {
 		sendTS := time.Now().UnixNano()
 		err := b.cli.DoTimeout(req, resp, 500*time.Millisecond)
 		ackTS := time.Now().UnixNano()
+		// In open-loop mode, latency is measured from the SCHEDULED send time so
+		// a backed-up engine is penalised for the queueing delay it caused
+		// (coordinated-omission correction). Closed-loop uses the actual send.
+		effSendTS := sendTS
+		if openLoop {
+			effSendTS = schedNs
+		}
 		status := ""
 		var errStr *string
 		if err != nil {
@@ -146,9 +185,9 @@ func (b *Bot) Run(ctx context.Context) {
 			"type":      typ,
 			"priceX100": px,
 			"qty":       qty,
-			"sendTs":    sendTS,
+			"sendTs":    effSendTS,
 			"ackTs":     ackTS,
-			"latencyNs": ackTS - sendTS,
+			"latencyNs": ackTS - effSendTS,
 			"status":    status,
 			"err":       errStr,
 		}

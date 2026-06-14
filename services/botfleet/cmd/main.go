@@ -35,13 +35,14 @@ import (
 )
 
 type startCmd struct {
-	Type         string `json:"type"`
-	RunID        string `json:"runId"`
-	Endpoint     string `json:"endpoint"`
-	Profile      string `json:"profile"`
-	Seed         int64  `json:"seed"`
-	DurationSec  int    `json:"durationSec"`
-	BotsPerFleet int    `json:"botsPerFleet"`
+	Type             string  `json:"type"`
+	RunID            string  `json:"runId"`
+	Endpoint         string  `json:"endpoint"`
+	Profile          string  `json:"profile"`
+	Seed             int64   `json:"seed"`
+	DurationSec      int     `json:"durationSec"`
+	BotsPerFleet     int     `json:"botsPerFleet"`
+	TargetRatePerBot float64 `json:"targetRatePerBot"` // >0 => open-loop fixed arrival rate
 }
 
 type cancelCmd struct {
@@ -188,12 +189,13 @@ func runFleet(ctx context.Context, nc *nats.Conn, c startCmd, bots, replicaIdx i
 			botID := replicaIdx*bots + localBotIdx
 			
 			b := bot.New(bot.Config{
-				BotID:    botID,
-				RunID:    c.RunID,
-				Endpoint: c.Endpoint,
-				Profile:  c.Profile,
-				Seed:     c.Seed + int64(botID), // per-bot seed
-				NATS:     nc,
+				BotID:            botID,
+				RunID:            c.RunID,
+				Endpoint:         c.Endpoint,
+				Profile:          c.Profile,
+				Seed:             c.Seed + int64(botID), // per-bot seed
+				TargetRatePerBot: c.TargetRatePerBot,
+				NATS:             nc,
 			})
 			b.Run(ctx)
 		}(i)
