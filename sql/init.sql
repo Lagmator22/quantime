@@ -153,7 +153,8 @@ ON CONFLICT (team_id, hash) DO NOTHING;
 INSERT INTO teams (id, name, region, members) VALUES
   ('t_cpp', 'cpp-engine', 'local', '[]'),
   ('t_python', 'python-engine', 'local', '[]'),
-  ('t_realworld', 'realworld-book', 'local', '[]')
+  ('t_realworld', 'realworld-book', 'local', '[]'),
+  ('t_liquibook', 'liquibook', 'local', '[]')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO submissions (id, team_id, name, lang, hash, image_tag, endpoint, status, size_bytes, correctness) VALUES
   ('sub_cpp', 't_cpp', 'sample-engine-cpp', 'cpp', 'seed-cpp', 'seed',
@@ -161,5 +162,7 @@ INSERT INTO submissions (id, team_id, name, lang, hash, image_tag, endpoint, sta
   ('sub_python', 't_python', 'sample-engine-python', 'python', 'seed-python', 'seed',
      'http://sample-engine-python:9003', 'deployed', 0, '{"score":100,"passed":10,"total":10}'),
   ('sub_realworld', 't_realworld', 'real-world-orderbook', 'cpp', 'seed-realworld', 'seed',
-     'http://sample-engine-real-world:9004', 'deployed', 0, '{"score":80,"passed":8,"total":10}')
+     'http://sample-engine-real-world:9004', 'deployed', 0, '{"score":80,"passed":8,"total":10}'),
+  ('sub_liquibook', 't_liquibook', 'liquibook (objectcomputing)', 'cpp', 'seed-liquibook', 'seed',
+     'http://sample-engine-liquibook:9005', 'deployed', 0, '{"score":100,"passed":10,"total":10}')
 ON CONFLICT (team_id, hash) DO NOTHING;

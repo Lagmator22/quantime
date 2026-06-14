@@ -225,6 +225,20 @@ services:
           cpus: "1.0"
           memory: 256M
 
+  # Liquibook — Object Computing's canonical open-source C++ matching engine.
+  sample-engine-liquibook:
+    build:
+      context: ./examples/sample-engine-liquibook
+    ports:
+      - "9005:9005"
+    restart: unless-stopped
+    networks: [iicpc-sandbox-net]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
 volumes:
   tsdb-data:
   redis-data:
