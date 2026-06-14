@@ -49,3 +49,4 @@ _inspect/
 test_decode.go
 test_json.go
 test_gemma_schema.py
+test_runner.js
