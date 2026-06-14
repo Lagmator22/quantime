@@ -129,7 +129,7 @@
     <strong>Security</strong> (escape vectors, memory safety),
     <strong>Performance</strong> (O(n) scans, lock contention, allocations), and
     <strong>Correctness</strong> (price-time priority, fill semantics).
-    Powered by Gemini.
+    Powered by Gemini. <strong style="color: var(--accent); margin-left: 0.5rem;">IMPORTANT: Verified working only with gemma-4-31b-it and gemini-3.1-flash-lite.</strong>
   </p>
 </div>
 
@@ -143,16 +143,14 @@
           <div class="field">
             <label>Provider</label>
             <select class="select mono" id="ai-provider">
-              <option value="">System Default</option>
-              <option value="local">Local (OpenVINO)</option>
-              <option value="openai">OpenAI / DeepSeek / Kimi</option>
-              <option value="gemini">Google Gemini</option>
+              <option value="gemini">Google Gemini (Default)</option>
+              <option value="openai">OpenAI</option>
               <option value="claude">Anthropic Claude</option>
             </select>
           </div>
           <div class="field">
             <label>Model (optional)</label>
-            <input type="text" class="input mono" id="ai-model" placeholder="e.g. gpt-4o">
+            <select class="select mono" id="ai-model"></select>
           </div>
         </div>
         <div class="field">
@@ -173,8 +171,7 @@
         </div>
         <div class="field">
           <label>// source code to analyze</label>
-          <textarea class="textarea" id="source-input" rows="18"
-            placeholder="// paste your matching engine source code here..."></textarea>
+          <textarea class="textarea" id="source-input" rows="12" placeholder="// paste your engine's logic here..."></textarea>
         </div>
         <button class="btn btn-primary" id="analyze-btn">Analyze with AI agents</button>
       </div>
@@ -186,17 +183,17 @@
     <!-- Agent status cards -->
     <div class="agent-status" id="agent-status">
       <div class="agent-card" id="agent-security">
-        <div class="icon">&#x1f6e1;</div>
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
         <div>Security Agent</div>
         <div class="dim" style="margin-top: 4px;">idle</div>
       </div>
       <div class="agent-card" id="agent-performance">
-        <div class="icon">&#x26a1;</div>
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>
         <div>Performance Agent</div>
         <div class="dim" style="margin-top: 4px;">idle</div>
       </div>
       <div class="agent-card" id="agent-correctness">
-        <div class="icon">&#x2696;</div>
+        <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>
         <div>Correctness Agent</div>
         <div class="dim" style="margin-top: 4px;">idle</div>
       </div>
@@ -275,8 +272,29 @@ Layout.render({
 const el = id => document.getElementById(id);
 let currentReport = null;
 
+const MODEL_MAP = {
+  gemini: ['gemini-3.5-flash', 'gemini-3.5-pro', 'gemini-3.1-flash', 'gemini-3.1-pro', 'gemini-3.1-flash-lite', 'gemma-4-31b-it'],
+  openai: ['gpt-5.5', 'gpt-5.5-pro', 'gpt-5.4', 'gpt-5.4-pro', 'gpt-5.4-mini'],
+  claude: ['claude-fable-5', 'claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5']
+};
+
+function updateModelDropdown() {
+  const provider = el('ai-provider').value;
+  const models = MODEL_MAP[provider] || [];
+  const modelSelect = el('ai-model');
+  modelSelect.innerHTML = '';
+  models.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    modelSelect.appendChild(opt);
+  });
+}
+el('ai-provider').addEventListener('change', updateModelDropdown);
+updateModelDropdown();
+
 // Populate submission dropdown from localStorage
-const subs = Store.get('submissions', []).filter(s => s.source);
+let subs = Store.get('submissions', []).filter(s => s.source);
 subs.forEach(s => {
   const opt = document.createElement('option');
   opt.value = s.id;
@@ -335,10 +353,13 @@ el('analyze-btn').onclick = async () => {
     const model = el('ai-model').value.trim();
     const apiKey = el('ai-key').value.trim();
 
-    const payload = { sourceCode: source };
-    if (provider) payload.provider = provider;
-    if (model) payload.model = model;
-    if (apiKey) payload.apiKey = apiKey;
+    // Validate API key
+    if (!apiKey) {
+      toast(`API key is required for ${provider}`, 'error');
+      return;
+    }
+
+    const payload = { sourceCode: source, provider, model, apiKey };
 
     const resp = await fetch('/api/analyze', {
       method: 'POST',
@@ -485,9 +506,9 @@ function loadAnalyzeReport() {
 
   currentReport = null;
   el('results').style.display = 'none';
-  setAgentStatus('security', 'idle', 'waiting');
-  setAgentStatus('performance', 'idle', 'waiting');
-  setAgentStatus('correctness', 'idle', 'waiting');
+  setAgentStatus('security', 'idle', 'ready');
+  setAgentStatus('performance', 'idle', 'ready');
+  setAgentStatus('correctness', 'idle', 'ready');
 }
 el('sub-select').addEventListener('change', loadAnalyzeReport);
 loadAnalyzeReport();

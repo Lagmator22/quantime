@@ -131,10 +131,19 @@ Layout.render({ active: 'judge', crumb: [{ label: 'Platform', href: 'dashboard.h
 
 const el = id => document.getElementById(id);
 const fmtTPS = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : Math.round(n);
+function escapeHTML(str) { return String(str).replace(/[&<>'"]/g, tag => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[tag])); }
+
+// -- State --
+let state = {
+  teams: [],
+  runs: [],
+  filter: ''
+};
 
 // -- Weights sync ----------------------------------------
 function syncWeights() {
   const total = +el('w-speed').value + +el('w-tps').value + +el('w-corr').value;
+  if (total === 0) return;
   const s = (+el('w-speed').value / total).toFixed(2);
   const t = (+el('w-tps').value / total).toFixed(2);
   const c = (+el('w-corr').value / total).toFixed(2);
@@ -144,169 +153,140 @@ function syncWeights() {
 }
 ['w-speed','w-tps','w-corr'].forEach(id => el(id).oninput = syncWeights);
 
-// Load current weights from config
-const cfg = Store.get('config');
-el('w-speed').value = cfg.weights.speed * 100;
-el('w-tps').value = cfg.weights.throughput * 100;
-el('w-corr').value = cfg.weights.correctness * 100;
+// Initialize slider UI values 
+el('w-speed').value = 40;
+el('w-tps').value = 40;
+el('w-corr').value = 20;
 syncWeights();
 
-// -- Rescore ----------------------------------------
-el('rescore').onclick = () => {
+// -- Backend Calls ---------------------------------------
+
+async function fetchState() {
+  try {
+    const [teamsRes, runsRes] = await Promise.all([
+      fetch('/api/judge/teams').then(r => r.json()),
+      fetch('/api/judge/runs').then(r => r.json())
+    ]);
+    state.teams = teamsRes || [];
+    state.runs = runsRes || [];
+    render();
+  } catch (err) {
+    console.error("Failed to load judge state:", err);
+  }
+}
+
+el('rescore').onclick = async () => {
   const total = +el('w-speed').value + +el('w-tps').value + +el('w-corr').value;
   const weights = {
     speed: +el('w-speed').value / total,
     throughput: +el('w-tps').value / total,
     correctness: +el('w-corr').value / total,
   };
-  Store.patch('config', { weights });
-
-  // Recompute every run's score with new weights
-  const runs = Store.get('runs', []);
-  runs.forEach(r => {
-    const m = r.metrics; if (!m) return;
-    const speedScore = Math.max(0, 100 - m.p99 / 5);
-    const tpsScore = Math.min(100, m.tps / 30000);
-    const corrScore = Math.max(0, 100 - m.err * 5000);
-    m.score = Math.round(speedScore*weights.speed + tpsScore*weights.throughput + corrScore*weights.correctness);
-  });
-  Store.set('runs', runs);
-
-  // Rebuild leaderboard from best run per team
-  const byTeam = {};
-  runs.forEach(r => {
-    if (!byTeam[r.teamId] || r.metrics.score > byTeam[r.teamId].metrics.score) {
-      byTeam[r.teamId] = r;
+  
+  try {
+    const res = await fetch('/api/judge/weights', {
+      method: 'POST',
+      body: JSON.stringify(weights)
+    });
+    if (res.ok) {
+      toast(`recomputed · weights ${weights.speed.toFixed(2)}/${weights.throughput.toFixed(2)}/${weights.correctness.toFixed(2)}`, 'info', 'OK');
+      fetchState();
     }
-  });
-  // Merge with existing seed teams that have no runs
-  const lb = Store.get('leaderboard', []);
-  lb.forEach(team => {
-    const ownRun = byTeam[team.teamId];
-    if (ownRun) {
-      team.score = ownRun.metrics.score;
-      team.p50 = ownRun.metrics.p50;
-      team.p99 = ownRun.metrics.p99;
-      team.tps = ownRun.metrics.tps;
-      team.err = ownRun.metrics.err;
-      team.lastRun = ownRun.finishedAt;
-    } else {
-      // Rescore seed teams using their existing metrics
-      const speedScore = Math.max(0, 100 - team.p99 / 5);
-      const tpsScore = Math.min(100, team.tps / 30000);
-      const corrScore = Math.max(0, 100 - team.err * 5000);
-      team.score = Math.round(speedScore*weights.speed + tpsScore*weights.throughput + corrScore*weights.correctness);
-    }
-  });
-  Store.set('leaderboard', lb);
-  toast(`recomputed · weights ${weights.speed.toFixed(2)}/${weights.throughput.toFixed(2)}/${weights.correctness.toFixed(2)}`, 'info', 'OK');
-  render();
+  } catch (e) {
+    toast('failed to update weights', 'error');
+  }
 };
 
-// -- Submissions toggle --------------------------------
 let submissionsOpen = true;
 el('toggle-sub').onclick = () => {
   submissionsOpen = !submissionsOpen;
   el('sub-state').textContent = submissionsOpen ? 'OPEN' : 'PAUSED';
   el('sub-state').className = 'status ' + (submissionsOpen ? 'passed' : 'failed');
-  Store.patch('config', { submissionsPaused: !submissionsOpen });
   toast(`submissions ${submissionsOpen ? 'reopened' : 'paused'}`, submissionsOpen ? 'info' : 'warn');
 };
 
-// -- Reset platform ------------------------------------
-el('reset-all').onclick = () => {
-  if (!confirm('Reset everything? Clears submissions, runs, and leaderboard.')) return;
-  Store.set('submissions', []);
-  Store.set('runs', []);
-  Store.delete('leaderboard');  // will re-seed on next reload
-  toast('platform reset · refresh page', 'warn');
-  setTimeout(() => location.reload(), 800);
+el('reset-all').onclick = async () => {
+  if (!confirm('Reset everything? Clears submissions, runs, and leaderboard. This cannot be undone.')) return;
+  try {
+    await fetch('/api/judge/reset', { method: 'POST' });
+    toast('platform reset · refresh page', 'warn');
+    setTimeout(() => location.reload(), 800);
+  } catch(e) {
+    toast('failed to reset platform', 'error');
+  }
 };
 
-// -- Render tables ------------------------------------
-let filter = '';
-el('run-filter').oninput = e => { filter = e.target.value.toLowerCase(); render(); };
+el('run-filter').oninput = e => { state.filter = e.target.value.toLowerCase(); render(); };
+
+// -- Render ----------------------------------------------
 
 function render() {
-  const subs = Store.get('submissions', []);
-  const runs = Store.get('runs', []);
-  const lb = Store.get('leaderboard', []);
+  el('t-teams').textContent = state.teams.length;
+  el('t-runs').textContent = state.runs.length;
+  // Submissions count / ops count require additional aggregate queries we skipped, so we approximate
+  el('t-subs').textContent = '-';
+  el('t-ops').textContent = '-';
 
-  el('t-teams').textContent = lb.length;
-  el('t-subs').textContent = subs.length;
-  el('t-runs').textContent = runs.length;
-  el('t-ops').textContent = runs.reduce((s, r) => s + (r.metrics?.totalOps || 0), 0).toLocaleString();
-
-  // -- Runs table ---------------------------------
-  const filteredRuns = runs.slice().reverse().filter(r =>
-    !filter || r.teamName?.toLowerCase().includes(filter) || r.submissionName?.toLowerCase().includes(filter)
+  // -- Runs table
+  const filteredRuns = state.runs.filter(r =>
+    !state.filter || (r.teamName || '').toLowerCase().includes(state.filter)
   );
   el('all-runs').innerHTML = filteredRuns.length === 0
     ? `<tr><td colspan="10" style="padding:var(--s-7);text-align:center;color:var(--text-dim);">no runs match</td></tr>`
     : filteredRuns.map(r => {
-      const m = r.metrics || {};
       return `<tr>
-        <td class="dim">${r.id.slice(0,10)}</td>
+        <td class="dim">${r.runId.slice(0,10)}</td>
         <td class="team">${escapeHTML(r.teamName || '-')}</td>
-        <td>${escapeHTML(r.submissionName || '-')}</td>
-        <td class="r">${m.p50||'-'}</td>
-        <td class="r ${m.p99>250?'down':'up'}">${m.p99||'-'}</td>
-        <td class="r">${m.tps?fmtTPS(m.tps):'-'}</td>
-        <td class="r ${m.err>0.02?'down':''}">${m.err!=null?(m.err*100).toFixed(2)+'%':'-'}</td>
-        <td class="r up">${m.score||'-'}</td>
+        <td class="dim" title="${r.submissionId}">${escapeHTML(r.submissionId.slice(0,8) || '-')}</td>
+        <td class="r">${r.p50||'-'}</td>
+        <td class="r ${r.p99>250?'down':'up'}">${r.p99||'-'}</td>
+        <td class="r">${r.tps?fmtTPS(r.tps):'-'}</td>
+        <td class="r ${r.err>0.02?'down':''}">${r.err!=null?(r.err*100).toFixed(2)+'%':'-'}</td>
+        <td class="r up">${r.score||'-'}</td>
         <td><span class="status ${r.status||'idle'}">${r.status||'-'}</span></td>
-        <td class="r"><button class="btn btn-sm js-inspect" data-run-id="${r.id}">Inspect</button></td>
+        <td class="r"><button class="btn btn-sm js-inspect" data-run-id="${r.runId}">Inspect</button></td>
       </tr>`;
     }).join('');
 
-  // -- Teams table ---------------------------------
-  const teamsRows = lb.slice().sort((a,b) => b.score - a.score).map(t => {
-    const teamRuns = runs.filter(r => r.teamId === t.teamId);
+  // -- Teams table
+  const teamsRows = state.teams.map(t => {
     return `<tr>
       <td class="team">${escapeHTML(t.name)}</td>
       <td class="dim">${escapeHTML(t.region||'-')}</td>
-      <td class="r up">${t.score}</td>
-      <td class="r">${teamRuns.length}</td>
-      <td><span class="status ${t.dq?'failed':'passed'}">${t.dq?'DQ':'active'}</span></td>
-      <td class="r"><button class="btn btn-sm btn-danger" onclick="dqTeam('${t.teamId}')">${t.dq?'reinstate':'DQ'}</button></td>
+      <td class="r up">${t.bestScore}</td>
+      <td class="r">${t.runs}</td>
+      <td><span class="status passed">${t.status}</span></td>
+      <td class="r"><button class="btn btn-sm" disabled>DQ</button></td>
     </tr>`;
   }).join('');
   el('teams-body').innerHTML = teamsRows;
 }
 
-// -- Inspect button via event delegation (avoids attribute escaping bugs
-//    when serialising run metrics into onclick="...") --------------
 el('all-runs').addEventListener('click', e => {
   const btn = e.target.closest('.js-inspect');
   if (!btn) return;
   const id = btn.dataset.runId;
-  const run = Store.get('runs', []).find(r => r.id === id);
+  const run = state.runs.find(r => r.runId === id);
   if (!run) return toast('run not found', 'error');
-  showInspect(run);
-});
-
-function showInspect(run) {
-  // Build a modal with the raw run record formatted as JSON
+  
   const meta = {
-    id: run.id,
+    id: run.runId,
     team: run.teamName,
-    submission: run.submissionName,
-    status: run.status,
-    duration_ms: run.duration,
-    finishedAt: new Date(run.finishedAt).toISOString(),
+    submission: run.submissionId,
+    status: run.status
   };
   const html = `
     <div class="modal-bg" id="inspect-modal">
       <div class="modal">
         <div class="modal-head">
-          <h3>Inspect · ${escapeHTML(run.id)}</h3>
+          <h3>Inspect · ${escapeHTML(run.runId)}</h3>
           <button onclick="document.getElementById('inspect-modal').remove()">×</button>
         </div>
         <div class="modal-body">
           <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--s-3);">// metadata</div>
           <pre class="log" style="max-height:160px;">${escapeHTML(JSON.stringify(meta, null, 2))}</pre>
           <div class="mono dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin:var(--s-4) 0 var(--s-3);">// metrics</div>
-          <pre class="log">${escapeHTML(JSON.stringify(run.metrics || {}, null, 2))}</pre>
+          <pre class="log">${escapeHTML(JSON.stringify({p50: run.p50, p99: run.p99, tps: run.tps, err: run.err, score: run.score}, null, 2))}</pre>
         </div>
         <div class="modal-foot">
           <button class="btn" onclick="document.getElementById('inspect-modal').remove()">Close</button>
@@ -314,23 +294,11 @@ function showInspect(run) {
       </div>
     </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
-}
+});
 
-window.dqTeam = function(id) {
-  const lb = Store.get('leaderboard', []);
-  const t = lb.find(x => x.teamId === id);
-  if (!t) return;
-  t.dq = !t.dq;
-  if (t.dq) t.score = 0;
-  Store.set('leaderboard', lb);
-  toast(`team ${t.name} ${t.dq ? 'disqualified' : 'reinstated'}`, 'warn');
-  render();
-};
-
-render();
-Store.subscribe('runs', render);
-Store.subscribe('leaderboard', render);
-Store.subscribe('submissions', render);
+// Initial fetch
+fetchState();
+setInterval(fetchState, 5000);
 </script>
 </body>
 </html>

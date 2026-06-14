@@ -8,10 +8,13 @@
 (function () {
   const NAV = [
     { group: 'Developer', items: [
+      // Submit / Run / Dashboard all route to the Console — the single
+      // backend-wired page that does upload + run + live results + history.
+      // (The standalone submit.html/run.html/dashboard.html are in-browser
+      // reference simulations and are kept off the main flow.)
       { id: 'console',      label: 'Console',       icon: '▶', href: 'console.html' },
-      { id: 'dashboard',    label: 'Dashboard',     icon: '◆', href: 'dashboard.html' },
-      { id: 'submit',       label: 'Submit Code',   icon: '↑', href: 'submit.html' },
-      { id: 'run',          label: 'Stress Runs',   icon: '⟁', href: 'run.html' },
+      { id: 'submit',       label: 'Submit Code',   icon: '↑', href: 'console.html' },
+      { id: 'run',          label: 'Stress Runs',   icon: '⟁', href: 'console.html' },
       { id: 'correctness',  label: 'Correctness',   icon: '✓', href: 'correctness.html' },
       { id: 'analyze',      label: 'AI Analysis',   icon: '⊛', href: 'analyze.html' },
       { id: 'leaderboard',  label: 'Leaderboard',   icon: '#', href: 'leaderboard.html' },

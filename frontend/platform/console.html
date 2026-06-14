@@ -160,7 +160,7 @@
       <div class="panel-head"><h3>Leaderboard</h3><a class="btn btn-sm" href="leaderboard.html">Full board →</a></div>
       <div class="panel-body flush">
         <table class="table">
-          <thead><tr><th>#</th><th>Team</th><th class="r">p99</th><th class="r">TPS</th><th class="r">Score</th></tr></thead>
+          <thead><tr><th>#</th><th>Engine</th><th class="r">p99</th><th class="r">TPS</th><th class="r">Score</th></tr></thead>
           <tbody id="lb-mini"><tr><td colspan="5" class="dim" style="text-align:center; padding:var(--s-4);">no finished runs yet</td></tr></tbody>
         </table>
       </div>
@@ -354,7 +354,29 @@ $('do-cancel').onclick = async () => { if (activeRun){ await API.cancelRun(activ
 
 function openStream(id){
   if (stream) stream.close();
-  stream = API.streamRun(id, onMsg, () => { /* closed */ });
+  // onClose fallback: if the WS drops before the 'final' event, poll the
+  // authoritative run record so the user still sees the result this session.
+  stream = API.streamRun(id, onMsg, () => recoverResult(id));
+}
+async function recoverResult(id){
+  if ($('run-state').textContent === 'finished') return; // WS already delivered final
+  for (let i=0;i<8;i++){
+    await new Promise(r=>setTimeout(r,2000));
+    try {
+      const run = await API.getRun(id);
+      const st = run && (run.Status||run.status);
+      if (st === 'finished'){
+        $('run-state').textContent = 'finished'; $('run-state').className='status-pill';
+        $('do-run').disabled=false; $('do-cancel').style.display='none';
+        $('result-panel').style.display='block';
+        $('r-score').textContent=((run.Score||run.score)||0).toFixed(1);
+        $('reg-line').innerHTML='live stream dropped — score recovered from the server';
+        refreshLeaderboard();
+        toast('Run finished (recovered from server)','info');
+        return;
+      }
+    } catch(e){}
+  }
 }
 
 function onMsg(m){

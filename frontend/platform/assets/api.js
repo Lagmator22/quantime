@@ -77,6 +77,14 @@
       return r.ok;
     },
 
+    // getRun(id) → the authoritative run record (status, score). Used as a
+    // fallback when the live WebSocket misses the 'final' event.
+    async getRun(id) {
+      const r = await fetch(BASE + '/api/runs/' + encodeURIComponent(id));
+      if (!r.ok) return null;
+      return r.json();
+    },
+
     // streamRun(id, onMsg, onClose) → returns { close() }
     // Single-shot WebSocket subscription. Auto-reconnects if the
     // server drops us (up to 3 attempts with 1s backoff).

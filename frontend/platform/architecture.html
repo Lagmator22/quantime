@@ -137,50 +137,51 @@
 
         <!-- EDGES -->
         <!-- developer -> ingest -->
-        <path class="edge" d="M200,120 L280,120" marker-end="url(#arr)" />
+        <path class="edge" d="M200,120 L280,120" marker-end="url(#arr)" stroke-linejoin="round" />
         <text class="edge-label" x="220" y="115">https</text>
 
         <!-- ingest -> orch -->
-        <path class="edge" d="M430,120 L450,120" marker-end="url(#arr)" />
+        <path class="edge" d="M430,120 L450,120" marker-end="url(#arr)" stroke-linejoin="round" />
 
         <!-- orch -> sandbox -->
-        <path class="edge" d="M600,140 L690,160" marker-end="url(#arr)" />
-        <text class="edge-label" x="615" y="135">deploy</text>
+        <path class="edge" d="M600,120 L645,120 L645,140 L690,140" marker-end="url(#arr)" stroke-linejoin="round" />
+        <text class="edge-label" x="615" y="115">deploy</text>
 
         <!-- bot -> gateway -->
-        <path class="edge" d="M200,220 L280,220" marker-end="url(#arr)" />
+        <path class="edge" d="M200,220 L280,220" marker-end="url(#arr)" stroke-linejoin="round" />
         <text class="edge-label" x="218" y="215">orders</text>
 
         <!-- gateway -> sandbox -->
-        <path class="edge" d="M430,220 L690,180" marker-end="url(#arr)" />
-        <text class="edge-label" x="500" y="200">tcp · ws · fix</text>
+        <path class="edge" d="M430,230 L440,230 L440,280 L645,280 L645,180 L690,180" marker-end="url(#arr)" stroke-linejoin="round" />
+        <text class="edge-label" x="500" y="275">tcp · ws · fix</text>
 
         <!-- sandbox -> gateway (telemetry back) -->
-        <path class="edge" d="M690,200 L430,235" marker-end="url(#arr)" stroke-dasharray="3,3" />
+        <path class="edge" d="M690,200 L635,200 L635,290 L440,290 L440,240 L430,240" marker-end="url(#arr)" stroke-dasharray="3,3" stroke-linejoin="round" />
 
         <!-- gateway -> kafka -->
-        <path class="edge" d="M355,250 L150,360" marker-end="url(#arr)" />
-        <text class="edge-label" x="200" y="320">telemetry</text>
+        <path class="edge" d="M355,250 L355,300 L150,300 L150,360" marker-end="url(#arr)" stroke-linejoin="round" />
+        <text class="edge-label" x="200" y="295">telemetry</text>
 
         <!-- gateway -> scoring -->
-        <path class="edge" d="M430,220 L450,220" marker-end="url(#arr)" />
+        <path class="edge" d="M430,210 L450,210" marker-end="url(#arr)" stroke-linejoin="round" />
 
         <!-- kafka -> timescale -->
-        <path class="edge" d="M250,390 L300,390" marker-end="url(#arr)" />
+        <path class="edge" d="M250,390 L300,390" marker-end="url(#arr)" stroke-linejoin="round" />
+        
         <!-- kafka -> scoring -->
-        <path class="edge" d="M150,360 L525,250" marker-end="url(#arr)" stroke-dasharray="3,3" />
+        <path class="edge" d="M150,360 L150,320 L525,320 L525,250" marker-end="url(#arr)" stroke-dasharray="3,3" stroke-linejoin="round" />
 
         <!-- scoring -> redis -->
-        <path class="edge" d="M600,230 L625,360" marker-end="url(#arr)" />
+        <path class="edge" d="M525,250 L525,330 L625,330 L625,360" marker-end="url(#arr)" stroke-linejoin="round" />
 
         <!-- redis -> lb -->
-        <path class="edge" d="M700,390 L730,390" marker-end="url(#arr)" />
+        <path class="edge" d="M700,390 L730,390" marker-end="url(#arr)" stroke-linejoin="round" />
 
         <!-- timescale -> judge -->
-        <path class="edge" d="M300,420 L150,450" marker-end="url(#arr)" />
+        <path class="edge" d="M400,420 L400,435 L150,435 L150,450" marker-end="url(#arr)" stroke-linejoin="round" />
 
         <!-- gateway -> otel -->
-        <path class="edge" d="M355,250 L400,450" stroke-dasharray="3,3" />
+        <path class="edge" d="M380,250 L380,270 L275,270 L275,450 L320,450" stroke-dasharray="3,3" stroke-linejoin="round" />
 
         <defs>
           <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
@@ -190,13 +191,13 @@
 
         <!-- Flow dot animations -->
         <circle class="flow-dot" r="3">
-          <animateMotion dur="3s" repeatCount="indefinite" path="M200,120 L280,120 L430,120 L450,120 L600,140 L690,160" />
+          <animateMotion dur="3s" repeatCount="indefinite" path="M200,120 L280,120 M430,120 L450,120 M600,120 L645,120 L645,140 L690,140" />
         </circle>
         <circle class="flow-dot" r="3" style="fill: oklch(72% 0.16 240);">
-          <animateMotion dur="2.5s" repeatCount="indefinite" path="M200,220 L280,220 L430,220 L690,180" />
+          <animateMotion dur="2.5s" repeatCount="indefinite" path="M200,220 L280,220 M430,230 L440,230 L440,280 L645,280 L645,180 L690,180" />
         </circle>
         <circle class="flow-dot" r="3" style="fill: oklch(78% 0.17 145);">
-          <animateMotion dur="3.5s" repeatCount="indefinite" path="M355,250 L150,360 L300,390" />
+          <animateMotion dur="3.5s" repeatCount="indefinite" path="M355,250 L355,300 L150,300 L150,360 M250,390 L300,390" />
         </circle>
       </svg>
     </div>
